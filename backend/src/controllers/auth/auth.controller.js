@@ -1,133 +1,142 @@
+const jwt = require('jsonwebtoken');
 const authService = require('../../services/auth.service');
-const smsService = require('../../services/sms.service');
+const prisma = require('../../config/db.config');
 
 class AuthController {
+    async register(req, res) {
+        try {
+            const result = await authService.register(req.body);
+            res.status(201).json(result);
+        } catch (error) {
+            res.status(400).json({
+                success: false,
+                message: error.message
+            });
+        }
+    }
+
     async login(req, res) {
         try {
-            const { account, password } = req.body;
-            const user = await authService.login(account, password);
-            res.json({ success: true, user });
-        } catch (error) {
-            res.status(401).json({ 
-                success: false, 
-                message: error.message || 'Thông tin đăng nhập không chính xác' 
-            });
-        }
-    }
+            const { username, password } = req.body;
 
-    // Step 1: Register with account, password, and phone number
-    async registerStep1(req, res) {
-        try {
-            console.log('Dữ liệu nhận được từ request đăng ký:', req.body);
-            
-            const { accountId, password, phone } = req.body;
-            
-            console.log('Đã trích xuất dữ liệu:', { accountId, password: '***', phone });
-            
-            // Validate input
-            if (!accountId || !password || !phone) {
-                console.log('Thiếu thông tin đăng ký:', { 
-                    hasAccountId: !!accountId, 
-                    hasPassword: !!password, 
-                    hasPhone: !!phone 
-                });
+            if (!username || !password) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Vui lòng nhập đầy đủ thông tin'
+                    message: 'Vui lòng nhập đầy đủ thông tin đăng nhập'
                 });
             }
-            
-            const result = await authService.registerStep1(accountId, password, phone);
-            console.log('Kết quả đăng ký:', result);
-            res.json(result);
+
+            const result = await authService.login(username, password);
+            res.status(200).json(result);
         } catch (error) {
-            console.error('Lỗi đăng ký chi tiết:', error);
-            res.status(400).json({
+            res.status(401).json({
                 success: false,
-                message: error.message || 'Đăng ký thất bại'
+                message: error.message
             });
         }
     }
 
-    // Step 2: Verify OTP
-    async verifyOTP(req, res) {
+    async changePassword(req, res) {
         try {
-            const { phone, otp } = req.body;
-            
-            // Validate input
-            if (!phone || !otp) {
+            const { oldPassword, newPassword } = req.body;
+            const userId = req.user.id;
+
+            if (!oldPassword || !newPassword) {
                 return res.status(400).json({
                     success: false,
-                    message: 'Vui lòng nhập đầy đủ thông tin'
+                    message: 'Vui lòng nhập đầy đủ mật khẩu cũ và mới'
                 });
             }
-            
-            const result = await authService.verifyOTP(phone, otp);
-            res.json(result);
+
+            const result = await authService.changePassword(userId, oldPassword, newPassword);
+            res.status(200).json(result);
         } catch (error) {
             res.status(400).json({
                 success: false,
-                message: error.message || 'Xác thực OTP thất bại'
+                message: error.message
             });
         }
     }
 
-    // Step 3: Complete registration with user details
-    async completeRegistration(req, res) {
+    async getProfile(req, res) {
         try {
-            const userData = req.body;
-            
-            // Validate required fields
-            const requiredFields = ['accountId', 'fullName', 'gender', 'birthday', 'email', 'phone', 'department'];
-            for (const field of requiredFields) {
-                if (!userData[field]) {
+            const userId = req.user.id;
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                include: {
+                    account: true,
+                    teacher: true,
+                    student: true
+                }
+            });
+
+            if (!user) {
+                return res.status(404).json({
+                    success: false,
+                    message: 'Không tìm thấy thông tin người dùng'
+                });
+            }
+
+            res.status(200).json({
+                success: true,
+                data: user
+            });
+        } catch (error) {
+            res.status(500).json({
+                success: false,
+                message: 'Lỗi khi lấy thông tin người dùng'
+            });
+        }
+    }
+
+    async updateProfile(req, res) {
+        try {
+            const userId = req.user.id;
+            const { fullName, email, phone, address } = req.body;
+
+            // Kiểm tra email đã tồn tại
+            if (email) {
+                const existingUser = await prisma.user.findFirst({
+                    where: {
+                        email,
+                        NOT: {
+                            id: userId
+                        }
+                    }
+                });
+
+                if (existingUser) {
                     return res.status(400).json({
                         success: false,
-                        message: `Vui lòng nhập ${field}`
+                        message: 'Email đã được sử dụng'
                     });
                 }
             }
-            
-            const result = await authService.completeRegistration(userData);
-            res.json(result);
-        } catch (error) {
-            res.status(400).json({
-                success: false,
-                message: error.message || 'Hoàn tất đăng ký thất bại'
-            });
-        }
-    }
 
-    // Endpoint để lấy mã OTP cho mục đích kiểm thử
-    async getTestOTP(req, res) {
-        try {
-            const { phone } = req.query;
-            
-            if (!phone) {
-                return res.status(400).json({
-                    success: false,
-                    message: 'Số điện thoại không được cung cấp'
-                });
-            }
-            
-            const otpData = smsService.getStoredOTP(phone);
-            
-            if (!otpData || !otpData.otp) {
-                return res.status(404).json({
-                    success: false,
-                    message: 'Không tìm thấy mã OTP cho số điện thoại này'
-                });
-            }
-            
-            res.json({
+            const updatedUser = await prisma.user.update({
+                where: { id: userId },
+                data: {
+                    fullName,
+                    email,
+                    phone,
+                    address
+                },
+                include: {
+                    account: true,
+                    teacher: true,
+                    student: true
+                }
+            });
+
+            res.status(200).json({
                 success: true,
-                otp: otpData.otp
+                message: 'Cập nhật thông tin thành công',
+                data: updatedUser
             });
         } catch (error) {
-            console.error('Lỗi khi lấy mã OTP kiểm thử:', error);
             res.status(500).json({
                 success: false,
-                message: 'Đã xảy ra lỗi khi lấy mã OTP kiểm thử'
+                message: 'Lỗi khi cập nhật thông tin người dùng'
             });
         }
     }

@@ -1,173 +1,161 @@
-﻿CREATE DATABASE ClassroomManagement;
+﻿USE master;
+IF EXISTS(SELECT * FROM sys.databases WHERE name = 'ClassroomManagement')
+BEGIN
+    DROP DATABASE ClassroomManagement;
+END
 GO
-use [ClassroomManagement]
 
--- Create Account table
-CREATE TABLE Account (
-    accountId CHAR(8) PRIMARY KEY,
-    password VARCHAR(50) NOT NULL,
-    role VARCHAR(20) NOT NULL CHECK (role IN ('student', 'teacher', 'admin')),
-    isActive BIT DEFAULT 1
+CREATE DATABASE ClassroomManagement;
+GO
+USE [ClassroomManagement];
+
+-- Bảng Account (Tài khoản)
+CREATE TABLE [Account] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    username NVARCHAR(100) UNIQUE NOT NULL,
+    password NVARCHAR(255) NOT NULL,
+    role NVARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher', 'student')),
+    isActive BIT DEFAULT 1,
+    createdAt DATETIME2 DEFAULT GETDATE(),
+    updatedAt DATETIME2
 );
 
--- Create User table with foreign key to Account
+-- Bảng User (Người dùng)
 CREATE TABLE [User] (
-    userId INT IDENTITY(1,1) PRIMARY KEY,
-    accountId CHAR(8) UNIQUE NOT NULL,
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    accountId INT UNIQUE NOT NULL,
     fullName NVARCHAR(100) NOT NULL,
-    gender BIT,
-    birthday DATE,
-    email VARCHAR(100),
-    phone VARCHAR(15),
-    avatar VARCHAR(255),
+    email NVARCHAR(100) UNIQUE NOT NULL,
+    phone NVARCHAR(20),
+    address NVARCHAR(255),
+    createdAt DATETIME2 DEFAULT GETDATE(),
+    updatedAt DATETIME2,
+    FOREIGN KEY (accountId) REFERENCES Account(id)
+);
+
+-- Bảng Teacher (Giáo viên)
+CREATE TABLE [Teacher] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    userId INT UNIQUE NOT NULL,
+    teacherCode NVARCHAR(20) UNIQUE NOT NULL,
     department NVARCHAR(100),
-    FOREIGN KEY (accountId) REFERENCES Account(accountId)
+    FOREIGN KEY (userId) REFERENCES [User](id)
 );
 
--- Insert sample data
-INSERT INTO Account (accountId, password, role) VALUES
-('20110001', 'password123', 'student'),
-('20110002', 'password123', 'student'),
-('10000001', 'password123', 'teacher'),
-('10000002', 'password123', 'teacher'),
-('00000001', 'admin123', 'admin');
-
-INSERT INTO [User] (accountId, fullName, gender, birthday, email, phone, department) VALUES
-('20110001', N'Nguyễn Văn A', 1, '2002-01-01', 'a.nguyen@student.hcmute.edu.vn', '0901234567', N'Khoa Công nghệ Thông tin'),
-('20110002', N'Trần Thị B', 0, '2002-02-02', 'b.tran@student.hcmute.edu.vn', '0901234568', N'Khoa Công nghệ Thông tin'),
-('10000001', N'Lê Văn C', 1, '1985-03-03', 'c.le@hcmute.edu.vn', '0901234569', N'Khoa Công nghệ Thông tin'),
-('10000002', N'Phạm Thị D', 0, '1988-04-04', 'd.pham@hcmute.edu.vn', '0901234570', N'Khoa Công nghệ Thông tin'),
-('00000001', N'Admin', 1, '1990-05-05', 'admin@hcmute.edu.vn', '0901234571', N'Phòng Đào tạo');
-
-CREATE TABLE Room (
-    roomId INT IDENTITY(1,1) PRIMARY KEY,
-    roomCode VARCHAR(20) NOT NULL UNIQUE,
-    roomName NVARCHAR(100) NOT NULL,
-    capacity INT NOT NULL,
-    building NVARCHAR(100),
-    roomType VARCHAR(50), -- 'theory', 'practice', 'lab'
-    status VARCHAR(20) DEFAULT 'available' -- 'available', 'maintenance'
+-- Bảng Student (Sinh viên)
+CREATE TABLE [Student] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    userId INT UNIQUE NOT NULL,
+    studentCode NVARCHAR(20) UNIQUE NOT NULL,
+    major NVARCHAR(100),
+    FOREIGN KEY (userId) REFERENCES [User](id)
 );
 
-CREATE TABLE Subject (
-    subjectId INT IDENTITY(1,1) PRIMARY KEY,
-    subjectCode VARCHAR(20) NOT NULL UNIQUE,
-    subjectName NVARCHAR(100) NOT NULL,
+-- Bảng Subject (Môn học)
+CREATE TABLE [Subject] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    code NVARCHAR(20) UNIQUE NOT NULL,
+    name NVARCHAR(100) NOT NULL,
     credits INT NOT NULL,
     description NVARCHAR(500)
 );
 
-CREATE TABLE Class (
-    classId INT IDENTITY(1,1) PRIMARY KEY,
-    classCode VARCHAR(20) NOT NULL UNIQUE,
-    className NVARCHAR(100) NOT NULL,
+-- Bảng Class (Lớp học)
+CREATE TABLE [Class] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    code NVARCHAR(20) UNIQUE NOT NULL,
     subjectId INT NOT NULL,
     teacherId INT NOT NULL,
-    semester VARCHAR(20) NOT NULL,
-    FOREIGN KEY (subjectId) REFERENCES Subject(subjectId),
-    FOREIGN KEY (teacherId) REFERENCES [User](userId)
+    semester NVARCHAR(20) NOT NULL,
+    academicYear NVARCHAR(20) NOT NULL,
+    maxStudents INT NOT NULL,
+    FOREIGN KEY (subjectId) REFERENCES Subject(id),
+    FOREIGN KEY (teacherId) REFERENCES Teacher(id)
 );
 
-CREATE TABLE Schedule (
-    scheduleId INT IDENTITY(1,1) PRIMARY KEY,
+-- Bảng ClassRegistration (Đăng ký lớp)
+CREATE TABLE [ClassRegistration] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
     classId INT NOT NULL,
-    roomId INT NOT NULL,
-    dayOfWeek INT NOT NULL, -- 2 (Monday) to 8 (Sunday)
-    startTime TIME NOT NULL,
-    endTime TIME NOT NULL,
-    startDate DATE NOT NULL,
-    endDate DATE NOT NULL,
-    status VARCHAR(20) DEFAULT 'active', -- 'active', 'cancelled'
-    FOREIGN KEY (classId) REFERENCES Class(classId),
-    FOREIGN KEY (roomId) REFERENCES Room(roomId)
+    studentId INT NOT NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'pending',
+    createdAt DATETIME2 DEFAULT GETDATE(),
+    updatedAt DATETIME2,
+    FOREIGN KEY (classId) REFERENCES Class(id),
+    FOREIGN KEY (studentId) REFERENCES Student(id)
 );
 
--- Tạo các index
-CREATE INDEX idx_user_account ON [User](accountId);
+-- Bảng ClassRoom (Phòng học)
+CREATE TABLE [ClassRoom] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    code NVARCHAR(20) UNIQUE NOT NULL,
+    name NVARCHAR(100) NOT NULL,
+    capacity INT NOT NULL,
+    building NVARCHAR(100) NOT NULL,
+    floor INT NOT NULL,
+    type NVARCHAR(50) NOT NULL,
+    description NVARCHAR(500)
+);
+
+-- Bảng Schedule (Lịch học)
+CREATE TABLE [Schedule] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    classId INT NOT NULL,
+    classRoomId INT NOT NULL,
+    teacherId INT NOT NULL,
+    dayOfWeek INT NOT NULL CHECK (dayOfWeek BETWEEN 1 AND 7),
+    startTime DATETIME2 NOT NULL,
+    endTime DATETIME2 NOT NULL,
+    FOREIGN KEY (classId) REFERENCES Class(id),
+    FOREIGN KEY (classRoomId) REFERENCES ClassRoom(id),
+    FOREIGN KEY (teacherId) REFERENCES Teacher(id)
+);
+
+-- Bảng RoomRequest (Yêu cầu đặt phòng)
+CREATE TABLE [RoomRequest] (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    classRoomId INT NOT NULL,
+    requesterId INT NOT NULL,
+    purpose NVARCHAR(255) NOT NULL,
+    startTime DATETIME2 NOT NULL,
+    endTime DATETIME2 NOT NULL,
+    status NVARCHAR(20) NOT NULL DEFAULT 'pending',
+    createdAt DATETIME2 DEFAULT GETDATE(),
+    updatedAt DATETIME2,
+    FOREIGN KEY (classRoomId) REFERENCES ClassRoom(id)
+);
+
+-- Tạo indexes
+CREATE INDEX idx_account_username ON Account(username);
 CREATE INDEX idx_user_email ON [User](email);
-CREATE INDEX idx_class_teacher ON Class(teacherId);
-CREATE INDEX idx_class_subject ON Class(subjectId);
-CREATE INDEX idx_schedule_class ON Schedule(classId);
-CREATE INDEX idx_schedule_room ON Schedule(roomId);
-CREATE INDEX idx_schedule_date ON Schedule(startDate, endDate);
-CREATE INDEX idx_room_status ON Room(status);
+CREATE INDEX idx_teacher_code ON Teacher(teacherCode);
+CREATE INDEX idx_student_code ON Student(studentCode);
+CREATE INDEX idx_class_code ON Class(code);
+CREATE INDEX idx_classroom_code ON ClassRoom(code);
+CREATE INDEX idx_schedule_datetime ON Schedule(startTime, endTime);
+CREATE INDEX idx_roomrequest_datetime ON RoomRequest(startTime, endTime);
 
--- Stored procedure kiểm tra phòng trống
-CREATE PROCEDURE sp_CheckRoomAvailability
-    @roomId INT,
-    @dayOfWeek INT,
-    @startTime TIME,
-    @endTime TIME,
-    @startDate DATE,
-    @endDate DATE,
-    @excludeScheduleId INT = NULL
-AS
-BEGIN
-    SELECT 
-        s.scheduleId,
-        s.startTime,
-        s.endTime,
-        c.className,
-        r.roomName
-    FROM Schedule s
-    JOIN Class c ON s.classId = c.classId
-    JOIN Room r ON s.roomId = r.roomId
-    WHERE s.roomId = @roomId 
-        AND s.dayOfWeek = @dayOfWeek
-        AND s.status = 'active'
-        AND ((s.startTime <= @endTime AND s.endTime >= @startTime)
-        OR (s.startTime <= @endTime AND s.endTime >= @startTime))
-        AND ((s.startDate <= @endDate AND s.endDate >= @startDate)
-        OR (s.startDate <= @endDate AND s.endDate >= @startDate))
-        AND (@excludeScheduleId IS NULL OR s.scheduleId != @excludeScheduleId);
-END;
-GO
+-- Dữ liệu mẫu
+INSERT INTO Account (username, password, role, isActive) VALUES 
+('admin', '$2b$10$dVuGFg5OGO9NFZ/h8yFJXO', 'admin', 1),
+('teacher1', '$2b$10$dVuGFg5OGO9NFZ/h8yFJXO', 'teacher', 1),
+('student1', '$2b$10$dVuGFg5OGO9NFZ/h8yFJXO', 'student', 1);
 
--- Stored procedure tạo lịch học mới
-CREATE PROCEDURE sp_CreateSchedule
-    @classId INT,
-    @roomId INT,
-    @dayOfWeek INT,
-    @startTime TIME,
-    @endTime TIME,
-    @startDate DATE,
-    @endDate DATE
-AS
-BEGIN
-    BEGIN TRANSACTION;
-    BEGIN TRY
-        -- Kiểm tra xem phòng có đang bảo trì không
-        IF EXISTS (SELECT 1 FROM Room WHERE roomId = @roomId AND status = 'maintenance')
-        BEGIN
-            THROW 50001, 'Phòng đang trong thời gian bảo trì', 1;
-        END
+INSERT INTO [User] (accountId, fullName, email, phone) VALUES 
+(1, N'Admin User', 'admin@example.com', '0123456789'),
+(2, N'Teacher One', 'teacher1@example.com', '0123456788'),
+(3, N'Student One', 'student1@example.com', '0123456787');
 
-        -- Kiểm tra trùng lịch
-        IF EXISTS (
-            SELECT 1 
-            FROM Schedule 
-            WHERE roomId = @roomId 
-                AND dayOfWeek = @dayOfWeek
-                AND status = 'active'
-                AND ((startTime <= @endTime AND endTime >= @startTime)
-                OR (startTime <= @endTime AND endTime >= @startTime))
-                AND ((startDate <= @endDate AND endDate >= @startDate)
-                OR (startDate <= @endDate AND endDate >= @startDate))
-        )
-        BEGIN
-            THROW 50002, 'Phòng đã được đặt trong khung giờ này', 1;
-        END
+INSERT INTO Teacher (userId, teacherCode, department) VALUES 
+(2, 'TCH001', N'Công nghệ thông tin');
 
-        -- Tạo lịch học mới
-        INSERT INTO Schedule (classId, roomId, dayOfWeek, startTime, endTime, startDate, endDate)
-        VALUES (@classId, @roomId, @dayOfWeek, @startTime, @endTime, @startDate, @endDate);
+INSERT INTO Student (userId, studentCode, major) VALUES 
+(3, 'STU001', N'Công nghệ thông tin');
 
-        COMMIT;
-        SELECT SCOPE_IDENTITY() as scheduleId;
-    END TRY
-    BEGIN CATCH
-        ROLLBACK;
-        THROW;
-    END CATCH;
-END;
-GO 
+INSERT INTO ClassRoom (code, name, capacity, building, floor, type) VALUES 
+('R001', N'Phòng 101', 40, N'A', 1, 'theory'),
+('R002', N'Phòng Lab 1', 30, N'B', 2, 'lab');
+
+INSERT INTO Subject (code, name, credits, description) VALUES 
+('COMP101', N'Lập trình cơ bản', 3, N'Môn học nhập môn về lập trình'),
+('COMP102', N'Cơ sở dữ liệu', 3, N'Môn học về database'); 

@@ -1,230 +1,277 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
-import { 
-  Box, 
-  Drawer, 
-  AppBar, 
-  Toolbar, 
-  List, 
-  Typography, 
-  Divider, 
-  IconButton,
-  ListItem,
-  ListItemIcon,
-  ListItemText,
-  Avatar,
-  Menu,
-  MenuItem
-} from '@mui/material';
-import {
-  Menu as MenuIcon,
-  Dashboard as DashboardIcon,
-  School as SchoolIcon,
-  Person as PersonIcon,
-  Event as EventIcon,
-  ExitToApp as LogoutIcon
-} from '@mui/icons-material';
+import { authService } from '../../services/api';
+import { TextBox } from 'devextreme-react/text-box';
+import 'devextreme/dist/css/dx.light.css';
 
-const drawerWidth = 240;
-
-function Layout() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [anchorEl, setAnchorEl] = useState(null);
-  const [user, setUser] = useState(null);
+const Layout = () => {
   const navigate = useNavigate();
+  const [searchText, setSearchText] = useState('');
+  const [showUserMenu, setShowUserMenu] = useState(false);
+  const userMenuRef = useRef(null);
+  const dropdownRef = useRef(null);
+  const currentUser = authService.getCurrentUser();
+  const userRole = authService.getUserRole();
 
+  // Xử lý click outside
   useEffect(() => {
-    // Kiểm tra đăng nhập khi component mount
-    const userStr = localStorage.getItem('user');
-    if (!userStr) {
-      navigate('/login');
-      return;
-    }
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setShowUserMenu(false);
+      }
+    };
 
-    const userData = JSON.parse(userStr);
-    setUser(userData);
-  }, [navigate]);
-
-  const handleDrawerToggle = () => {
-    setMobileOpen(!mobileOpen);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
   };
+  }, []);
 
-  const handleProfileMenuOpen = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
-
-  const handleProfileMenuClose = () => {
-    setAnchorEl(null);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('user');
-    localStorage.removeItem('token');
+  const handleMenuItemClick = (action) => {
+    setShowUserMenu(false);
+    switch (action) {
+      case 'profile':
+        navigate('/profile');
+        break;
+      case 'password':
+        navigate('/change-password');
+        break;
+      case 'logout':
+        authService.logout();
     navigate('/login');
-  };
-
-  // Định nghĩa menu items dựa theo role
-  const getMenuItems = () => {
-    if (!user) return [];
-
-    switch (user.role) {
-      case 'admin':
-        return [
-          { text: 'Tổng quan', icon: <DashboardIcon />, path: '/' },
-          { text: 'Quản lý phòng học', icon: <SchoolIcon />, path: '/room-schedule' },
-          { text: 'Lịch dạy giáo viên', icon: <PersonIcon />, path: '/teacher-schedule' },
-          { text: 'Lịch học sinh viên', icon: <EventIcon />, path: '/student-schedule' },
-        ];
-      case 'teacher':
-        return [
-          { text: 'Lịch dạy', icon: <EventIcon />, path: '/teacher-schedule' },
-        ];
-      case 'student':
-        return [
-          { text: 'Lịch học', icon: <EventIcon />, path: '/student-schedule' },
-        ];
+        break;
       default:
-        return [];
+        break;
     }
   };
 
-  const drawer = (
-    <div>
-      <Toolbar>
-        <Typography variant="h6" noWrap component="div">
-          Quản lý phòng học
-        </Typography>
-      </Toolbar>
-      <Divider />
-      <List>
-        {getMenuItems().map((item) => (
-          <ListItem 
-            button 
-            key={item.text}
-            onClick={() => navigate(item.path)}
-            sx={{
-              '&:hover': {
-                backgroundColor: '#f5f5f5',
-              }
-            }}
-          >
-            <ListItemIcon>{item.icon}</ListItemIcon>
-            <ListItemText primary={item.text} />
-          </ListItem>
-        ))}
-      </List>
-    </div>
-  );
+  const getMenuItems = () => {
+    const commonItems = [{
+      id: 'home',
+      text: 'Trang chủ',
+      icon: 'home',
+      path: '/dashboard'
+    }, {
+      id: 'schedule',
+      text: 'Lịch học/thi',
+      icon: 'event',
+      path: '/schedule'
+    }];
 
-  if (!user) {
-    return null; // hoặc có thể return một loading spinner
-  }
+    const roleSpecificItems = {
+      admin: [{
+        id: 'rooms',
+        text: 'Quản lý phòng học',
+        icon: 'fas fa-door-open',
+        path: '/rooms'
+      }, {
+        id: 'users',
+        text: 'Quản lý người dùng',
+        icon: 'fas fa-users',
+        path: '/users'
+      }, {
+        id: 'subjects',
+        text: 'Quản lý môn học',
+        icon: 'fas fa-book',
+        path: '/subjects'
+      }],
+      teacher: [{
+        id: 'room-requests',
+        text: 'Yêu cầu đổi phòng',
+        icon: 'fas fa-exchange-alt',
+        path: '/room-requests'
+      }],
+      student: []
+    };
+
+    return [...commonItems, ...(roleSpecificItems[userRole] || [])];
+  };
 
   return (
-    <Box sx={{ display: 'flex' }}>
-      <AppBar
-        position="fixed"
-        sx={{
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          ml: { sm: `${drawerWidth}px` },
-        }}
-      >
-        <Toolbar>
-          <IconButton
-            color="inherit"
-            aria-label="open drawer"
-            edge="start"
-            onClick={handleDrawerToggle}
-            sx={{ mr: 2, display: { sm: 'none' } }}
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+      {/* Header */}
+      <div style={{
+        height: '50px',
+        backgroundColor: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0 20px',
+        justifyContent: 'space-between',
+        borderBottom: '1px solid #e0e0e0'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          <img src="/logo.png" alt="Logo" style={{ height: '30px' }} />
+          <div style={{
+            position: 'relative',
+            display: 'flex',
+            alignItems: 'center'
+          }}>
+            <TextBox
+              style={{
+                width: '300px',
+                borderRadius: '20px',
+                backgroundColor: '#f5f5f5'
+              }}
+              mode="search"
+              placeholder="Tìm kiếm..."
+              value={searchText}
+              onValueChanged={e => setSearchText(e.value)}
+              stylingMode="filled"
+            />
+          </div>
+          <div style={{
+            width: '40px',
+            height: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer'
+          }} onClick={() => navigate('/dashboard')}>
+            <i className="fas fa-home" style={{ fontSize: '20px', color: '#666' }}></i>
+          </div>
+        </div>
+
+        <div style={{ position: 'relative' }}>
+          <div 
+            ref={userMenuRef}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '10px', 
+              cursor: 'pointer',
+              padding: '5px 10px',
+              borderRadius: '4px',
+              ':hover': {
+                backgroundColor: '#f5f5f5'
+              }
+            }}
+            onClick={() => setShowUserMenu(!showUserMenu)}
           >
-            <MenuIcon />
-          </IconButton>
-          <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
-            Trường Đại học Công nghiệp TP.HCM
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <Typography variant="body1" sx={{ mr: 2 }}>
-              {user.name}
-            </Typography>
-            <IconButton
-              size="large"
-              edge="end"
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleProfileMenuOpen}
-              color="inherit"
+            <div style={{
+              width: '32px',
+              height: '32px',
+              borderRadius: '50%',
+              backgroundColor: '#f0f0f0',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#666'
+            }}>
+              <i className="fas fa-user"></i>
+            </div>
+            <span style={{ color: '#333' }}>{currentUser?.fullName}</span>
+            <i className="fas fa-chevron-down" style={{ fontSize: '12px', color: '#666' }}></i>
+    </div>
+
+          {showUserMenu && (
+            <div 
+              ref={dropdownRef}
+              style={{
+                position: 'absolute',
+                top: '100%',
+                right: 0,
+                marginTop: '5px',
+                backgroundColor: '#fff',
+                borderRadius: '4px',
+                boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                width: '200px',
+                zIndex: 1000
+              }}
             >
-              <Avatar sx={{ width: 32, height: 32 }}>
-                {user.name.charAt(0)}
-              </Avatar>
-            </IconButton>
-          </Box>
-          <Menu
-            id="menu-appbar"
-            anchorEl={anchorEl}
-            anchorOrigin={{
-              vertical: 'bottom',
-              horizontal: 'right',
-            }}
-            keepMounted
-            transformOrigin={{
-              vertical: 'top',
-              horizontal: 'right',
-            }}
-            open={Boolean(anchorEl)}
-            onClose={handleProfileMenuClose}
+              <div 
+                onClick={() => handleMenuItemClick('profile')}
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  borderBottom: '1px solid #f0f0f0',
+                  ':hover': { backgroundColor: '#f5f5f5' }
+                }}
+              >
+                <i className="fas fa-user" style={{ width: '20px' }}></i>
+                <span>Thông tin cá nhân</span>
+              </div>
+              <div 
+                onClick={() => handleMenuItemClick('password')}
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  borderBottom: '1px solid #f0f0f0',
+                  ':hover': { backgroundColor: '#f5f5f5' }
+                }}
+              >
+                <i className="fas fa-key" style={{ width: '20px' }}></i>
+                <span>Đổi mật khẩu</span>
+              </div>
+              <div 
+                onClick={() => handleMenuItemClick('logout')}
+                style={{
+                  padding: '10px 15px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  ':hover': { backgroundColor: '#f5f5f5' }
+                }}
           >
-            <MenuItem onClick={handleProfileMenuClose}>Thông tin cá nhân</MenuItem>
-            <MenuItem onClick={handleLogout}>
-              <LogoutIcon sx={{ mr: 1 }} />
-              Đăng xuất
-            </MenuItem>
-          </Menu>
-        </Toolbar>
-      </AppBar>
-      <Box
-        component="nav"
-        sx={{ width: { sm: drawerWidth }, flexShrink: { sm: 0 } }}
-      >
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={handleDrawerToggle}
-          ModalProps={{
-            keepMounted: true,
-          }}
-          sx={{
-            display: { xs: 'block', sm: 'none' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
-        >
-          {drawer}
-        </Drawer>
-        <Drawer
-          variant="permanent"
-          sx={{
-            display: { xs: 'none', sm: 'block' },
-            '& .MuiDrawer-paper': { boxSizing: 'border-box', width: drawerWidth },
-          }}
-          open
-        >
-          {drawer}
-        </Drawer>
-      </Box>
-      <Box
-        component="main"
-        sx={{
-          flexGrow: 1,
-          p: 3,
-          width: { sm: `calc(100% - ${drawerWidth}px)` },
-          mt: 8
-        }}
-      >
+                <i className="fas fa-sign-out-alt" style={{ width: '20px' }}></i>
+                <span>Đăng xuất</span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div style={{ display: 'flex', flex: 1, backgroundColor: '#f5f5f5' }}>
+        {/* Sidebar */}
+        <div style={{
+          width: '250px',
+          backgroundColor: '#2C3E50',
+          color: '#fff',
+          padding: '20px 0'
+        }}>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            {getMenuItems().map((item) => (
+              <div
+                key={item.id}
+                onClick={() => navigate(item.path)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '10px',
+                  padding: '12px 20px',
+                  color: '#fff',
+                  cursor: 'pointer',
+                  transition: 'background-color 0.3s',
+                  ':hover': {
+                    backgroundColor: 'rgba(255,255,255,0.1)'
+                  }
+                }}
+              >
+                <i className={item.icon}></i>
+                <span>{item.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div style={{
+          flex: 1,
+          padding: '20px',
+          overflowY: 'auto'
+        }}>
         <Outlet />
-      </Box>
-    </Box>
+        </div>
+      </div>
+    </div>
   );
-}
+};
 
 export default Layout; 

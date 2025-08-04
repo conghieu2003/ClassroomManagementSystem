@@ -1,0 +1,127 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+  previewFeatures = ["microsoftSqlServer"]
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = "sqlserver://CONGHIEU:1433;database=ClassroomManagement;user=sa;password=sapassword;encrypt=true;trustServerCertificate=true;connection_limit=20;pool_timeout=0"
+}
+
+model Account {
+  id        Int      @id @default(autoincrement())
+  username  String   @unique
+  password  String
+  role      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User?
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  accountId Int      @unique
+  fullName  String
+  email     String   @unique
+  phone     String?
+  address   String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  teacher   Teacher?
+  student   Student?
+}
+
+model Teacher {
+  id           Int       @id @default(autoincrement())
+  userId       Int       @unique
+  teacherCode  String    @unique
+  department   String?
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  classes      Class[]
+  schedules    Schedule[]
+}
+
+model Student {
+  id              Int                 @id @default(autoincrement())
+  userId          Int                 @unique
+  studentCode     String              @unique
+  major           String?
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  registrations   ClassRegistration[]
+}
+
+model Subject {
+  id          Int      @id @default(autoincrement())
+  code        String   @unique
+  name        String
+  credits     Int
+  description String?
+  classes     Class[]
+}
+
+model Class {
+  id              Int                 @id @default(autoincrement())
+  code            String              @unique
+  subjectId       Int
+  teacherId       Int
+  semester        String
+  academicYear    String
+  maxStudents     Int
+  subject         Subject             @relation(fields: [subjectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teacher         Teacher             @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  registrations   ClassRegistration[]
+  schedules       Schedule[]
+}
+
+model ClassRegistration {
+  id        Int      @id @default(autoincrement())
+  classId   Int
+  studentId Int
+  status    String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  class     Class    @relation(fields: [classId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  student   Student  @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model ClassRoom {
+  id          Int            @id @default(autoincrement())
+  code        String         @unique
+  name        String
+  capacity    Int
+  building    String
+  floor       Int
+  type        String
+  description String?
+  schedules   Schedule[]
+  requests    RoomRequest[]
+}
+
+model Schedule {
+  id          Int       @id @default(autoincrement())
+  classId     Int
+  classRoomId Int
+  teacherId   Int
+  dayOfWeek   Int
+  startTime   DateTime
+  endTime     DateTime
+  class       Class     @relation(fields: [classId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classRoom   ClassRoom @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teacher     Teacher   @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model RoomRequest {
+  id          Int       @id @default(autoincrement())
+  classRoomId Int
+  requesterId Int
+  purpose     String
+  startTime   DateTime
+  endTime     DateTime
+  status      String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  classRoom   ClassRoom @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+} 

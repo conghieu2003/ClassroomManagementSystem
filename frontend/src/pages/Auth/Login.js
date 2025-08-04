@@ -1,139 +1,98 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch, useSelector } from 'react-redux';
-import { login, clearErrors } from '../../redux/slices/authSlice';
-import { FaEye, FaEyeSlash } from 'react-icons/fa';
+import { authService } from '../../services/api';
+import 'devextreme/dist/css/dx.light.css';
+import { Button } from 'devextreme-react/button';
+import { TextBox } from 'devextreme-react/text-box';
 import notify from 'devextreme/ui/notify';
-import axios from 'axios';
-import { API_URL } from '../../services/api';
 
 const Login = () => {
+  const navigate = useNavigate();
     const [isActive, setIsActive] = useState(false);
-    const [showPassword, setShowPassword] = useState(false);
-    const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-    const [formData, setFormData] = useState({
-        account: '',
+  const [selectedRole, setSelectedRole] = useState('student');
+  const [loginData, setLoginData] = useState({
+        username: '',
         password: ''
     });
-    
     const [registerData, setRegisterData] = useState({
-        account: '',
+    username: '',
+        fullName: '',
+        email: '',
         password: '',
         confirmPassword: '',
-        phone: ''
+        role: 'student'
     });
-    
-    const [loading, setLoading] = useState(false);
-
-    const dispatch = useDispatch();
-    const navigate = useNavigate();
-
-    const { loading: authLoading, error, isAuthenticated, user } = useSelector(state => state.auth);
 
     useEffect(() => {
-        if (isAuthenticated && user) {
-            notify({ message: 'Đăng nhập thành công', type: 'success', displayTime: 2000 });
-            
-            setTimeout(() => {
-                navigate('/dashboard');
-            }, 500);
+    if (loginData.username.startsWith('admin')) {
+      setSelectedRole('admin');
+    } else if (loginData.username.startsWith('gv')) {
+      setSelectedRole('teacher');
+    } else {
+      setSelectedRole('student');
         }
-    }, [isAuthenticated, user, navigate]);
+  }, [loginData.username]);
 
-    useEffect(() => {
-        if (error) {
-            notify({ message: error, type: 'error', displayTime: 3000 });
-            dispatch(clearErrors());
-        }
-    }, [error, dispatch]);
-
-    const handleLoginSubmit = async (e) => {
-        e.preventDefault();
-        
-        const { account, password } = formData;
-        
-        if (!account || !password) {
-            notify({ message: 'Vui lòng nhập đầy đủ thông tin', type: 'error', displayTime: 3000 });
-            return;
-        }
-        
-        try {
-            await dispatch(login({
-                account,
-                password
-            })).unwrap();
-        } catch (error) {
-            console.error('Login submission error:', error);
-        }
-    };
+  const handleLogin = async (e) => {
+    e.preventDefault();
     
-    const handleRegisterSubmit = async (e) => {
+    // Kiểm tra dữ liệu nhập
+    if (!loginData.username || !loginData.password) {
+        notify('Vui lòng nhập đầy đủ thông tin đăng nhập', 'error', 3000);
+        return;
+    }
+
+    try {
+        const response = await authService.login(loginData.username, loginData.password);
+        
+        if (response.success) {
+            notify('Đăng nhập thành công', 'success', 2000);
+            navigate('/dashboard');
+        } else {
+            let errorMessage = 'Đăng nhập thất bại';
+            
+            switch (response.errorCode) {
+                case 'INVALID_PASSWORD':
+                    errorMessage = 'Mật khẩu không chính xác';
+                    break;
+                case 'ACCOUNT_INACTIVE':
+                    errorMessage = 'Tài khoản đã bị khóa';
+                    break;
+                case 'ACCOUNT_NOT_FOUND':
+                    errorMessage = 'Tài khoản không tồn tại';
+                    break;
+                case 'SYSTEM_ERROR':
+                    errorMessage = 'Lỗi hệ thống, vui lòng thử lại sau';
+                    break;
+                default:
+                    errorMessage = response.message || 'Có lỗi xảy ra khi đăng nhập';
+            }
+            
+            notify(errorMessage, 'error', 3000);
+        }
+    } catch (error) {
+        console.error('Lỗi đăng nhập:', error);
+        notify('Không thể kết nối đến máy chủ', 'error', 3000);
+    }
+};
+    
+  const handleRegister = async (e) => {
         e.preventDefault();
-        
-        const { account, password, confirmPassword, phone } = registerData;
-        
-        if (!account || !password || !confirmPassword || !phone) {
-            notify({ message: 'Vui lòng nhập đầy đủ thông tin', type: 'error', displayTime: 3000 });
+    if (registerData.password !== registerData.confirmPassword) {
+      notify('Mật khẩu xác nhận không khớp', 'error', 3000);
             return;
         }
-        
-        if (password !== confirmPassword) {
-            notify({ message: 'Mật khẩu xác nhận không khớp', type: 'error', displayTime: 3000 });
-            return;
-        }
-        
-        // Validate phone number format (simple validation)
-        const phoneRegex = /^[0-9]{10}$/;
-        if (!phoneRegex.test(phone)) {
-            notify({ message: 'Số điện thoại không hợp lệ', type: 'error', displayTime: 3000 });
-            return;
-        }
-        
         try {
-            setLoading(true);
-            
-            console.log('Đang gửi yêu cầu đăng ký với dữ liệu:', {
-                accountId: account,
-                password,
-                phone
-            });
-            
-            const response = await axios.post(`${API_URL}/auth/register`, {
-                accountId: account,
-                password,
-                phone
-            });
-            
-            console.log('Phản hồi từ server:', response.data);
-            
-            if (response.data.success) {
-                notify({ message: response.data.message, type: 'success', displayTime: 2000 });
-                
-                // Navigate to OTP verification page with account and phone
-                navigate('/otp-verification', {
-                    state: {
-                        account,
-                        password,
-                        phone
-                    }
-                });
+      const response = await authService.register(registerData);
+            if (response.success) {
+        notify('Đăng ký thành công', 'success', 2000);
+        setIsActive(false);
             } else {
-                notify({ message: response.data.message || 'Đăng ký thất bại', type: 'error', displayTime: 3000 });
+        notify(response.message || 'Đăng ký thất bại', 'error', 3000);
             }
         } catch (error) {
-            console.error('Lỗi đăng ký chi tiết:', error);
-            console.error('Response data:', error.response?.data);
-            console.error('Status code:', error.response?.status);
-            console.error('Headers:', error.response?.headers);
-            
-            notify({ 
-                message: error.response?.data?.message || 'Đã xảy ra lỗi khi đăng ký', 
-                type: 'error', 
-                displayTime: 3000 
-            });
-        } finally {
-            setLoading(false);
-        }
+      notify('Có lỗi xảy ra khi đăng ký', 'error', 3000);
+    }
     };
 
     return (
@@ -159,6 +118,7 @@ const Login = () => {
                 maxWidth: '850px',
                 minHeight: '600px'
             }}>
+        {/* Sign In Container */}
                 <div style={{
                     position: 'absolute',
                     top: 0,
@@ -180,129 +140,77 @@ const Login = () => {
                         alignItems: 'center',
                         textAlign: 'center'
                     }}>
-                        <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>Sign In</h1>
+                        <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>Đăng nhập</h1>
                         
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
-                            {['G+', 'f', '⌂', 'in'].map((icon, index) => (
-                                <a 
-                                    key={index} 
-                                    href="#"
-                                    style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '4px',
-                                        border: '1px solid #ccc',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        textDecoration: 'none',
-                                        color: '#333',
-                                        fontWeight: 'bold'
-                                    }}
-                                >
-                                    {icon}
-                                </a>
-                            ))}
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'center', 
+                            gap: '10px', 
+                            marginBottom: '20px',
+                            width: '100%'
+                        }}>
+              {['student', 'teacher', 'admin'].map((role) => (
+                            <button
+                  key={role}
+                  onClick={() => setSelectedRole(role)}
+                                style={{
+                                    flex: 1,
+                                    padding: '10px',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '5px',
+                    background: selectedRole === role ? '#2da0a8' : '#f5f6fa',
+                    color: selectedRole === role ? '#fff' : '#333',
+                                    border: 'none',
+                                    borderRadius: '8px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.3s ease'
+                                }}
+                            >
+                  <i className={`fas fa-${role === 'student' ? 'user-graduate' : role === 'teacher' ? 'chalkboard-teacher' : 'user-shield'}`} style={{ fontSize: '20px' }}></i>
+                  <span>{role === 'student' ? 'Sinh viên' : role === 'teacher' ? 'Giảng viên' : 'Admin'}</span>
+                            </button>
+              ))}
                         </div>
                         
-                        <span style={{ fontSize: '14px', marginBottom: '20px' }}>or use your account</span>
-                        
-                        <form onSubmit={handleLoginSubmit} style={{ width: '100%', maxWidth: '300px' }}>
-                            <div style={{ marginBottom: '20px' }}>
-                                <input 
-                                    type="text"
-                                    name="account"
-                                    placeholder="Tài khoản"
-                                    value={formData.account}
-                                    onChange={(e) => setFormData({...formData, account: e.target.value})}
-                                    style={{
-                                        backgroundColor: '#f5f6fa',
-                                        border: 'none',
-                                        padding: '12px 15px',
-                                        fontSize: '14px',
-                                        borderRadius: '8px',
-                                        width: '100%',
-                                        outline: 'none',
-                                        boxSizing: 'border-box'
-                                    }}
-                                    required
-                                />
-                            </div>
-                            
-                            <div style={{ marginBottom: '15px', position: 'relative' }}>
-                                <input 
-                                    type={showPassword ? "text" : "password"}
-                                    name="password"
+            <form onSubmit={handleLogin} style={{ width: '100%', maxWidth: '300px' }}>
+              <TextBox
+                stylingMode="filled"
+                placeholder={selectedRole === 'student' ? 'Mã số sinh viên' : selectedRole === 'teacher' ? 'Mã giảng viên' : 'Tên đăng nhập'}
+                value={loginData.username}
+                onValueChanged={e => setLoginData({...loginData, username: e.value})}
+                width="100%"
+                style={{ marginBottom: '15px' }}
+              />
+              <TextBox
+                stylingMode="filled"
+                mode="password"
                                     placeholder="Mật khẩu"
-                                    value={formData.password}
-                                    onChange={(e) => setFormData({...formData, password: e.target.value})}
-                                    style={{
-                                        backgroundColor: '#f5f6fa',
-                                        border: 'none',
-                                        padding: '12px 15px',
-                                        fontSize: '14px',
-                                        borderRadius: '8px',
-                                        width: '100%',
-                                        outline: 'none',
-                                        boxSizing: 'border-box'
-                                    }}
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    style={{
-                                        position: 'absolute',
-                                        right: '10px',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        fontSize: '16px',
-                                        color: '#333'
-                                    }}
-                                >
-                                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                </button>
-                            </div>
-                            
+                value={loginData.password}
+                onValueChanged={e => setLoginData({...loginData, password: e.value})}
+                width="100%"
+                style={{ marginBottom: '20px' }}
+              />
                             <p style={{ textAlign: 'center', marginBottom: '20px' }}>
-                                <a 
-                                    href="#"
-                                    style={{
-                                        textDecoration: 'none',
-                                        color: '#333',
-                                        fontSize: '14px'
-                                    }}
-                                >
+                <a href="#" style={{ textDecoration: 'none', color: '#333', fontSize: '14px' }}>
                                     Quên mật khẩu?
                                 </a>
                             </p>
-                            
-                            <button 
-                                type="submit"
-                                disabled={authLoading}
-                                style={{
-                                    backgroundColor: '#2da0a8',
-                                    color: '#fff',
-                                    fontSize: '14px',
-                                    padding: '10px 0',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontWeight: 600,
-                                    letterSpacing: '0.5px',
-                                    textTransform: 'uppercase',
-                                    cursor: authLoading ? 'not-allowed' : 'pointer',
-                                    width: '100%'
-                                }}
-                            >
-                                {authLoading ? 'Đang xử lý...' : 'ĐĂNG NHẬP'}
-                            </button>
+              <Button
+                width="100%"
+                height={40}
+                text="ĐĂNG NHẬP"
+                type="default"
+                stylingMode="contained"
+                useSubmitBehavior={true}
+              />
                         </form>
                     </div>
                 </div>
 
+        {/* Sign Up Container */}
                 <div style={{
                     position: 'absolute',
                     top: 0,
@@ -324,176 +232,65 @@ const Login = () => {
                         alignItems: 'center',
                         textAlign: 'center'
                     }}>
-                        <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>Create Account</h1>
-
-                        <div style={{ display: 'flex', justifyContent: 'center', gap: '10px', marginBottom: '15px' }}>
-                            {['G+', 'f', '⌂', 'in'].map((icon, index) => (
-                                <a 
-                                    key={index} 
-                                    href="#"
-                                    style={{
-                                        width: '40px',
-                                        height: '40px',
-                                        borderRadius: '4px',
-                                        border: '1px solid #ccc',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        textDecoration: 'none',
-                                        color: '#333',
-                                        fontWeight: 'bold'
-                                    }}
-                                >
-                                    {icon}
-                                </a>
-                            ))}
-                        </div>
+                        <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>Đăng ký tài khoản</h1>
                         
-                        <span style={{ fontSize: '14px', marginBottom: '20px' }}>or use email for registration</span>
-                        
-                        {/* Registration Form */}
-                        <form onSubmit={handleRegisterSubmit} style={{ width: '100%', maxWidth: '300px' }}>
-                            <div style={{ marginBottom: '15px' }}>
-                                <input 
-                                    type="text"
-                                    name="account"
-                                    placeholder="Tài khoản"
-                                    value={registerData.account}
-                                    onChange={(e) => setRegisterData({...registerData, account: e.target.value})}
-                                    style={{
-                                        backgroundColor: '#f5f6fa',
-                                        border: 'none',
-                                        padding: '12px 15px',
-                                        fontSize: '14px',
-                                        borderRadius: '8px',
-                                        width: '100%',
-                                        outline: 'none',
-                                        boxSizing: 'border-box'
-                                    }}
-                                    required
-                                />
-                            </div>
-                            
-                            <div style={{ marginBottom: '15px', position: 'relative' }}>
-                                <input 
-                                    type={showPassword ? "text" : "password"}
-                                    name="password"
+            <form onSubmit={handleRegister} style={{ width: '100%', maxWidth: '300px' }}>
+              <TextBox
+                stylingMode="filled"
+                placeholder="Tên đăng nhập"
+                value={registerData.username}
+                onValueChanged={e => setRegisterData({...registerData, username: e.value})}
+                width="100%"
+                style={{ marginBottom: '15px' }}
+              />
+              <TextBox
+                stylingMode="filled"
+                                    placeholder="Họ và tên"
+                                    value={registerData.fullName}
+                onValueChanged={e => setRegisterData({...registerData, fullName: e.value})}
+                width="100%"
+                style={{ marginBottom: '15px' }}
+              />
+              <TextBox
+                stylingMode="filled"
+                mode="email"
+                                    placeholder="Email"
+                                    value={registerData.email}
+                onValueChanged={e => setRegisterData({...registerData, email: e.value})}
+                width="100%"
+                style={{ marginBottom: '15px' }}
+              />
+              <TextBox
+                stylingMode="filled"
+                mode="password"
                                     placeholder="Mật khẩu"
                                     value={registerData.password}
-                                    onChange={(e) => setRegisterData({...registerData, password: e.target.value})}
-                                    style={{
-                                        backgroundColor: '#f5f6fa',
-                                        border: 'none',
-                                        padding: '12px 15px',
-                                        fontSize: '14px',
-                                        borderRadius: '8px',
-                                        width: '100%',
-                                        outline: 'none',
-                                        boxSizing: 'border-box'
-                                    }}
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPassword(!showPassword)}
-                                    style={{
-                                        position: 'absolute',
-                                        right: '10px',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        fontSize: '16px',
-                                        color: '#333'
-                                    }}
-                                >
-                                    {showPassword ? <FaEyeSlash /> : <FaEye />}
-                                </button>
-                            </div>
-                            
-                            <div style={{ marginBottom: '15px', position: 'relative' }}>
-                                <input 
-                                    type={showConfirmPassword ? "text" : "password"}
-                                    name="confirmPassword"
+                onValueChanged={e => setRegisterData({...registerData, password: e.value})}
+                width="100%"
+                style={{ marginBottom: '15px' }}
+              />
+              <TextBox
+                stylingMode="filled"
+                mode="password"
                                     placeholder="Xác nhận mật khẩu"
                                     value={registerData.confirmPassword}
-                                    onChange={(e) => setRegisterData({...registerData, confirmPassword: e.target.value})}
-                                    style={{
-                                        backgroundColor: '#f5f6fa',
-                                        border: 'none',
-                                        padding: '12px 15px',
-                                        fontSize: '14px',
-                                        borderRadius: '8px',
-                                        width: '100%',
-                                        outline: 'none',
-                                        boxSizing: 'border-box'
-                                    }}
-                                    required
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                    style={{
-                                        position: 'absolute',
-                                        right: '10px',
-                                        top: '50%',
-                                        transform: 'translateY(-50%)',
-                                        background: 'none',
-                                        border: 'none',
-                                        cursor: 'pointer',
-                                        fontSize: '16px',
-                                        color: '#333'
-                                    }}
-                                >
-                                    {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
-                                </button>
-                            </div>
-                            
-                            <div style={{ marginBottom: '20px' }}>
-                                <input 
-                                    type="text"
-                                    name="phone"
-                                    placeholder="Số điện thoại"
-                                    value={registerData.phone}
-                                    onChange={(e) => setRegisterData({...registerData, phone: e.target.value})}
-                                    style={{
-                                        backgroundColor: '#f5f6fa',
-                                        border: 'none',
-                                        padding: '12px 15px',
-                                        fontSize: '14px',
-                                        borderRadius: '8px',
-                                        width: '100%',
-                                        outline: 'none',
-                                        boxSizing: 'border-box'
-                                    }}
-                                    required
-                                />
-                            </div>
-                            
-                            <button 
-                                type="submit"
-                                disabled={loading}
-                                style={{
-                                    backgroundColor: '#2da0a8',
-                                    color: '#fff',
-                                    fontSize: '14px',
-                                    padding: '10px 0',
-                                    border: 'none',
-                                    borderRadius: '8px',
-                                    fontWeight: 600,
-                                    letterSpacing: '0.5px',
-                                    textTransform: 'uppercase',
-                                    cursor: loading ? 'not-allowed' : 'pointer',
-                                    width: '100%'
-                                }}
-                            >
-                                {loading ? 'Đang xử lý...' : 'ĐĂNG KÝ'}
-                            </button>
+                onValueChanged={e => setRegisterData({...registerData, confirmPassword: e.value})}
+                width="100%"
+                style={{ marginBottom: '20px' }}
+              />
+              <Button
+                width="100%"
+                height={40}
+                text="ĐĂNG KÝ"
+                type="default"
+                stylingMode="contained"
+                useSubmitBehavior={true}
+              />
                         </form>
                     </div>
                 </div>
 
+        {/* Overlay Container */}
                 <div style={{
                     position: 'absolute',
                     top: 0,
@@ -517,7 +314,6 @@ const Login = () => {
                         textAlign: 'center',
                         display: 'flex'
                     }}>
-                        
                         <div style={{
                             width: '50%',
                             height: '100%',
@@ -526,32 +322,19 @@ const Login = () => {
                             justifyContent: 'center',
                             flexDirection: 'column',
                             padding: '0 40px',
-                            textAlign: 'center',
-                            boxSizing: 'border-box'
+              textAlign: 'center'
                         }}>
-                            <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>Welcome Back!</h1>
-                            <p style={{
-                                fontSize: '14px',
-                                lineHeight: '1.5',
-                                margin: '0 0 30px',
-                                maxWidth: '350px'
-                            }}>
-                                Đăng nhập để sử dụng các tính năng của hệ thống
+                            <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>Chào mừng trở lại!</h1>
+              <p style={{ fontSize: '14px', lineHeight: '1.5', margin: '0 0 30px' }}>
+                                Đăng nhập để sử dụng các tính năng của hệ thống quản lý phòng học
                             </p>
-                            <button onClick={() => setIsActive(false)} style={{
-                                backgroundColor: 'transparent',
-                                border: '2px solid #fff',
-                                color: '#fff',
-                                fontSize: '14px',
-                                padding: '10px 30px',
-                                borderRadius: '8px',
-                                fontWeight: 600,
-                                letterSpacing: '0.5px',
-                                textTransform: 'uppercase',
-                                cursor: 'pointer'
-                            }}>
-                                ĐĂNG NHẬP
-                            </button>
+              <Button
+                text="ĐĂNG NHẬP"
+                type="default"
+                stylingMode="outlined"
+                onClick={() => setIsActive(false)}
+                width={200}
+              />
                         </div>
 
                         <div style={{
@@ -562,34 +345,21 @@ const Login = () => {
                             justifyContent: 'center',
                             flexDirection: 'column',
                             padding: '0 40px',
-                            textAlign: 'center',
-                            boxSizing: 'border-box'
+              textAlign: 'center'
                         }}>
                             <h1 style={{ fontSize: '28px', marginBottom: '20px' }}>
-                                Classroom Management System
+                                Hệ thống Quản lý Phòng học
                             </h1>
-                            <p style={{
-                                fontSize: '14px',
-                                lineHeight: '1.5',
-                                margin: '0 0 30px',
-                                maxWidth: '350px'
-                            }}>
-                                Hệ thống quản lý lớp học hiện đại, tiện lợi và dễ sử dụng
+              <p style={{ fontSize: '14px', lineHeight: '1.5', margin: '0 0 30px' }}>
+                                Chưa có tài khoản? Đăng ký để trải nghiệm hệ thống quản lý phòng học hiện đại
                             </p>
-                            <button onClick={() => setIsActive(true)} style={{
-                                backgroundColor: 'transparent',
-                                border: '2px solid #fff',
-                                color: '#fff',
-                                fontSize: '14px',
-                                padding: '10px 30px',
-                                borderRadius: '8px',
-                                fontWeight: 600,
-                                letterSpacing: '0.5px',
-                                textTransform: 'uppercase',
-                                cursor: 'pointer'
-                            }}>
-                                ĐĂNG KÝ
-                            </button>
+              <Button
+                text="ĐĂNG KÝ"
+                type="default"
+                stylingMode="outlined"
+                onClick={() => setIsActive(true)}
+                width={200}
+              />
                         </div>
                     </div>
                 </div>
