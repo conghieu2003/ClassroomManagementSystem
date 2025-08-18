@@ -1,4 +1,4 @@
-﻿USE master;
+USE master;
 IF EXISTS(SELECT * FROM sys.databases WHERE name = 'ClassroomManagement')
 BEGIN
     DROP DATABASE ClassroomManagement;
@@ -7,155 +7,322 @@ GO
 
 CREATE DATABASE ClassroomManagement;
 GO
-USE [ClassroomManagement];
 
--- Bảng Account (Tài khoản)
-CREATE TABLE [Account] (
+USE ClassroomManagement;
+GO
+
+-- Tạo bảng Account
+CREATE TABLE Account (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    username NVARCHAR(100) UNIQUE NOT NULL,
+    username NVARCHAR(255) UNIQUE NOT NULL,
     password NVARCHAR(255) NOT NULL,
-    role NVARCHAR(20) NOT NULL CHECK (role IN ('admin', 'teacher', 'student')),
+    role NVARCHAR(50) NOT NULL, -- 'admin', 'teacher', 'student'
     isActive BIT DEFAULT 1,
-    createdAt DATETIME2 DEFAULT GETDATE(),
-    updatedAt DATETIME2
+    createdAt DATETIME DEFAULT GETDATE(),
+    updatedAt DATETIME DEFAULT GETDATE()
 );
 
--- Bảng User (Người dùng)
+-- Tạo bảng User
 CREATE TABLE [User] (
     id INT IDENTITY(1,1) PRIMARY KEY,
     accountId INT UNIQUE NOT NULL,
-    fullName NVARCHAR(100) NOT NULL,
-    email NVARCHAR(100) UNIQUE NOT NULL,
+    fullName NVARCHAR(255) NOT NULL,
+    email NVARCHAR(255) UNIQUE NOT NULL,
     phone NVARCHAR(20),
     address NVARCHAR(255),
-    createdAt DATETIME2 DEFAULT GETDATE(),
-    updatedAt DATETIME2,
-    FOREIGN KEY (accountId) REFERENCES Account(id)
+    createdAt DATETIME DEFAULT GETDATE(),
+    updatedAt DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (accountId) REFERENCES Account(id) ON DELETE CASCADE
 );
 
--- Bảng Teacher (Giáo viên)
-CREATE TABLE [Teacher] (
+-- Tạo bảng Teacher
+CREATE TABLE Teacher (
     id INT IDENTITY(1,1) PRIMARY KEY,
     userId INT UNIQUE NOT NULL,
-    teacherCode NVARCHAR(20) UNIQUE NOT NULL,
-    department NVARCHAR(100),
-    FOREIGN KEY (userId) REFERENCES [User](id)
+    teacherCode NVARCHAR(50) UNIQUE NOT NULL,
+    department NVARCHAR(255),
+    FOREIGN KEY (userId) REFERENCES [User](id) ON DELETE CASCADE
 );
 
--- Bảng Student (Sinh viên)
-CREATE TABLE [Student] (
+-- Tạo bảng Student
+CREATE TABLE Student (
     id INT IDENTITY(1,1) PRIMARY KEY,
     userId INT UNIQUE NOT NULL,
-    studentCode NVARCHAR(20) UNIQUE NOT NULL,
-    major NVARCHAR(100),
-    FOREIGN KEY (userId) REFERENCES [User](id)
+    studentCode NVARCHAR(50) UNIQUE NOT NULL,
+    major NVARCHAR(255),
+    FOREIGN KEY (userId) REFERENCES [User](id) ON DELETE CASCADE
 );
 
--- Bảng Subject (Môn học)
-CREATE TABLE [Subject] (
+-- Tạo bảng Class (đã loại bỏ liên kết với Subject và thêm thông tin môn học trực tiếp)
+CREATE TABLE Class (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    code NVARCHAR(20) UNIQUE NOT NULL,
-    name NVARCHAR(100) NOT NULL,
+    code NVARCHAR(50) UNIQUE NOT NULL,
+    className NVARCHAR(255) NOT NULL,
+    subjectName NVARCHAR(255) NOT NULL,
+    subjectCode NVARCHAR(50) NOT NULL,
     credits INT NOT NULL,
-    description NVARCHAR(500)
-);
-
--- Bảng Class (Lớp học)
-CREATE TABLE [Class] (
-    id INT IDENTITY(1,1) PRIMARY KEY,
-    code NVARCHAR(20) UNIQUE NOT NULL,
-    subjectId INT NOT NULL,
     teacherId INT NOT NULL,
-    semester NVARCHAR(20) NOT NULL,
-    academicYear NVARCHAR(20) NOT NULL,
+    semester NVARCHAR(50) NOT NULL,
+    academicYear NVARCHAR(50) NOT NULL,
     maxStudents INT NOT NULL,
-    FOREIGN KEY (subjectId) REFERENCES Subject(id),
+    totalWeeks INT NOT NULL, -- Tổng số tuần học
+    startDate DATE NOT NULL, -- Ngày bắt đầu khóa học
+    endDate DATE NOT NULL, -- Ngày kết thúc khóa học
+    description NVARCHAR(MAX),
     FOREIGN KEY (teacherId) REFERENCES Teacher(id)
 );
 
--- Bảng ClassRegistration (Đăng ký lớp)
-CREATE TABLE [ClassRegistration] (
+-- Tạo bảng ClassType để phân biệt lớp lý thuyết và thực hành
+CREATE TABLE ClassType (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    classId INT NOT NULL, -- Liên kết với lớp chính
+    type NVARCHAR(50) NOT NULL, -- 'theory' (lý thuyết) hoặc 'practice' (thực hành)
+    maxStudents INT NOT NULL, -- Số lượng sinh viên tối đa
+    groupNumber INT, -- Số nhóm thực hành (null nếu là lý thuyết)
+    FOREIGN KEY (classId) REFERENCES Class(id) ON DELETE CASCADE
+);
+
+-- Tạo bảng ClassGroup để quản lý các nhóm thực hành
+CREATE TABLE ClassGroup (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    classTypeId INT NOT NULL, -- Liên kết với loại lớp (chỉ áp dụng cho loại 'practice')
+    groupName NVARCHAR(50) NOT NULL, -- Tên nhóm (ví dụ: 'Nhóm 1', 'Nhóm 2', ...)
+    maxStudents INT NOT NULL, -- Số lượng sinh viên tối đa trong nhóm
+    FOREIGN KEY (classTypeId) REFERENCES ClassType(id) ON DELETE CASCADE
+);
+
+-- Tạo bảng ClassRegistration
+CREATE TABLE ClassRegistration (
     id INT IDENTITY(1,1) PRIMARY KEY,
     classId INT NOT NULL,
     studentId INT NOT NULL,
-    status NVARCHAR(20) NOT NULL DEFAULT 'pending',
-    createdAt DATETIME2 DEFAULT GETDATE(),
-    updatedAt DATETIME2,
+    practiceGroupId INT, -- Nhóm thực hành mà sinh viên đăng ký (có thể null nếu chưa phân nhóm)
+    status NVARCHAR(50) NOT NULL, -- 'registered', 'approved', 'rejected'
+    createdAt DATETIME DEFAULT GETDATE(),
+    updatedAt DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (classId) REFERENCES Class(id),
-    FOREIGN KEY (studentId) REFERENCES Student(id)
+    FOREIGN KEY (studentId) REFERENCES Student(id),
+    FOREIGN KEY (practiceGroupId) REFERENCES ClassGroup(id)
 );
 
--- Bảng ClassRoom (Phòng học)
-CREATE TABLE [ClassRoom] (
+-- Tạo bảng ClassRoom
+CREATE TABLE ClassRoom (
     id INT IDENTITY(1,1) PRIMARY KEY,
-    code NVARCHAR(20) UNIQUE NOT NULL,
-    name NVARCHAR(100) NOT NULL,
+    code NVARCHAR(50) UNIQUE NOT NULL,
+    name NVARCHAR(255) NOT NULL,
     capacity INT NOT NULL,
-    building NVARCHAR(100) NOT NULL,
+    building NVARCHAR(255) NOT NULL,
     floor INT NOT NULL,
-    type NVARCHAR(50) NOT NULL,
-    description NVARCHAR(500)
+    type NVARCHAR(50) NOT NULL, -- 'lecture', 'lab', 'seminar', etc.
+    description NVARCHAR(MAX)
 );
 
--- Bảng Schedule (Lịch học)
-CREATE TABLE [Schedule] (
+-- Tạo bảng TimeSlot để định nghĩa các khung giờ học
+CREATE TABLE TimeSlot (
+    id INT IDENTITY(1,1) PRIMARY KEY,
+    slotName NVARCHAR(50) NOT NULL, -- Ví dụ: 'Tiết 1-3', 'Tiết 4-6', 'Tiết 7-9'
+    startTime TIME NOT NULL, -- Giờ bắt đầu
+    endTime TIME NOT NULL, -- Giờ kết thúc
+    shift NVARCHAR(50) NOT NULL -- 'morning', 'afternoon', 'evening'
+);
+
+-- Tạo bảng Schedule
+CREATE TABLE Schedule (
     id INT IDENTITY(1,1) PRIMARY KEY,
     classId INT NOT NULL,
+    classTypeId INT NOT NULL, -- Liên kết với loại lớp (lý thuyết hoặc thực hành)
+    classGroupId INT, -- Nhóm thực hành (null nếu là lớp lý thuyết)
     classRoomId INT NOT NULL,
     teacherId INT NOT NULL,
-    dayOfWeek INT NOT NULL CHECK (dayOfWeek BETWEEN 1 AND 7),
-    startTime DATETIME2 NOT NULL,
-    endTime DATETIME2 NOT NULL,
+    dayOfWeek INT NOT NULL, -- 1: Chủ nhật, 2: Thứ 2, ..., 7: Thứ 7
+    timeSlotId INT NOT NULL, -- Liên kết với khung giờ học
+    weekNumber INT NOT NULL, -- Tuần học thứ mấy
+    date DATE NOT NULL, -- Ngày cụ thể
+    status NVARCHAR(50) NOT NULL DEFAULT 'normal', -- 'normal', 'exam', 'cancelled'
+    note NVARCHAR(MAX),
     FOREIGN KEY (classId) REFERENCES Class(id),
+    FOREIGN KEY (classTypeId) REFERENCES ClassType(id),
+    FOREIGN KEY (classGroupId) REFERENCES ClassGroup(id),
     FOREIGN KEY (classRoomId) REFERENCES ClassRoom(id),
-    FOREIGN KEY (teacherId) REFERENCES Teacher(id)
+    FOREIGN KEY (teacherId) REFERENCES Teacher(id),
+    FOREIGN KEY (timeSlotId) REFERENCES TimeSlot(id)
 );
 
--- Bảng RoomRequest (Yêu cầu đặt phòng)
-CREATE TABLE [RoomRequest] (
+-- Tạo bảng RoomRequest
+CREATE TABLE RoomRequest (
     id INT IDENTITY(1,1) PRIMARY KEY,
     classRoomId INT NOT NULL,
-    requesterId INT NOT NULL,
-    purpose NVARCHAR(255) NOT NULL,
-    startTime DATETIME2 NOT NULL,
-    endTime DATETIME2 NOT NULL,
-    status NVARCHAR(20) NOT NULL DEFAULT 'pending',
-    createdAt DATETIME2 DEFAULT GETDATE(),
-    updatedAt DATETIME2,
-    FOREIGN KEY (classRoomId) REFERENCES ClassRoom(id)
+    requesterId INT NOT NULL, -- ID của người yêu cầu (từ bảng User)
+    purpose NVARCHAR(MAX) NOT NULL,
+    date DATE NOT NULL, -- Ngày yêu cầu
+    timeSlotId INT NOT NULL, -- Liên kết với khung giờ
+    status NVARCHAR(50) NOT NULL DEFAULT 'pending', -- 'pending', 'approved', 'rejected'
+    createdAt DATETIME DEFAULT GETDATE(),
+    updatedAt DATETIME DEFAULT GETDATE(),
+    FOREIGN KEY (classRoomId) REFERENCES ClassRoom(id),
+    FOREIGN KEY (requesterId) REFERENCES [User](id),
+    FOREIGN KEY (timeSlotId) REFERENCES TimeSlot(id)
 );
 
--- Tạo indexes
-CREATE INDEX idx_account_username ON Account(username);
-CREATE INDEX idx_user_email ON [User](email);
-CREATE INDEX idx_teacher_code ON Teacher(teacherCode);
-CREATE INDEX idx_student_code ON Student(studentCode);
-CREATE INDEX idx_class_code ON Class(code);
-CREATE INDEX idx_classroom_code ON ClassRoom(code);
-CREATE INDEX idx_schedule_datetime ON Schedule(startTime, endTime);
-CREATE INDEX idx_roomrequest_datetime ON RoomRequest(startTime, endTime);
+-- Thêm dữ liệu mẫu
 
--- Dữ liệu mẫu
-INSERT INTO Account (username, password, role, isActive) VALUES 
-('admin', '$2b$10$dVuGFg5OGO9NFZ/h8yFJXO', 'admin', 1),
-('teacher1', '$2b$10$dVuGFg5OGO9NFZ/h8yFJXO', 'teacher', 1),
-('student1', '$2b$10$dVuGFg5OGO9NFZ/h8yFJXO', 'student', 1);
+-- Thêm tài khoản sinh viên với MSSV: 21026511, password: 01012003
+-- Đầu tiên hash password với bcrypt
+DECLARE @hashedPassword NVARCHAR(255) = '$2b$10$Yrn9g4GJ7VmaD0atsM.EzurUFzq7D7qr9y4RkPAGYRLfBtMG9sthi'; -- Đây là hash của '01012003'
 
-INSERT INTO [User] (accountId, fullName, email, phone) VALUES 
-(1, N'Admin User', 'admin@example.com', '0123456789'),
-(2, N'Teacher One', 'teacher1@example.com', '0123456788'),
-(3, N'Student One', 'student1@example.com', '0123456787');
+-- Thêm tài khoản admin
+INSERT INTO Account (username, password, role, isActive)
+VALUES ('admin', @hashedPassword, 'admin', 1);
 
-INSERT INTO Teacher (userId, teacherCode, department) VALUES 
-(2, 'TCH001', N'Công nghệ thông tin');
+INSERT INTO [User] (accountId, fullName, email, phone, address)
+VALUES (
+    SCOPE_IDENTITY(),
+    N'Admin',
+    'admin@example.com',
+    '0123456789',
+    N'Hà Nội, Việt Nam'
+);
 
-INSERT INTO Student (userId, studentCode, major) VALUES 
-(3, 'STU001', N'Công nghệ thông tin');
+-- Thêm tài khoản giáo viên
+INSERT INTO Account (username, password, role, isActive)
+VALUES ('teacher', @hashedPassword, 'teacher', 1);
 
-INSERT INTO ClassRoom (code, name, capacity, building, floor, type) VALUES 
-('R001', N'Phòng 101', 40, N'A', 1, 'theory'),
-('R002', N'Phòng Lab 1', 30, N'B', 2, 'lab');
+INSERT INTO [User] (accountId, fullName, email, phone, address)
+VALUES (
+    SCOPE_IDENTITY(),
+    N'Nguyễn Văn Giáo',
+    'teacher@example.com',
+    '0123456788',
+    N'Hà Nội, Việt Nam'
+);
 
-INSERT INTO Subject (code, name, credits, description) VALUES 
-('COMP101', N'Lập trình cơ bản', 3, N'Môn học nhập môn về lập trình'),
-('COMP102', N'Cơ sở dữ liệu', 3, N'Môn học về database'); 
+-- Thêm thông tin giáo viên
+INSERT INTO Teacher (userId, teacherCode, department)
+VALUES (
+    SCOPE_IDENTITY(),
+    'TC001',
+    N'Khoa Công nghệ thông tin'
+);
+
+-- Thêm 3 tài khoản sinh viên
+INSERT INTO Account (username, password, role, isActive)
+VALUES ('21026511', @hashedPassword, 'student', 1);
+
+INSERT INTO [User] (accountId, fullName, email, phone, address)
+VALUES (
+    SCOPE_IDENTITY(),
+    N'Nguyễn Văn A',
+    'nguyenvana@example.com',
+    '0987654321',
+    N'Hà Nội, Việt Nam'
+);
+
+INSERT INTO Student (userId, studentCode, major)
+VALUES (
+    SCOPE_IDENTITY(),
+    '21026511',
+    N'Công nghệ thông tin'
+);
+
+INSERT INTO Account (username, password, role, isActive)
+VALUES ('21026512', @hashedPassword, 'student', 1);
+
+INSERT INTO [User] (accountId, fullName, email, phone, address)
+VALUES (
+    SCOPE_IDENTITY(),
+    N'Trần Thị B',
+    'tranthib@example.com',
+    '0987654322',
+    N'Hà Nội, Việt Nam'
+);
+
+INSERT INTO Student (userId, studentCode, major)
+VALUES (
+    SCOPE_IDENTITY(),
+    '21026512',
+    N'Công nghệ thông tin'
+);
+
+INSERT INTO Account (username, password, role, isActive)
+VALUES ('21026513', @hashedPassword, 'student', 1);
+
+INSERT INTO [User] (accountId, fullName, email, phone, address)
+VALUES (
+    SCOPE_IDENTITY(),
+    N'Lê Văn C',
+    'levanc@example.com',
+    '0987654323',
+    N'Hà Nội, Việt Nam'
+);
+
+INSERT INTO Student (userId, studentCode, major)
+VALUES (
+    SCOPE_IDENTITY(),
+    '21026513',
+    N'Công nghệ thông tin'
+);
+
+-- Thêm phòng học
+INSERT INTO ClassRoom (code, name, capacity, building, floor, type, description)
+VALUES 
+    ('LT101', N'Phòng lý thuyết 101', 100, N'Tòa A', 1, 'lecture', N'Phòng học lớn cho lý thuyết'),
+    ('LT201', N'Phòng lý thuyết 201', 150, N'Tòa A', 2, 'lecture', N'Phòng học lớn cho lý thuyết'),
+    ('TH101', N'Phòng thực hành 101', 30, N'Tòa B', 1, 'lab', N'Phòng thực hành máy tính'),
+    ('TH102', N'Phòng thực hành 102', 30, N'Tòa B', 1, 'lab', N'Phòng thực hành máy tính'),
+    ('TH201', N'Phòng thực hành 201', 30, N'Tòa B', 2, 'lab', N'Phòng thực hành máy tính');
+
+-- Thêm lớp học
+INSERT INTO Class (code, className, subjectName, subjectCode, credits, teacherId, semester, academicYear, maxStudents, totalWeeks, startDate, endDate, description)
+VALUES 
+    ('COMP101', N'Lập trình cơ bản', N'Nhập môn lập trình', 'NMLT', 3, 1, N'Học kỳ 1', '2024-2025', 90, 15, '2024-09-01', '2024-12-15', N'Môn học cơ bản về lập trình');
+
+-- Thêm loại lớp (lý thuyết và thực hành)
+INSERT INTO ClassType (classId, type, maxStudents, groupNumber)
+VALUES 
+    (1, 'theory', 90, NULL), -- Lớp lý thuyết
+    (1, 'practice', 90, 3); -- Lớp thực hành chia làm 3 nhóm
+
+-- Thêm các nhóm thực hành
+INSERT INTO ClassGroup (classTypeId, groupName, maxStudents)
+VALUES 
+    (2, N'Nhóm 1', 30),
+    (2, N'Nhóm 2', 30),
+    (2, N'Nhóm 3', 30);
+
+-- Đăng ký lớp học cho sinh viên
+INSERT INTO ClassRegistration (classId, studentId, practiceGroupId, status)
+VALUES 
+    (1, 1, 1, N'approved'), -- Sinh viên 1 đăng ký nhóm thực hành 1
+    (1, 2, 2, N'approved'), -- Sinh viên 2 đăng ký nhóm thực hành 2
+    (1, 3, 3, N'approved'); -- Sinh viên 3 đăng ký nhóm thực hành 3
+
+-- Thêm lịch học
+-- Lịch học lý thuyết (tiết 1-3 sáng thứ 3)
+INSERT INTO Schedule (classId, classTypeId, classGroupId, classRoomId, teacherId, dayOfWeek, timeSlotId, weekNumber, date, status, note)
+VALUES 
+    -- Tuần 1: Lý thuyết
+    (1, 1, NULL, 1, 1, 3, 1, 1, '2024-09-03', 'normal', N'Buổi học lý thuyết đầu tiên'),
+    -- Tuần 1: Thực hành cho 3 nhóm
+    (1, 2, 1, 3, 1, 5, 3, 1, '2024-09-05', 'normal', N'Buổi thực hành nhóm 1'),
+    (1, 2, 2, 4, 1, 5, 3, 1, '2024-09-05', 'normal', N'Buổi thực hành nhóm 2'),
+    (1, 2, 3, 5, 1, 5, 3, 1, '2024-09-05', 'normal', N'Buổi thực hành nhóm 3'),
+    
+    -- Tuần 2: Lý thuyết
+    (1, 1, NULL, 1, 1, 3, 1, 2, '2024-09-10', 'normal', N'Buổi học lý thuyết tuần 2'),
+    -- Tuần 2: Thực hành cho 3 nhóm
+    (1, 2, 1, 3, 1, 5, 3, 2, '2024-09-12', 'normal', N'Buổi thực hành nhóm 1'),
+    (1, 2, 2, 4, 1, 5, 3, 2, '2024-09-12', 'normal', N'Buổi thực hành nhóm 2'),
+    (1, 2, 3, 5, 1, 5, 3, 2, '2024-09-12', 'normal', N'Buổi thực hành nhóm 3'),
+    
+    -- Tuần 3: Lý thuyết (đổi sang thi giữa kỳ)
+    (1, 1, NULL, 1, 1, 3, 1, 3, '2024-09-17', 'exam', N'Thi giữa kỳ phần lý thuyết'),
+    -- Tuần 3: Thực hành cho 3 nhóm (nhóm 1 nghỉ học)
+    (1, 2, 1, 3, 1, 5, 3, 3, '2024-09-19', 'cancelled', N'Nghỉ học do sửa phòng máy'),
+    (1, 2, 2, 4, 1, 5, 3, 3, '2024-09-19', 'normal', N'Buổi thực hành nhóm 2'),
+    (1, 2, 3, 5, 1, 5, 3, 3, '2024-09-19', 'normal', N'Buổi thực hành nhóm 3');
+
+-- Thêm yêu cầu phòng
+INSERT INTO RoomRequest (classRoomId, requesterId, purpose, date, timeSlotId, status)
+VALUES 
+    (3, 2, N'Mượn phòng thực hành để dạy bổ sung', '2024-09-20', 4, 'pending'),
+    (1, 2, N'Mượn phòng lý thuyết để tổ chức seminar', '2024-09-25', 2, 'approved');

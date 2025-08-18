@@ -14,7 +14,7 @@ const verifyToken = async (req, res, next) => {
         }
 
         const token = authHeader.split(' ')[1];
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'classroom_management_secret_key');
 
         // Kiểm tra tài khoản có tồn tại và còn active
         const account = await prisma.account.findFirst({
