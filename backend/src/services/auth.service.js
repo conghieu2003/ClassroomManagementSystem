@@ -1,6 +1,6 @@
-const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { PrismaClient } = require('@prisma/client');
+const bcryptConfig = require('../config/bcrypt.config');
 
 const prisma = new PrismaClient();
 
@@ -28,7 +28,7 @@ class AuthService {
             }
 
             // Hash password
-            const hashedPassword = await bcrypt.hash(password, 10);
+            const hashedPassword = await bcryptConfig.hashPassword(password);
 
             // Tạo transaction để đảm bảo tính nhất quán
             const result = await prisma.$transaction(async (tx) => {
@@ -109,7 +109,7 @@ class AuthService {
             }
 
             // Kiểm tra password
-            const isValidPassword = await bcrypt.compare(password, account.password);
+            const isValidPassword = await bcryptConfig.comparePassword(password, account.password);
             if (!isValidPassword) {
                 throw new Error('Mật khẩu không chính xác');
             }
@@ -121,7 +121,7 @@ class AuthService {
                     username: account.username,
                     role: account.role
                 },
-                process.env.JWT_SECRET || 'your-secret-key',
+                process.env.JWT_SECRET || 'classroom_management_secret_key',
                 { expiresIn: '24h' }
             );
 
@@ -160,13 +160,13 @@ class AuthService {
             }
 
             // Kiểm tra mật khẩu cũ
-            const isValidPassword = await bcrypt.compare(oldPassword, account.password);
+            const isValidPassword = await bcryptConfig.comparePassword(oldPassword, account.password);
             if (!isValidPassword) {
                 throw new Error('Mật khẩu cũ không chính xác');
             }
 
             // Hash mật khẩu mới
-            const hashedPassword = await bcrypt.hash(newPassword, 10);
+            const hashedPassword = await bcryptConfig.hashPassword(newPassword);
 
             // Cập nhật mật khẩu
             await prisma.account.update({
