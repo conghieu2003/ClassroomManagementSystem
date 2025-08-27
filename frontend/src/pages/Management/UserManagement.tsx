@@ -4,6 +4,7 @@ import { LoadPanel } from 'devextreme-react/load-panel';
 import { Button } from 'devextreme-react/button';
 import { SelectBox } from 'devextreme-react/select-box';
 import { User } from '../../types';
+import { userService } from '../../services/api';
 
 interface RoleOption {
   id: string;
@@ -11,7 +12,6 @@ interface RoleOption {
 }
 
 interface ExtendedUser extends User {
-  fullName?: string;
   status?: 'active' | 'inactive';
 }
 
@@ -33,17 +33,23 @@ const UserManagement: React.FC = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [filterRole]);
 
   const fetchUsers = async (): Promise<void> => {
     try {
       setLoading(true);
-      // TODO: Replace with actual API call
-      const response = await fetch('/api/users');
-      const data = await response.json();
-      setUsers(data);
+      const roleFilter = filterRole === 'all' ? undefined : (filterRole as any);
+      const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+      const response = await userService.listUsers(roleFilter, currentUser?.username);
+      if ((response as any).success) {
+        setUsers(((response as any).data) || []);
+      } else {
+        console.error('Fetch users error:', (response as any).message);
+        setUsers([]);
+      }
     } catch (error) {
       console.error('Error fetching users:', error);
+      setUsers([]);
     } finally {
       setLoading(false);
     }
@@ -97,10 +103,7 @@ const UserManagement: React.FC = () => {
     fetchUsers();
   };
 
-  const filteredUsers = (): ExtendedUser[] => {
-    if (filterRole === 'all') return users;
-    return users.filter(user => user.role === filterRole);
-  };
+  const filteredUsers = (): ExtendedUser[] => users;
 
   return (
     <div style={{ padding: '20px' }}>

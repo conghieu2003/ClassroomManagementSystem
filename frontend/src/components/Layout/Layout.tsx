@@ -165,7 +165,7 @@ const Layout: React.FC = () => {
             }}>
               <i className="fas fa-user"></i>
             </div>
-            <span style={{ color: '#333' }}>{currentUser?.firstName} {currentUser?.lastName}</span>
+            <span style={{ color: '#333' }}>{currentUser?.fullName || 'Người dùng'}</span>
             <i className="fas fa-chevron-down" style={{ fontSize: '12px', color: '#666' }}></i>
           </div>
 

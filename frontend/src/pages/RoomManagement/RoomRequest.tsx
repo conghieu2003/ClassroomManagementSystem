@@ -38,7 +38,7 @@ const RoomRequest: React.FC = () => {
       
       try {
         const [schedulesResponse, roomsResponse] = await Promise.all([
-          scheduleService.getTeacherSchedule(currentUser.id),
+          scheduleService.getTeacherSchedule(String(currentUser.id)),
           roomService.getAllRooms()
         ]);
         setSchedules(schedulesResponse.data || []);

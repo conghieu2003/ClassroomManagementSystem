@@ -25,9 +25,9 @@ const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({ schedules, onRoomReques
   const startDate = startOfWeek(currentDate, { weekStartsOn: 1 });
 
   const timeSlots: TimeSlot[] = [
-    { label: 'Sáng', start: '07:00', end: '11:30' },
-    { label: 'Chiều', start: '13:00', end: '17:30' },
-    { label: 'Tối', start: '18:00', end: '21:30' },
+    { label: 'Sáng', start: '06:30', end: '11:40' },
+    { label: 'Chiều', start: '12:30', end: '17:40' },
+    { label: 'Tối', start: '18:00', end: '20:30' },
   ];
 
   const weekDays: WeekDay[] = Array.from({ length: 7 }, (_, i) => {

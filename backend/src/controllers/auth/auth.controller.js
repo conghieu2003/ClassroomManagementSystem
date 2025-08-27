@@ -17,16 +17,16 @@ class AuthController {
 
     async login(req, res) {
         try {
-            const { username, password } = req.body;
+            const { username, identifier, password } = req.body;
 
-            if (!username || !password) {
+            if (!(identifier || username) || !password) {
                 return res.status(400).json({
                     success: false,
                     message: 'Vui lòng nhập đầy đủ thông tin đăng nhập'
                 });
             }
 
-            const result = await authService.login(username, password);
+            const result = await authService.login(identifier || username, password);
             res.status(200).json(result);
         } catch (error) {
             res.status(401).json({

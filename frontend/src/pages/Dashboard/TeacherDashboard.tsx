@@ -6,14 +6,14 @@ import { Schedule, Teacher } from '../../types';
 const TeacherDashboard: React.FC = () => {
   const [schedules, setSchedules] = useState<Schedule[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const currentUser: Teacher | null = authService.getCurrentUser() as Teacher;
+  const currentUser: any = authService.getCurrentUser();
 
   useEffect(() => {
     const fetchSchedules = async (): Promise<void> => {
       if (!currentUser) return;
       
       try {
-        const response = await scheduleService.getTeacherSchedule(currentUser.id);
+        const response = await scheduleService.getTeacherSchedule(String(currentUser.id));
         setSchedules(response.data || []);
       } catch (error) {
         console.error('Lỗi khi tải lịch dạy:', error);
@@ -41,9 +41,9 @@ const TeacherDashboard: React.FC = () => {
   return (
     <div className="teacher-dashboard">
       <div className="dashboard-header">
-        <h2>Xin chào, {currentUser.firstName} {currentUser.lastName}</h2>
+        <h2>Xin chào, {currentUser.fullName}</h2>
         <div className="teacher-info">
-          <p>Mã giảng viên: {currentUser.teacherId}</p>
+          <p>Mã giảng viên: {currentUser.teacherCode || 'N/A'}</p>
           <p>Khoa: {currentUser.department || 'Chưa xác định'}</p>
           <p>Chức danh: {currentUser.title || 'Giảng viên'}</p>
         </div>

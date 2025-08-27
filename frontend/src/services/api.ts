@@ -1,5 +1,5 @@
 import axios, { AxiosInstance, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
-import { User, LoginCredentials, ApiResponse } from '../types';
+import { User, ApiResponse } from '../types';
 
 export const API_URL = 'http://localhost:5000/api';
 
@@ -41,11 +41,11 @@ api.interceptors.response.use(
 
 // Auth Service
 export const authService = {
-  // Đăng nhập với username và password
-  login: async (username: string, password: string): Promise<ApiResponse<any>> => {
+  // Đăng nhập với identifier (admin: userId, teacher: teacherCode, student: studentCode, hoặc username) và password
+  login: async (identifier: string, password: string): Promise<ApiResponse<any>> => {
     try {
-      console.log('Gọi API login với:', { username, password });
-      const response = await api.post('/auth/login', { username, password });
+      console.log('Gọi API login với:', { identifier, password });
+      const response = await api.post('/auth/login', { identifier, password });
       
       if (response.data.success) {
         const { token, user } = response.data.data;
@@ -221,8 +221,11 @@ export const userService = {
     return JSON.parse(localStorage.getItem('user') || 'null');
   },
 
-  updateProfile: async (userId: string, userData: Partial<User>): Promise<any> => {
-    const response = await api.put(`/users/${userId}`, userData);
+  listUsers: async (role?: 'admin' | 'teacher' | 'student' | 'all', username?: string): Promise<ApiResponse<any>> => {
+    const response = await api.post('/users/list', {
+      role: role && role !== 'all' ? role : undefined,
+      username
+    });
     return response.data;
   },
 };

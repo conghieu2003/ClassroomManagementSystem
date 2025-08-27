@@ -35,7 +35,7 @@ const StudentDashboard: React.FC = () => {
     if (!currentUser) return;
     
     try {
-      const response = await scheduleService.getStudentSchedule(currentUser.id);
+      const response = await scheduleService.getStudentSchedule(String(currentUser.id));
       setSchedules(response.data || []);
     } catch (error) {
       notify('Lỗi khi tải lịch học', 'error', 3000);
@@ -70,9 +70,15 @@ const StudentDashboard: React.FC = () => {
   };
 
   const getScheduleBackground = (schedule: StudentSchedule): string => {
-    if (schedule.type === 'exam') return '#FFF9C4'; // Lịch thi - màu vàng nhạt
-    if (schedule.type === 'practice') return '#C8E6C9'; // Thực hành - màu xanh lá
-    return '#FFFFFF'; // Lịch học lý thuyết - màu trắng
+    // Ưu tiên theo status từ backend
+    if ((schedule as any).status === 'exam') return '#FFF9C4';
+    if ((schedule as any).status === 'paused') return '#FFE0B2'; // Tạm ngưng - cam nhạt
+    if ((schedule as any).status === 'cancelled') return '#FFCDD2'; // Hủy - đỏ nhạt
+
+    // Không phải exam/paused/cancelled → phân biệt practice theo classGroupId/classType nếu được trả về
+    const isPractice = (schedule as any).classGroupId != null || (schedule as any).classType === 'practice';
+    if (isPractice) return '#C8E6C9';
+    return '#FFFFFF';
   };
 
   const renderScheduleCell = (schedule: StudentSchedule): React.ReactNode => {
@@ -193,8 +199,8 @@ const StudentDashboard: React.FC = () => {
                       new Date(s.startDate).toDateString() === date.toDateString() && 
                       s.timeSlot === time &&
                       (viewType === 'all' || 
-                       (viewType === 'exam' && s.type === 'exam') ||
-                       (viewType === 'class' && s.type !== 'exam'))
+                       (viewType === 'exam' && (s as any).status === 'exam') ||
+                       (viewType === 'class' && (s as any).status !== 'exam'))
                     );
                     return (
                       <td key={day} style={{ padding: '8px', border: '1px solid #e0e0e0', minHeight: '120px', verticalAlign: 'top' }}>

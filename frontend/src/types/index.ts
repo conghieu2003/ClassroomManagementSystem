@@ -1,14 +1,11 @@
 // User types
 export interface User {
-  id: string;
-  username: string;
+  id: number;
+  fullName: string;
   email: string;
   role: 'admin' | 'teacher' | 'student';
-  firstName?: string;
-  lastName?: string;
-  phone?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  teacherCode?: string | null;
+  studentCode?: string | null;
 }
 
 export interface Student extends User {

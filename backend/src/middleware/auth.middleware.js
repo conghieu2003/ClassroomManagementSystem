@@ -38,7 +38,8 @@ const verifyToken = async (req, res, next) => {
         req.user = {
             id: account.user.id,
             accountId: account.id,
-            role: account.role
+            role: account.role,
+            username: account.username
         };
 
         next();

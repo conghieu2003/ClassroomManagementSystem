@@ -85,20 +85,60 @@ class AuthService {
         }
     }
 
-    async login(username, password) {
+    async login(identifier, password) {
         try {
-            // Tìm account và include các quan hệ
-            const account = await prisma.account.findUnique({
-                where: { username },
-                include: {
-                    user: {
-                        include: {
-                            teacher: true,
-                            student: true
-                        }
+            let account = null;
+
+            // 1) Teacher login via teacherCode
+            if (!account) {
+                const teacherRecord = await prisma.teacher.findUnique({
+                    where: { teacherCode: identifier },
+                    include: {
+                        user: { include: { account: true, teacher: true, student: true } }
+                    }
+                });
+                if (teacherRecord?.user?.account && teacherRecord.user.account.role === 'teacher') {
+                    account = { ...teacherRecord.user.account, user: teacherRecord.user };
+                }
+            }
+
+            // 2) Student login via studentCode
+            if (!account) {
+                const studentRecord = await prisma.student.findUnique({
+                    where: { studentCode: identifier },
+                    include: {
+                        user: { include: { account: true, teacher: true, student: true } }
+                    }
+                });
+                if (studentRecord?.user?.account && studentRecord.user.account.role === 'student') {
+                    account = { ...studentRecord.user.account, user: studentRecord.user };
+                }
+            }
+
+            // 3) Admin login via userId (numeric)
+            if (!account) {
+                const userIdAsInt = Number(identifier);
+                if (!Number.isNaN(userIdAsInt)) {
+                    const adminUser = await prisma.user.findUnique({
+                        where: { id: userIdAsInt },
+                        include: { account: true, teacher: true, student: true }
+                    });
+                    if (adminUser && adminUser.account && adminUser.account.role === 'admin') {
+                        account = { ...adminUser.account, user: adminUser };
                     }
                 }
-            });
+            }
+
+            // 4) Backward compatibility: login via account.username
+            if (!account) {
+                const acc = await prisma.account.findUnique({
+                    where: { username: identifier },
+                    include: {
+                        user: { include: { teacher: true, student: true } }
+                    }
+                });
+                if (acc) account = acc;
+            }
 
             if (!account) {
                 throw new Error('Tài khoản không tồn tại');
@@ -114,9 +154,8 @@ class AuthService {
                 throw new Error('Mật khẩu không chính xác');
             }
 
-            // Tạo JWT token
             const token = jwt.sign(
-                { 
+                {
                     id: account.id,
                     username: account.username,
                     role: account.role
@@ -131,6 +170,7 @@ class AuthService {
                 data: {
                     token,
                     user: {
+                        username: account.username,
                         id: account.user.id,
                         fullName: account.user.fullName,
                         email: account.user.email,

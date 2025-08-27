@@ -1,7 +1,6 @@
 // This is your Prisma schema file
 generator client {
   provider = "prisma-client-js"
-  previewFeatures = ["microsoftSqlServer"]
 }
 
 datasource db {
@@ -53,38 +52,59 @@ model Student {
   registrations   ClassRegistration[]
 }
 
-model Subject {
-  id          Int      @id @default(autoincrement())
-  code        String   @unique
-  name        String
-  credits     Int
-  description String?
-  classes     Class[]
-}
-
 model Class {
   id              Int                 @id @default(autoincrement())
   code            String              @unique
-  subjectId       Int
+  className       String
+  subjectName     String
+  subjectCode     String
+  credits         Int
   teacherId       Int
   semester        String
   academicYear    String
   maxStudents     Int
-  subject         Subject             @relation(fields: [subjectId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  totalWeeks      Int
+  startDate       DateTime            @db.Date
+  endDate         DateTime            @db.Date
+  description     String?
   teacher         Teacher             @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   registrations   ClassRegistration[]
   schedules       Schedule[]
+  classTypes      ClassType[]
+}
+
+model ClassType {
+  id           Int        @id @default(autoincrement())
+  classId      Int
+  type         String
+  maxStudents  Int
+  groupNumber  Int?
+  class        Class      @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  groups       ClassGroup[]
+  schedules    Schedule[]
+}
+
+model ClassGroup {
+  id           Int        @id @default(autoincrement())
+  classTypeId  Int
+  groupName    String
+  maxStudents  Int
+  classType    ClassType  @relation(fields: [classTypeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  registrations ClassRegistration[]
+  schedules    Schedule[]
 }
 
 model ClassRegistration {
-  id        Int      @id @default(autoincrement())
-  classId   Int
-  studentId Int
-  status    String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  class     Class    @relation(fields: [classId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  student   Student  @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id              Int        @id @default(autoincrement())
+  classId         Int
+  studentId       Int
+  practiceGroupId Int?
+  status          String
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+  class           Class      @relation(fields: [classId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  student         Student    @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  practiceGroup   ClassGroup? @relation(fields: [practiceGroupId], references: [id])
 }
 
 model ClassRoom {
@@ -101,16 +121,34 @@ model ClassRoom {
 }
 
 model Schedule {
-  id          Int       @id @default(autoincrement())
-  classId     Int
-  classRoomId Int
-  teacherId   Int
-  dayOfWeek   Int
-  startTime   DateTime
-  endTime     DateTime
-  class       Class     @relation(fields: [classId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  classRoom   ClassRoom @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  teacher     Teacher   @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id           Int        @id @default(autoincrement())
+  classId      Int
+  classTypeId  Int
+  classGroupId Int?
+  classRoomId  Int
+  teacherId    Int
+  dayOfWeek    Int
+  timeSlotId   Int
+  weekNumber   Int
+  date         DateTime   @db.Date
+  status       String     @default("normal")
+  note         String?
+  class        Class      @relation(fields: [classId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classType    ClassType  @relation(fields: [classTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classGroup   ClassGroup? @relation(fields: [classGroupId], references: [id])
+  classRoom    ClassRoom  @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  teacher      Teacher    @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  timeSlot     TimeSlot   @relation(fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model TimeSlot {
+  id          Int         @id @default(autoincrement())
+  slotName    String
+  startTime   DateTime    @db.Time
+  endTime     DateTime    @db.Time
+  shift       String
+  schedules   Schedule[]
+  roomRequests RoomRequest[]
 }
 
 model RoomRequest {
@@ -118,10 +156,11 @@ model RoomRequest {
   classRoomId Int
   requesterId Int
   purpose     String
-  startTime   DateTime
-  endTime     DateTime
-  status      String
+  date        DateTime  @db.Date
+  timeSlotId  Int
+  status      String    @default("pending")
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
   classRoom   ClassRoom @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-} 
+  timeSlot    TimeSlot  @relation(fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
