@@ -21,6 +21,51 @@ class UserController {
             return res.status(500).json({ success: false, message: error.message });
         }
     }
+
+    async nextCode(req, res) {
+        try {
+            const { role } = req.query;
+            if (!role || !['teacher', 'student'].includes(role)) {
+                return res.status(400).json({ success: false, message: 'role không hợp lệ' });
+            }
+            const data = await userService.getFormInit(role);
+            return res.status(200).json({ success: true, data });
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async departments(req, res) {
+        try {
+            const data = await userService.getDepartments();
+            return res.status(200).json({ success: true, data });
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async majors(req, res) {
+        try {
+            const { departmentId } = req.query;
+            const data = await userService.getMajors(departmentId);
+            return res.status(200).json({ success: true, data });
+        } catch (error) {
+            return res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    async create(req, res) {
+        try {
+            const userData = req.body;
+            const result = await userService.createUser(userData);
+            return res.status(201).json(result);
+        } catch (error) {
+            return res.status(400).json({ 
+                success: false, 
+                message: error.message 
+            });
+        }
+    }
 }
 
 module.exports = new UserController();

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { DataGrid } from 'devextreme-react/data-grid';
 import { LoadPanel } from 'devextreme-react/load-panel';
 import { Button } from 'devextreme-react/button';
@@ -15,7 +16,9 @@ interface ExtendedUser extends User {
   status?: 'active' | 'inactive';
 }
 
+
 const UserManagement: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState<boolean>(true);
   const [users, setUsers] = useState<ExtendedUser[]>([]);
   const [filterRole, setFilterRole] = useState<string>('all');
@@ -54,6 +57,8 @@ const UserManagement: React.FC = () => {
       setLoading(false);
     }
   };
+
+  // Removed inline create modal logic. Navigation will go to /users/create page.
 
   const columns = [{
     dataField: 'username',
@@ -141,7 +146,7 @@ const UserManagement: React.FC = () => {
           icon="plus"
           type="default"
           stylingMode="contained"
-          onClick={() => {/* TODO: Handle add user */}}
+          onClick={() => navigate('/users/create')}
         />
       </div>
 
@@ -164,6 +169,8 @@ const UserManagement: React.FC = () => {
           showInfo: true
         }}
       />
+
+      {/* Modal removed; navigation to /users/create is used instead */}
     </div>
   );
 };

@@ -20,24 +20,84 @@ model Account {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  accountId Int      @unique
-  fullName  String
-  email     String   @unique
-  phone     String?
-  address   String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  teacher   Teacher?
-  student   Student?
+  id           Int       @id @default(autoincrement())
+  accountId    Int       @unique
+  fullName     String
+  email        String    @unique
+  phone        String?
+  address      String?
+  avatar       String?
+  gender       String?   // 'male', 'female', 'other'
+  dateOfBirth  DateTime? @db.Date // Date of birth
+  
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  teacher      Teacher?
+  student      Student?
+
+  // Extended profiles
+  personalProfile PersonalProfile?
+  familyInfo      FamilyInfo?
+  academicProfile AcademicProfile?
+}
+
+// Mirrors PersonalProfile in init.sql
+model PersonalProfile {
+  id                 Int       @id @default(autoincrement())
+  userId             Int       @unique
+  idCardNumber       String?
+  idCardIssueDate    DateTime? @db.Date
+  idCardIssuePlace   String?
+  placeOfBirth       String?
+  permanentAddress   String?
+  phoneEmergency     String?
+  bankName           String?
+  bankBranch         String?
+  bankAccountNumber  String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+// Mirrors FamilyInfo in init.sql
+model FamilyInfo {
+  id                Int       @id @default(autoincrement())
+  userId            Int       @unique
+  fatherFullName    String?
+  fatherYearOfBirth Int?
+  fatherPhone       String?
+  motherFullName    String?
+  motherYearOfBirth Int?
+  motherPhone       String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+// Mirrors AcademicProfile in init.sql
+model AcademicProfile {
+  id             Int       @id @default(autoincrement())
+  userId         Int       @unique
+  role           String
+  campus         String?
+  trainingType   String?
+  degreeLevel    String?
+  academicYear   String?
+  enrollmentDate DateTime? @db.Date
+  classCode      String?
+  title          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
 
 model Teacher {
   id           Int       @id @default(autoincrement())
   userId       Int       @unique
   teacherCode  String    @unique
-  department   String?
+  departmentId Int?
+  majorId      Int?
   user         User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   classes      Class[]
   schedules    Schedule[]
@@ -47,7 +107,8 @@ model Student {
   id              Int                 @id @default(autoincrement())
   userId          Int                 @unique
   studentCode     String              @unique
-  major           String?
+  departmentId    Int?
+  majorId         Int?
   user            User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   registrations   ClassRegistration[]
 }

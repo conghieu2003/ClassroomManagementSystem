@@ -58,16 +58,14 @@ class AuthService {
                     await tx.teacher.create({
                         data: {
                             userId: user.id,
-                            teacherCode: `TC${user.id}`,
-                            department: 'Chưa phân công'
+                            teacherCode: `TC${user.id}`
                         }
                     });
                 } else if (role === 'student') {
                     await tx.student.create({
                         data: {
                             userId: user.id,
-                            studentCode: `ST${user.id}`,
-                            major: 'Chưa phân ngành'
+                            studentCode: `ST${user.id}`
                         }
                     });
                 }
