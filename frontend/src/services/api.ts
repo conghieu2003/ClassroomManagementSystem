@@ -228,6 +228,35 @@ export const userService = {
     });
     return response.data;
   },
+
+  // Lấy data form init: next code + preview username + departments + majors
+  getNextCode: async (role: 'teacher' | 'student'): Promise<ApiResponse<{ code: string; previewUsername: string; departments: { id: number; name: string }[]; majors: { id: number; name: string }[] }>> => {
+    const response = await api.get(`/users/next-code`, { params: { role } });
+    return response.data;
+  },
+
+  getDepartments: async (): Promise<ApiResponse<{ id: number; name: string }[]>> => {
+    const response = await api.get('/users/departments');
+    return response.data;
+  },
+
+  getMajors: async (departmentId?: number): Promise<ApiResponse<{ id: number; name: string }[]>> => {
+    const response = await api.get('/users/majors', { params: { departmentId } });
+    return response.data;
+  },
+
+  createUser: async (userData: any): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.post('/users/create', userData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Create user error:', error);
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
 };
 
 export default api;

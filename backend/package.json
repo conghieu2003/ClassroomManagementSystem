@@ -11,17 +11,18 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@prisma/client": "^5.10.0",
+    "@prisma/client": "^6.15.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^4.21.2",
     "express-session": "^1.18.2",
     "jsonwebtoken": "^9.0.2",
-    "morgan": "^1.10.1"
+    "morgan": "^1.10.1",
+    "nodemailer": "^6.9.0"
   },
   "devDependencies": {
     "nodemon": "^2.0.22",
-    "prisma": "^5.10.0"
+    "prisma": "^6.15.0"
   }
 }
