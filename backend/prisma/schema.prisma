@@ -1,4 +1,3 @@
-// This is your Prisma schema file
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,219 +8,100 @@ datasource db {
 }
 
 model Account {
-  id        Int      @id @default(autoincrement())
-  username  String   @unique
-  password  String
-  role      String
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id        Int       @id(map: "PK__Account__3213E83F76EEF490") @default(autoincrement())
+  username  String    @unique(map: "UQ__Account__F3DBC5724A5F308B") @db.NVarChar(255)
+  password  String    @db.NVarChar(255)
+  role      String    @db.NVarChar(255)
+  isActive  Boolean?  @default(true, map: "DF__Account__isActiv__4AB81AF0")
+  createdAt DateTime? @default(now(), map: "DF__Account__created__4BAC3F29")
+  updatedAt DateTime? @default(now(), map: "DF__Account__updated__4CA06362") @updatedAt
   user      User?
 }
 
 model User {
-  id           Int       @id @default(autoincrement())
-  accountId    Int       @unique
-  fullName     String
-  email        String    @unique
-  phone        String?
-  address      String?
-  avatar       String?
-  gender       String?   // 'male', 'female', 'other'
-  dateOfBirth  DateTime? @db.Date // Date of birth
-  
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-  account      Account   @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  teacher      Teacher?
-  student      Student?
-
-  // Extended profiles
-  personalProfile PersonalProfile?
-  familyInfo      FamilyInfo?
+  id              Int              @id(map: "PK__User__3213E83F73E710E2") @default(autoincrement())
+  accountId       Int              @unique(map: "UQ__User__F267251F2CA85D0D")
+  fullName        String           @db.NVarChar(255)
+  email           String           @unique(map: "UQ__User__AB6E6164D2EE7F25") @db.NVarChar(255)
+  phone           String?          @db.NVarChar(20)
+  address         String?          @db.NVarChar(500)
+  avatar          String?          @db.NVarChar(500)
+  gender          String?          @db.NVarChar(10)
+  dateOfBirth     DateTime?        @db.Date
+  createdAt       DateTime?        @default(now(), map: "DF__User__createdAt__5165187F")
+  updatedAt       DateTime?        @default(now(), map: "DF__User__updatedAt__52593CB8") @updatedAt
   academicProfile AcademicProfile?
+  familyInfo      FamilyInfo?
+  personalProfile PersonalProfile?
+  student         Student?
+  teacher         Teacher?
+  account         Account          @relation(fields: [accountId], references: [id], onDelete: Cascade, map: "FK__User__accountId__534D60F1")
 }
 
-// Mirrors PersonalProfile in init.sql
 model PersonalProfile {
-  id                 Int       @id @default(autoincrement())
-  userId             Int       @unique
-  idCardNumber       String?
-  idCardIssueDate    DateTime? @db.Date
-  idCardIssuePlace   String?
-  placeOfBirth       String?
-  permanentAddress   String?
-  phoneEmergency     String?
-  bankName           String?
-  bankBranch         String?
-  bankAccountNumber  String?
-  createdAt          DateTime  @default(now())
-  updatedAt          DateTime  @updatedAt
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id                Int       @id(map: "PK__Personal__3213E83F00AB00B8") @default(autoincrement())
+  userId            Int       @unique(map: "UQ__Personal__CB9A1CFE396872E5")
+  idCardNumber      String?   @db.NVarChar(20)
+  idCardIssueDate   DateTime? @db.Date
+  idCardIssuePlace  String?   @db.NVarChar(255)
+  placeOfBirth      String?   @db.NVarChar(255)
+  permanentAddress  String?   @db.NVarChar(500)
+  phoneEmergency    String?   @db.NVarChar(20)
+  bankName          String?   @db.NVarChar(255)
+  bankBranch        String?   @db.NVarChar(255)
+  bankAccountNumber String?   @db.NVarChar(50)
+  createdAt         DateTime? @default(now(), map: "DF__PersonalP__creat__571DF1D5")
+  updatedAt         DateTime? @default(now(), map: "DF__PersonalP__updat__5812160E") @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "FK__PersonalP__userI__59063A47")
 }
 
-// Mirrors FamilyInfo in init.sql
 model FamilyInfo {
-  id                Int       @id @default(autoincrement())
-  userId            Int       @unique
-  fatherFullName    String?
+  id                Int       @id(map: "PK__FamilyIn__3213E83F337E28EC") @default(autoincrement())
+  userId            Int       @unique(map: "UQ__FamilyIn__CB9A1CFEC9230836")
+  fatherFullName    String?   @db.NVarChar(255)
   fatherYearOfBirth Int?
-  fatherPhone       String?
-  motherFullName    String?
+  fatherPhone       String?   @db.NVarChar(20)
+  motherFullName    String?   @db.NVarChar(255)
   motherYearOfBirth Int?
-  motherPhone       String?
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @updatedAt
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  motherPhone       String?   @db.NVarChar(20)
+  createdAt         DateTime? @default(now(), map: "DF__FamilyInf__creat__5CD6CB2B")
+  updatedAt         DateTime? @default(now(), map: "DF__FamilyInf__updat__5DCAEF64") @updatedAt
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "FK__FamilyInf__userI__5EBF139D")
 }
 
-// Mirrors AcademicProfile in init.sql
 model AcademicProfile {
-  id             Int       @id @default(autoincrement())
-  userId         Int       @unique
-  role           String
-  campus         String?
-  trainingType   String?
-  degreeLevel    String?
-  academicYear   String?
+  id             Int       @id(map: "PK__Academic__3213E83F19728E59") @default(autoincrement())
+  userId         Int       @unique(map: "UQ__Academic__CB9A1CFEB7D58C80")
+  role           String    @db.NVarChar(255)
+  campus         String?   @db.NVarChar(255)
+  trainingType   String?   @db.NVarChar(255)
+  degreeLevel    String?   @db.NVarChar(255)
+  academicYear   String?   @db.NVarChar(20)
   enrollmentDate DateTime? @db.Date
-  classCode      String?
-  title          String?
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  classCode      String?   @db.NVarChar(50)
+  title          String?   @db.NVarChar(255)
+  createdAt      DateTime? @default(now(), map: "DF__AcademicP__creat__628FA481")
+  updatedAt      DateTime? @default(now(), map: "DF__AcademicP__updat__6383C8BA") @updatedAt
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "FK__AcademicP__userI__6477ECF3")
 }
 
 model Teacher {
-  id           Int       @id @default(autoincrement())
-  userId       Int       @unique
-  teacherCode  String    @unique
+  id           Int       @id(map: "PK__Teacher__3213E83FABB64C9C") @default(autoincrement())
+  userId       Int       @unique(map: "UQ__Teacher__CB9A1CFE0C55685E")
+  teacherCode  String    @unique(map: "UQ__Teacher__3644755CF3D8D996") @db.NVarChar(50)
   departmentId Int?
   majorId      Int?
-  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  classes      Class[]
-  schedules    Schedule[]
+  createdAt    DateTime? @default(now(), map: "DF__Teacher__created__693CA210")
+  updatedAt    DateTime? @default(now(), map: "DF__Teacher__updated__6A30C649")
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "FK__Teacher__userId__6B24EA82")
 }
 
 model Student {
-  id              Int                 @id @default(autoincrement())
-  userId          Int                 @unique
-  studentCode     String              @unique
-  departmentId    Int?
-  majorId         Int?
-  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  registrations   ClassRegistration[]
-}
-
-model Class {
-  id              Int                 @id @default(autoincrement())
-  code            String              @unique
-  className       String
-  subjectName     String
-  subjectCode     String
-  credits         Int
-  teacherId       Int
-  semester        String
-  academicYear    String
-  maxStudents     Int
-  totalWeeks      Int
-  startDate       DateTime            @db.Date
-  endDate         DateTime            @db.Date
-  description     String?
-  teacher         Teacher             @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  registrations   ClassRegistration[]
-  schedules       Schedule[]
-  classTypes      ClassType[]
-}
-
-model ClassType {
-  id           Int        @id @default(autoincrement())
-  classId      Int
-  type         String
-  maxStudents  Int
-  groupNumber  Int?
-  class        Class      @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  groups       ClassGroup[]
-  schedules    Schedule[]
-}
-
-model ClassGroup {
-  id           Int        @id @default(autoincrement())
-  classTypeId  Int
-  groupName    String
-  maxStudents  Int
-  classType    ClassType  @relation(fields: [classTypeId], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  registrations ClassRegistration[]
-  schedules    Schedule[]
-}
-
-model ClassRegistration {
-  id              Int        @id @default(autoincrement())
-  classId         Int
-  studentId       Int
-  practiceGroupId Int?
-  status          String
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
-  class           Class      @relation(fields: [classId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  student         Student    @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  practiceGroup   ClassGroup? @relation(fields: [practiceGroupId], references: [id])
-}
-
-model ClassRoom {
-  id          Int            @id @default(autoincrement())
-  code        String         @unique
-  name        String
-  capacity    Int
-  building    String
-  floor       Int
-  type        String
-  description String?
-  schedules   Schedule[]
-  requests    RoomRequest[]
-}
-
-model Schedule {
-  id           Int        @id @default(autoincrement())
-  classId      Int
-  classTypeId  Int
-  classGroupId Int?
-  classRoomId  Int
-  teacherId    Int
-  dayOfWeek    Int
-  timeSlotId   Int
-  weekNumber   Int
-  date         DateTime   @db.Date
-  status       String     @default("normal")
-  note         String?
-  class        Class      @relation(fields: [classId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  classType    ClassType  @relation(fields: [classTypeId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  classGroup   ClassGroup? @relation(fields: [classGroupId], references: [id])
-  classRoom    ClassRoom  @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  teacher      Teacher    @relation(fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  timeSlot     TimeSlot   @relation(fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-}
-
-model TimeSlot {
-  id          Int         @id @default(autoincrement())
-  slotName    String
-  startTime   DateTime    @db.Time
-  endTime     DateTime    @db.Time
-  shift       String
-  schedules   Schedule[]
-  roomRequests RoomRequest[]
-}
-
-model RoomRequest {
-  id          Int       @id @default(autoincrement())
-  classRoomId Int
-  requesterId Int
-  purpose     String
-  date        DateTime  @db.Date
-  timeSlotId  Int
-  status      String    @default("pending")
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  classRoom   ClassRoom @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  timeSlot    TimeSlot  @relation(fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id          Int       @id(map: "PK__Student__3213E83F5833E0B0") @default(autoincrement())
+  userId      Int       @unique(map: "UQ__Student__CB9A1CFE6913CE7C")
+  studentCode String    @unique(map: "UQ__Student__48F7EF36DC1A52A7") @db.NVarChar(50)
+  classId     Int?
+  createdAt   DateTime? @default(now(), map: "DF__Student__created__6FE99F9F")
+  updatedAt   DateTime? @default(now(), map: "DF__Student__updated__70DDC3D8")
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade, map: "FK__Student__userId__71D1E811")
 }

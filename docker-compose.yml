@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  # SQL Server Database
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: classroom_db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong@Passw0rd
+      - MSSQL_PID=Express
+      - MSSQL_TCP_PORT=1433
+      - MSSQL_AGENT_ENABLED=true
+    ports:
+      - "1433:1433"
+      volumes:
+    - sqlserver_data:/var/opt/mssql
+    - ./scripts/init-scripts:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+
+volumes:
+  sqlserver_data:
+    driver: local
