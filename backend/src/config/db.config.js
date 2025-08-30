@@ -1,9 +1,10 @@
 const { PrismaClient } = require('@prisma/client');
+const config = require('./env.config');
 
 const prisma = new PrismaClient({
     datasources: {
         db: {
-            url: "sqlserver://CONGHIEU:1433;database=ClassroomManagement;user=sa;password=sapassword;encrypt=true;trustServerCertificate=true;connection_limit=20;pool_timeout=0"
+            url: config.getDatabaseUrl()
         }
     },
     log: ['query', 'info', 'warn', 'error']

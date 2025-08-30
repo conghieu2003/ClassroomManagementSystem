@@ -5,7 +5,7 @@ generator client {
 
 datasource db {
   provider = "sqlserver"
-  url      = "sqlserver://CONGHIEU:1433;database=ClassroomManagement;user=sa;password=sapassword;encrypt=true;trustServerCertificate=true;connection_limit=20;pool_timeout=0"
+  url      = env("DATABASE_URL")
 }
 
 model Account {

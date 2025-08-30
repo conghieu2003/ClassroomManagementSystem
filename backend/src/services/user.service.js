@@ -3,6 +3,8 @@ const bcryptConfig = require('../config/bcrypt.config');
 const emailService = require('./email.service');
 
 function mapAccountRow(account) {
+    const academicProfile = account.user?.academicProfile;
+    
     return {
         id: account.user?.id || null,
         accountId: account.id,
@@ -13,6 +15,14 @@ function mapAccountRow(account) {
         status: account.isActive ? 'active' : 'inactive',
         teacherCode: account.user?.teacher?.teacherCode || null,
         studentCode: account.user?.student?.studentCode || null,
+        // Academic Profile Information
+        campus: academicProfile?.campus || null,
+        trainingType: academicProfile?.trainingType || null,
+        degreeLevel: academicProfile?.degreeLevel || null,
+        academicYear: academicProfile?.academicYear || null,  // Chỉ có cho student
+        enrollmentDate: academicProfile?.enrollmentDate || null,  // Có cho cả student và teacher
+        classCode: academicProfile?.classCode || null,
+        title: academicProfile?.title || null,
         createdAt: account.createdAt,
         updatedAt: account.updatedAt
     };
@@ -78,7 +88,28 @@ class UserService {
         // For teacher/student, username shown on FE equals login code (numeric, 8 chars)
         const previewUsername = code;
 
-        return { code, previewUsername, departments, majors };
+        // Tự động tính toán các giá trị mặc định
+        const currentYear = new Date().getFullYear();
+        const academicYear = `${currentYear}-${currentYear + 1}`;
+        const enrollmentDate = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+
+        // Giá trị mặc định theo role
+        const defaultValues = {
+            campus: 'Cơ sở 1 Hồ Chí Minh',
+            trainingType: 'Chính Quy',
+            degreeLevel: role === 'teacher' ? 'Thạc sĩ' : 'Đại Học',
+            academicYear: role === 'student' ? academicYear : null,  // Chỉ student có
+            enrollmentDate: enrollmentDate,  // Cả student và teacher đều có
+            title: role === 'teacher' ? 'Giảng viên' : null
+        };
+
+        return { 
+            code, 
+            previewUsername, 
+            departments, 
+            majors,
+            defaultValues  // Trả về các giá trị mặc định
+        };
     }
     async listUsers(role) {
         const whereClause = role ? { role } : {};
@@ -88,7 +119,8 @@ class UserService {
                 user: {
                     include: {
                         teacher: true,
-                        student: true
+                        student: true,
+                        academicProfile: true
                     }
                 }
             },
@@ -112,6 +144,7 @@ class UserService {
             title,
             departmentId,
             majorId,
+            classCode,
             // Optional from FE but ignored per policy
             username: _ignoredUsername,
             password: _ignoredPassword,
@@ -202,12 +235,14 @@ class UserService {
                             title: title || 'Giảng viên'
                         }
                     });
-                    const enrollDate = userData.enrollmentDate ? new Date(userData.enrollmentDate) : null;
-                    const enrollDateStr = enrollDate ? enrollDate.toISOString().slice(0, 10) : null;
-                    const dateSqlTeacher = enrollDateStr ? `'${enrollDateStr}'` : 'NULL';
+                    
+                    // Tự động gán giá trị mặc định cho teacher (KHÔNG có academicYear)
+                    const enrollmentDate = userData.enrollmentDate ? new Date(userData.enrollmentDate) : new Date();
+                    const enrollmentDateStr = enrollmentDate.toISOString().slice(0, 10);
+                    
                     await tx.$executeRawUnsafe(
                         `INSERT INTO AcademicProfile (userId, role, campus, trainingType, degreeLevel, academicYear, enrollmentDate, classCode, title)
-                         VALUES (${user.id}, 'teacher', ${userData.campus ? `'${userData.campus}'` : 'NULL'}, ${userData.trainingType ? `'${userData.trainingType}'` : 'NULL'}, ${userData.degreeLevel ? `'${userData.degreeLevel}'` : 'NULL'}, ${userData.academicYear ? `'${userData.academicYear}'` : 'NULL'}, ${dateSqlTeacher}, NULL, ${title ? `'${title}'` : `'Giảng viên'`})`
+                         VALUES (${user.id}, 'teacher', 'Cơ sở 1 Hồ Chí Minh', 'Chính Quy', 'Thạc sĩ', NULL, '${enrollmentDateStr}', ${classCode ? `'${classCode}'` : 'NULL'}, ${title ? `'${title}'` : `'Giảng viên'`})`
                     );
                 } else if (role === 'student') {
                     await tx.student.create({
@@ -218,12 +253,16 @@ class UserService {
                             majorId: majorId || null
                         }
                     });
-                    const enrollDateStu = userData.enrollmentDate ? new Date(userData.enrollmentDate) : null;
-                    const enrollDateStuStr = enrollDateStu ? enrollDateStu.toISOString().slice(0, 10) : null;
-                    const dateSqlStudent = enrollDateStuStr ? `'${enrollDateStuStr}'` : 'NULL';
+                    
+                    // Tự động gán giá trị mặc định cho student
+                    const currentYear = new Date().getFullYear();
+                    const academicYear = `${currentYear}-${currentYear + 1}`;
+                    const enrollmentDate = new Date(); // Ngày tạo user
+                    const enrollmentDateStr = enrollmentDate.toISOString().slice(0, 10);
+                    
                     await tx.$executeRawUnsafe(
                         `INSERT INTO AcademicProfile (userId, role, campus, trainingType, degreeLevel, academicYear, enrollmentDate, classCode, title)
-                         VALUES (${user.id}, 'student', ${userData.campus ? `'${userData.campus}'` : 'NULL'}, ${userData.trainingType ? `'${userData.trainingType}'` : 'NULL'}, ${userData.degreeLevel ? `'${userData.degreeLevel}'` : 'NULL'}, ${userData.academicYear ? `'${userData.academicYear}'` : 'NULL'}, ${dateSqlStudent}, ${userData.classCode ? `'${userData.classCode}'` : 'NULL'}, NULL)`
+                         VALUES (${user.id}, 'student', 'Cơ sở 1 Hồ Chí Minh', 'Chính Quy', 'Đại Học', '${academicYear}', '${enrollmentDateStr}', ${classCode ? `'${classCode}'` : 'NULL'}, NULL)`
                     );
                 }
 
@@ -263,6 +302,57 @@ class UserService {
             };
         } catch (error) {
             throw new Error(`Lỗi tạo tài khoản: ${error.message}`);
+        }
+    }
+
+    async getUserById(userId) {
+        try {
+            const user = await prisma.user.findUnique({
+                where: { id: userId },
+                include: {
+                    account: true,
+                    teacher: true,
+                    student: true,
+                    academicProfile: true
+                }
+            });
+
+            if (!user) {
+                throw new Error('Không tìm thấy user');
+            }
+
+            const academicProfile = user.academicProfile;
+            
+            return {
+                id: user.id,
+                accountId: user.accountId,
+                username: user.account?.username || null,
+                fullName: user.fullName,
+                email: user.email,
+                phone: user.phone,
+                address: user.address,
+                avatar: user.avatar,
+                gender: user.gender,
+                dateOfBirth: user.dateOfBirth,
+                role: user.account?.role || null,
+                status: user.account?.isActive ? 'active' : 'inactive',
+                teacherCode: user.teacher?.teacherCode || null,
+                studentCode: user.student?.studentCode || null,
+                departmentId: user.teacher?.departmentId || user.student?.departmentId || null,
+                majorId: user.teacher?.majorId || user.student?.majorId || null,
+                // Academic Profile Information
+                campus: academicProfile?.campus || null,
+                trainingType: academicProfile?.trainingType || null,
+                degreeLevel: academicProfile?.degreeLevel || null,
+                academicYear: academicProfile?.academicYear || null,  // Chỉ có cho student
+                enrollmentDate: academicProfile?.enrollmentDate || null,  // Có cho cả student và teacher
+                classCode: academicProfile?.classCode || null,
+                title: academicProfile?.title || null,
+                createdAt: user.createdAt,
+                updatedAt: user.updatedAt
+            };
+        } catch (error) {
+            throw new Error(`Lỗi lấy thông tin user: ${error.message}`);
         }
     }
 }
