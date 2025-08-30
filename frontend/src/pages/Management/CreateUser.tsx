@@ -26,13 +26,14 @@ interface CreateUserForm {
   title?: string;
 	departmentId?: number;
 	majorId?: number;
+	classCode?: string;
 }
 
 const CreateUser: React.FC = () => {
   const navigate = useNavigate();
 	const [submitting, setSubmitting] = useState<boolean>(false);
     const dispatch = useDispatch<AppDispatch>();
-    const { previewCode, previewUsername, departments, majors } = useSelector((s: RootState) => s.user);
+    	const { previewCode, previewUsername, departments, majors, defaultValues } = useSelector((s: RootState) => s.user);
 	const [form, setForm] = useState<CreateUserForm>({
     fullName: '',
     email: '',
@@ -42,6 +43,7 @@ const CreateUser: React.FC = () => {
 		gender: undefined,
 		dateOfBirth: '',
     role: 'student',
+		classCode: '',
 	});
 
 	const handleRoleChange = (role: 'teacher' | 'student'): void => {
@@ -54,6 +56,7 @@ const CreateUser: React.FC = () => {
 			departmentId: undefined,
 			majorId: undefined,
 		}));
+        
         dispatch(fetchFormInit(role));
 	};
 
@@ -103,9 +106,9 @@ const CreateUser: React.FC = () => {
 				gender: form.gender || undefined,
 				dateOfBirth: form.dateOfBirth || undefined,
 				role: form.role,
-				title: form.title?.trim() || undefined,
 				departmentId: form.departmentId || undefined,
 				majorId: form.majorId || undefined,
+				classCode: form.classCode?.trim() || undefined,
 			};
 
 			const response: any = await (dispatch as any)(createUserThunk(payload));
@@ -166,20 +169,22 @@ const CreateUser: React.FC = () => {
 								))}
 							</TextField>
 						)}
-						<TextField fullWidth label="Cơ sở" value={(form as any).campus || ''} onChange={(e) => setForm((p) => ({ ...(p as any), campus: e.target.value }))} />
-						<TextField fullWidth label="Hình thức đào tạo" value={(form as any).trainingType || ''} onChange={(e) => setForm((p) => ({ ...(p as any), trainingType: e.target.value }))} />
-						<TextField fullWidth label="Bậc/Trình độ" value={(form as any).degreeLevel || ''} onChange={(e) => setForm((p) => ({ ...(p as any), degreeLevel: e.target.value }))} />
-						<TextField fullWidth label="Niên khóa" value={(form as any).academicYear || ''} onChange={(e) => setForm((p) => ({ ...(p as any), academicYear: e.target.value }))} />
+						<TextField fullWidth label="Cơ sở" value={defaultValues.campus || ''} InputProps={{ readOnly: true }} sx={{ '& .MuiInputBase-input': { backgroundColor: '#f5f5f5' } }} />
+						<TextField fullWidth label="Hình thức đào tạo" value={defaultValues.trainingType || ''} InputProps={{ readOnly: true }} sx={{ '& .MuiInputBase-input': { backgroundColor: '#f5f5f5' } }} />
+						<TextField fullWidth label="Bậc/Trình độ" value={defaultValues.degreeLevel || ''} InputProps={{ readOnly: true }} sx={{ '& .MuiInputBase-input': { backgroundColor: '#f5f5f5' } }} />
+						{form.role === 'student' && (
+							<TextField fullWidth label="Niên khóa" value={defaultValues.academicYear || ''} InputProps={{ readOnly: true }} sx={{ '& .MuiInputBase-input': { backgroundColor: '#f5f5f5' } }} />
+						)}
 						{form.role === 'student' && (
 							<>
-								<DatePicker label="Ngày nhập học" value={(form as any).enrollmentDate ? dayjs((form as any).enrollmentDate) : null} onChange={(v: Dayjs | null) => setForm((p) => ({ ...(p as any), enrollmentDate: v ? v.format('YYYY-MM-DD') : '' }))} slotProps={{ textField: { fullWidth: true } }} />
-								<TextField fullWidth label="Lớp danh nghĩa" value={(form as any).classCode || ''} onChange={(e) => setForm((p) => ({ ...(p as any), classCode: e.target.value }))} />
+								<TextField fullWidth label="Ngày nhập học" value={defaultValues.enrollmentDate || ''} InputProps={{ readOnly: true }} sx={{ '& .MuiInputBase-input': { backgroundColor: '#f5f5f5' } }} />
+								<TextField fullWidth label="Lớp danh nghĩa" value={form.classCode || ''} onChange={(e) => setForm((p) => ({ ...p, classCode: e.target.value }))} />
 							</>
 						)}
 						{form.role === 'teacher' && (
 							<>
-								<DatePicker label="Ngày vào trường" value={(form as any).enrollmentDate ? dayjs((form as any).enrollmentDate) : null} onChange={(v: Dayjs | null) => setForm((p) => ({ ...(p as any), enrollmentDate: v ? v.format('YYYY-MM-DD') : '' }))} slotProps={{ textField: { fullWidth: true } }} />
-								<TextField fullWidth label="Học hàm/Học vị" value={form.title || ''} onChange={(e) => setForm((p) => ({ ...p, title: e.target.value }))} />
+								<TextField fullWidth label="Ngày vào trường" value={defaultValues.enrollmentDate || ''} InputProps={{ readOnly: true }} sx={{ '& .MuiInputBase-input': { backgroundColor: '#f5f5f5' } }} />
+								<TextField fullWidth label="Học hàm/Học vị" value={defaultValues.title || ''} InputProps={{ readOnly: true }} sx={{ '& .MuiInputBase-input': { backgroundColor: '#f5f5f5' } }} />
           </>
         )}
 					</Box>

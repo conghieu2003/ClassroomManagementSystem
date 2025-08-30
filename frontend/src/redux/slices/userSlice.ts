@@ -8,6 +8,14 @@ export interface UserFormInit {
   previewUsername: string;
   departments: OptionItem[];
   majors: OptionItem[];
+  defaultValues: {
+    campus: string;
+    trainingType: string;
+    degreeLevel: string;
+    academicYear?: string;
+    enrollmentDate: string;
+    title?: string;
+  };
 }
 
 export interface UserState {
@@ -15,6 +23,14 @@ export interface UserState {
   previewUsername: string;
   departments: OptionItem[];
   majors: OptionItem[];
+  defaultValues: {
+    campus: string;
+    trainingType: string;
+    degreeLevel: string;
+    academicYear?: string;
+    enrollmentDate: string;
+    title?: string;
+  };
   isLoading: boolean;
   error: string | null;
 }
@@ -24,6 +40,14 @@ const initialState: UserState = {
   previewUsername: '',
   departments: [],
   majors: [],
+  defaultValues: {
+    campus: '',
+    trainingType: '',
+    degreeLevel: '',
+    academicYear: '',
+    enrollmentDate: '',
+    title: ''
+  },
   isLoading: false,
   error: null
 };
@@ -103,10 +127,26 @@ const userSlice = createSlice({
         state.previewUsername = action.payload.previewUsername;
         state.departments = action.payload.departments || [];
         state.majors = action.payload.majors || [];
+        state.defaultValues = action.payload.defaultValues || {
+          campus: '',
+          trainingType: '',
+          degreeLevel: '',
+          academicYear: '',
+          enrollmentDate: '',
+          title: ''
+        };
       })
       .addCase(fetchFormInit.rejected, (state, action) => {
         state.isLoading = false; state.error = action.payload as string;
         state.previewCode = ''; state.previewUsername = ''; state.departments = []; state.majors = [];
+        state.defaultValues = {
+          campus: '',
+          trainingType: '',
+          degreeLevel: '',
+          academicYear: '',
+          enrollmentDate: '',
+          title: ''
+        };
       })
       .addCase(fetchDepartments.fulfilled, (state, action: PayloadAction<OptionItem[]>) => {
         state.departments = action.payload;
