@@ -10,6 +10,26 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
+// Health check endpoint for Docker
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'OK',
+        timestamp: new Date().toISOString(),
+        service: 'Classroom Management System Backend',
+        environment: process.env.NODE_ENV || 'development'
+    });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
+    res.json({
+        message: 'Classroom Management System Backend API',
+        version: '1.0.0',
+        status: 'running',
+        timestamp: new Date().toISOString()
+    });
+});
+
 // Routes
 const authRoutes = require('./routes/auth.routes');
 const classRoutes = require('./routes/class.routes');
