@@ -7,9 +7,9 @@ import Layout from './components/Layout/Layout';
 import AdminDashboard from './pages/Dashboard/AdminDashboard';
 import UserManagement from './pages/Management/UserManagement';
 import CreateUser from './pages/Management/CreateUser';
-import SubjectManagement from './pages/Management/SubjectManagement';
 import ScheduleManagement from './pages/Management/ScheduleManagement';
 import RoomManagement from './pages/Management/RoomManagement';
+import RoomDetail from './pages/Management/RoomDetail';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 
 const App: React.FC = () => {
@@ -28,9 +28,21 @@ const App: React.FC = () => {
           <Route path="/dashboard" element={<AdminDashboard />} />
           <Route path="/users" element={<UserManagement />} />
           <Route path="/users/create" element={<CreateUser />} />
-          <Route path="/subjects" element={<SubjectManagement />} />
           <Route path="/schedule" element={<ScheduleManagement />} />
+          <Route path="/schedules" element={<ScheduleManagement />} />
           <Route path="/rooms" element={<RoomManagement />} />
+          <Route path="/rooms/available" element={<RoomManagement />} />
+          <Route path="/rooms/in-use" element={<RoomManagement />} />
+          <Route path="/rooms/maintenance" element={<RoomManagement />} />
+          <Route path="/rooms/requests" element={<RoomManagement />} />
+          <Route path="/rooms/statistics" element={<RoomManagement />} />
+          <Route path="/rooms/:roomId" element={<RoomDetail />} />
+          
+          {/* Teacher Routes */}
+          <Route path="/room-requests" element={<RoomManagement />} />
+          
+          {/* Student Routes */}
+          <Route path="/profile" element={<AdminDashboard />} />
         </Route>
       </Routes>
       <ToastContainer

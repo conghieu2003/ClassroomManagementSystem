@@ -1,11 +1,26 @@
 // User types
 export interface User {
   id: number;
+  username: string;
   fullName: string;
   email: string;
+  phone?: string;
   role: 'admin' | 'teacher' | 'student';
   teacherCode?: string | null;
   studentCode?: string | null;
+  isActive: boolean;
+  // Backend compatibility fields
+  accountId?: number;
+  status?: string;
+  campus?: string;
+  trainingType?: string;
+  degreeLevel?: string;
+  academicYear?: string;
+  enrollmentDate?: string;
+  classCode?: string;
+  title?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Student extends User {
@@ -71,15 +86,19 @@ export interface Schedule {
 // Room types
 export interface Room {
   id: string;
+  roomNumber: string;
   name: string;
-  capacity: number;
   building: string;
   floor: number;
-  roomNumber: string;
-  equipment?: string[];
-  isAvailable: boolean;
-  type?: string;
+  capacity: number;
+  type: string;
+  campus?: string;
+  description?: string;
+  status: 'available' | 'inUse' | 'maintenance';
   currentClass?: string;
+  currentSubject?: string;
+  currentTeacher?: string;
+  schedule?: string;
   createdAt: Date;
   updatedAt: Date;
 }

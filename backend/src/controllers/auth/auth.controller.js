@@ -29,9 +29,25 @@ class AuthController {
             const result = await authService.login(identifier || username, password);
             res.status(200).json(result);
         } catch (error) {
-            res.status(401).json({
+            let errorCode = 'LOGIN_FAILED';
+            let statusCode = 401;
+            
+            // Xác định errorCode cụ thể
+            if (error.message.includes('không tồn tại')) {
+                errorCode = 'ACCOUNT_NOT_FOUND';
+            } else if (error.message.includes('đã bị khóa')) {
+                errorCode = 'ACCOUNT_INACTIVE';
+            } else if (error.message.includes('không chính xác')) {
+                errorCode = 'INVALID_PASSWORD';
+            } else if (error.message.includes('Lỗi đăng nhập')) {
+                errorCode = 'SYSTEM_ERROR';
+                statusCode = 500;
+            }
+            
+            res.status(statusCode).json({
                 success: false,
-                message: error.message
+                message: error.message,
+                errorCode: errorCode
             });
         }
     }

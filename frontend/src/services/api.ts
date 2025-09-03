@@ -30,9 +30,12 @@ api.interceptors.response.use(
     return response;
   },
   (error) => {
-    if (error.response && error.response.status === 401) {
+    // Chỉ xử lý 401 khi đã có token (tức là user đã đăng nhập trước đó)
+    if (error.response && error.response.status === 401 && localStorage.getItem('token')) {
       // Token hết hạn hoặc không hợp lệ
-      authService.logout();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('role');
       window.location.href = '/login';
     }
     return Promise.reject(error);
@@ -251,6 +254,19 @@ export const userService = {
       return response.data;
     } catch (error: any) {
       console.error('Create user error:', error);
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
+
+  updateUser: async (userId: number, userData: any): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.put(`/users/${userId}`, userData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update user error:', error);
       if (error.response && error.response.data) {
         return error.response.data;
       }

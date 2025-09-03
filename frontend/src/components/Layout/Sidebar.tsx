@@ -1,111 +1,257 @@
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useLocation } from 'react-router-dom';
 import { authService } from '../../services/api';
 
+// Interface cho menu item
+interface MenuItem {
+  id: string;
+  name: string;
+  path: string;
+  icon: string;
+  children?: MenuItem[];
+}
+
+// Interface cho menu configuration
+interface MenuConfig {
+  [key: string]: MenuItem[];
+}
+
 const Sidebar: React.FC = () => {
-  const userRole = authService.getUserRole();
+  const userRole = authService.getUserRole() || 'student'; // Default to student if no role
+  const location = useLocation();
+  
+  const [expandedMenus, setExpandedMenus] = useState<Set<string>>(new Set(['rooms'])); // Mặc định mở menu rooms
+
+  const toggleMenu = (menuKey: string) => {
+    const newExpandedMenus = new Set(expandedMenus);
+    if (newExpandedMenus.has(menuKey)) {
+      newExpandedMenus.delete(menuKey);
+    } else {
+      newExpandedMenus.add(menuKey);
+    }
+    setExpandedMenus(newExpandedMenus);
+  };
+
+  const isMenuExpanded = (menuKey: string) => expandedMenus.has(menuKey);
+
+  // Cấu hình menu động theo role
+  const menuConfig: MenuConfig = {
+    admin: [
+      {
+        id: 'dashboard',
+        name: 'Trang chủ',
+        path: '/dashboard',
+        icon: 'fas fa-home'
+      },
+      {
+        id: 'users',
+        name: 'Quản lý người dùng',
+        path: '/users',
+        icon: 'fas fa-users'
+      },
+      {
+        id: 'rooms',
+        name: 'Quản lý phòng học',
+        path: '/rooms',
+        icon: 'fas fa-door-open',
+        children: [
+          { id: 'all', name: 'Danh sách phòng', path: '/rooms', icon: 'fas fa-list' },
+          { id: 'available', name: 'Phòng trống', path: '/rooms/available', icon: 'fas fa-check-circle' },
+          { id: 'inUse', name: 'Phòng đang sử dụng', path: '/rooms/in-use', icon: 'fas fa-clock' },
+          { id: 'maintenance', name: 'Phòng bảo trì', path: '/rooms/maintenance', icon: 'fas fa-tools' },
+          { id: 'requests', name: 'Yêu cầu đổi/xin phòng', path: '/rooms/requests', icon: 'fas fa-exchange-alt' },
+          { id: 'statistics', name: 'Thống kê phòng', path: '/rooms/statistics', icon: 'fas fa-chart-bar' }
+        ]
+      },
+      {
+        id: 'schedules',
+        name: 'Quản lý lịch học',
+        path: '/schedules',
+        icon: 'fas fa-calendar-alt'
+      }
+    ],
+    teacher: [
+      {
+        id: 'dashboard',
+        name: 'Trang chủ',
+        path: '/dashboard',
+        icon: 'fas fa-home'
+      },
+      {
+        id: 'schedule',
+        name: 'Lịch dạy',
+        path: '/schedule',
+        icon: 'fas fa-calendar-alt'
+      },
+      {
+        id: 'room-requests',
+        name: 'Yêu cầu đổi phòng',
+        path: '/room-requests',
+        icon: 'fas fa-exchange-alt'
+      },
+      {
+        id: 'profile',
+        name: 'Thông tin cá nhân',
+        path: '/profile',
+        icon: 'fas fa-user'
+      }
+    ],
+    student: [
+      {
+        id: 'dashboard',
+        name: 'Trang chủ',
+        path: '/dashboard',
+        icon: 'fas fa-home'
+      },
+      {
+        id: 'schedule',
+        name: 'Lịch học',
+        path: '/schedule',
+        icon: 'fas fa-calendar-alt'
+      },
+      {
+        id: 'profile',
+        name: 'Thông tin cá nhân',
+        path: '/profile',
+        icon: 'fas fa-user'
+      }
+    ]
+  };
+
+  // Render menu item với children
+  const renderMenuItem = (item: MenuItem): JSX.Element => {
+    const isActive = location.pathname === item.path;
+    const hasChildren = item.children && item.children.length > 0;
+
+    if (hasChildren) {
+      return (
+        <li key={item.id} style={{ margin: 0 }}>
+          <div 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              padding: '12px 20px',
+              color: '#bdc3c7',
+              textDecoration: 'none',
+              transition: 'all 0.3s ease',
+              borderBottom: '1px solid #34495e',
+              cursor: 'pointer',
+              justifyContent: 'space-between'
+            }}
+            onClick={() => toggleMenu(item.id)}
+          >
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <i className={item.icon} style={{ marginRight: '10px', width: '20px', textAlign: 'center' as const }}></i>
+              <span style={{ flex: 1 }}>{item.name}</span>
+            </div>
+            <i 
+              className={`fas fa-chevron-${isMenuExpanded(item.id) ? 'up' : 'down'}`}
+              style={{ fontSize: '12px' }}
+            ></i>
+          </div>
+          {isMenuExpanded(item.id) && (
+            <div style={{ 
+              backgroundColor: '#34495e', 
+              borderLeft: '3px solid #3498db', 
+              padding: 0 
+            }}>
+              {item.children!.map((subItem) => {
+                const isSubActive = location.pathname === subItem.path;
+                return (
+                  <Link
+                    key={subItem.id}
+                    to={subItem.path}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      padding: '12px 20px',
+                      color: isSubActive ? '#fff' : '#bdc3c7',
+                      textDecoration: 'none',
+                      transition: 'all 0.3s ease',
+                      borderBottom: '1px solid #34495e',
+                      paddingLeft: '50px',
+                      fontSize: '14px',
+                      backgroundColor: isSubActive ? '#3498db' : '#34495e',
+                      borderLeft: '3px solid #3498db'
+                    }}
+                  >
+                    <i className={subItem.icon} style={{ width: '16px', marginRight: '8px' }}></i>
+                    <span>{subItem.name}</span>
+                  </Link>
+                );
+              })}
+            </div>
+          )}
+        </li>
+      );
+    }
+
+    return (
+      <li key={item.id} style={{ margin: 0 }}>
+        <Link 
+          to={item.path} 
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            padding: '12px 20px',
+            color: isActive ? '#fff' : '#bdc3c7',
+            textDecoration: 'none',
+            transition: 'all 0.3s ease',
+            borderBottom: '1px solid #34495e',
+            backgroundColor: isActive ? '#3498db' : 'transparent'
+          }}
+        >
+          <i className={item.icon} style={{ marginRight: '10px', width: '20px', textAlign: 'center' as const }}></i>
+          <span style={{ flex: 1 }}>{item.name}</span>
+        </Link>
+      </li>
+    );
+  };
 
   const renderMenuItems = (): JSX.Element | null => {
-    switch (userRole) {
-      case 'admin':
-        return (
-          <>
-            <li>
-              <Link to="/dashboard" className="nav-link">
-                <i className="fas fa-home"></i>
-                <span>Trang chủ</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/users" className="nav-link">
-                <i className="fas fa-users"></i>
-                <span>Quản lý người dùng</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/rooms" className="nav-link">
-                <i className="fas fa-door-open"></i>
-                <span>Quản lý phòng học</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/subjects" className="nav-link">
-                <i className="fas fa-book"></i>
-                <span>Quản lý môn học</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/schedules" className="nav-link">
-                <i className="fas fa-calendar-alt"></i>
-                <span>Quản lý lịch học</span>
-              </Link>
-            </li>
-          </>
-        );
-      case 'teacher':
-        return (
-          <>
-            <li>
-              <Link to="/dashboard" className="nav-link">
-                <i className="fas fa-home"></i>
-                <span>Trang chủ</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/schedule" className="nav-link">
-                <i className="fas fa-calendar-alt"></i>
-                <span>Lịch dạy</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/room-requests" className="nav-link">
-                <i className="fas fa-exchange-alt"></i>
-                <span>Yêu cầu đổi phòng</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/profile" className="nav-link">
-                <i className="fas fa-user"></i>
-                <span>Thông tin cá nhân</span>
-              </Link>
-            </li>
-          </>
-        );
-      case 'student':
-        return (
-          <>
-            <li>
-              <Link to="/dashboard" className="nav-link">
-                <i className="fas fa-home"></i>
-                <span>Trang chủ</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/schedule" className="nav-link">
-                <i className="fas fa-calendar-alt"></i>
-                <span>Lịch học</span>
-              </Link>
-            </li>
-            <li>
-              <Link to="/profile" className="nav-link">
-                <i className="fas fa-user"></i>
-                <span>Thông tin cá nhân</span>
-              </Link>
-            </li>
-          </>
-        );
-      default:
-        return null;
+    const currentMenu = menuConfig[userRole as keyof MenuConfig];
+    
+    if (!currentMenu) {
+      console.log('No menu found for role:', userRole);
+      return null;
     }
+
+    console.log('Rendering menu for role:', userRole, 'with items:', currentMenu);
+
+    return (
+      <>
+        {currentMenu.map((item: MenuItem) => renderMenuItem(item))}
+      </>
+    );
   };
 
   return (
-    <div className="sidebar">
-      <div className="sidebar-header">
-        <h3>Quản lý phòng học</h3>
+    <div style={{
+      width: '250px',
+      backgroundColor: '#2C3E50',
+      color: '#fff',
+      height: '100%',
+      overflowY: 'auto' as const,
+      boxShadow: '2px 0 5px rgba(0, 0, 0, 0.1)'
+    }}>
+      <div style={{
+        padding: '20px',
+        borderBottom: '1px solid #34495e',
+        textAlign: 'center' as const
+      }}>
+        <h3 style={{
+          margin: 0,
+          color: '#fff',
+          fontSize: '18px',
+          fontWeight: 600
+        }}>Quản lý phòng học</h3>
       </div>
       <nav>
-        <ul className="sidebar-menu">
+        <ul style={{
+          listStyle: 'none',
+          padding: 0,
+          margin: 0
+        }}>
           {renderMenuItems()}
         </ul>
       </nav>
