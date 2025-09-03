@@ -66,6 +66,20 @@ class UserController {
             });
         }
     }
+
+    async update(req, res) {
+        try {
+            const { userId } = req.params;
+            const updateData = req.body;
+            const result = await userService.updateUser(parseInt(userId), updateData);
+            return res.status(200).json({ success: true, data: result });
+        } catch (error) {
+            return res.status(400).json({ 
+                success: false, 
+                message: error.message 
+            });
+        }
+    }
 }
 
 module.exports = new UserController();

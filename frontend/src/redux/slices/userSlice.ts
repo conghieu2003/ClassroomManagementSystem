@@ -1,5 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { userService } from '../../services/api';
+import { User } from '../../types';
 
 export interface OptionItem { id: number; name: string }
 
@@ -31,6 +32,10 @@ export interface UserState {
     enrollmentDate: string;
     title?: string;
   };
+  // User management state
+  users: User[];
+  usersLoading: boolean;
+  usersError: string | null;
   isLoading: boolean;
   error: string | null;
 }
@@ -48,6 +53,10 @@ const initialState: UserState = {
     enrollmentDate: '',
     title: ''
   },
+  // User management state
+  users: [],
+  usersLoading: false,
+  usersError: null,
   isLoading: false,
   error: null
 };
@@ -112,11 +121,42 @@ export const createUserThunk = createAsyncThunk(
   }
 );
 
+export const fetchUsersThunk = createAsyncThunk(
+  'user/fetchUsers',
+  async (params: { role?: 'admin' | 'teacher' | 'student' | 'all'; username?: string }, { rejectWithValue }) => {
+    try {
+      const res = await userService.listUsers(params.role, params.username);
+      if (!res.success) {
+        return rejectWithValue(res.message || 'Không thể tải danh sách người dùng');
+      }
+      return res.data || [];
+    } catch (err: any) {
+      return rejectWithValue(err?.message || 'Không thể tải danh sách người dùng');
+    }
+  }
+);
+
+export const updateUserThunk = createAsyncThunk(
+  'user/update',
+  async (params: { userId: number; userData: any }, { rejectWithValue }) => {
+    try {
+      const res = await userService.updateUser(params.userId, params.userData);
+      if (!res.success) {
+        return rejectWithValue(res.message || 'Cập nhật người dùng thất bại');
+      }
+      return { userId: params.userId, userData: params.userData };
+    } catch (err: any) {
+      return rejectWithValue(err?.message || 'Cập nhật người dùng thất bại');
+    }
+  }
+);
+
 const userSlice = createSlice({
   name: 'user',
   initialState,
   reducers: {
     clearUserError: (state) => { state.error = null; },
+    clearUsersError: (state) => { state.usersError = null; },
   },
   extraReducers: (builder) => {
     builder
@@ -153,11 +193,30 @@ const userSlice = createSlice({
       })
       .addCase(fetchMajors.fulfilled, (state, action: PayloadAction<OptionItem[]>) => {
         state.majors = action.payload;
+      })
+      // User management cases
+      .addCase(fetchUsersThunk.pending, (state) => {
+        state.usersLoading = true;
+        state.usersError = null;
+      })
+      .addCase(fetchUsersThunk.fulfilled, (state, action: PayloadAction<User[]>) => {
+        state.usersLoading = false;
+        state.users = action.payload;
+      })
+      .addCase(fetchUsersThunk.rejected, (state, action) => {
+        state.usersLoading = false;
+        state.usersError = action.payload as string;
+      })
+      .addCase(updateUserThunk.fulfilled, (state, action) => {
+        const { userId, userData } = action.payload;
+        state.users = state.users.map(user =>
+          user.id === userId ? { ...user, ...userData } : user
+        );
       });
   }
 });
 
-export const { clearUserError } = userSlice.actions;
+export const { clearUserError, clearUsersError } = userSlice.actions;
 
 export default userSlice.reducer;
 

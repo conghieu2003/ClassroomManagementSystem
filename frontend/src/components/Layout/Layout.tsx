@@ -3,6 +3,7 @@ import { Outlet, useNavigate } from 'react-router-dom';
 import { authService } from '../../services/api';
 import { TextBox } from 'devextreme-react/text-box';
 import { User } from '../../types';
+import Sidebar from './Sidebar';
 import 'devextreme/dist/css/dx.light.css';
 
 interface MenuItem {
@@ -52,48 +53,6 @@ const Layout: React.FC = () => {
       default:
         break;
     }
-  };
-
-  const getMenuItems = (): MenuItem[] => {
-    const commonItems: MenuItem[] = [{
-      id: 'home',
-      text: 'Trang chủ',
-      icon: 'home',
-      path: '/dashboard'
-    }, {
-      id: 'schedule',
-      text: 'Lịch học/thi',
-      icon: 'event',
-      path: '/schedule'
-    }];
-
-    const roleSpecificItems: Record<string, MenuItem[]> = {
-      admin: [{
-        id: 'rooms',
-        text: 'Quản lý phòng học',
-        icon: 'fas fa-door-open',
-        path: '/rooms'
-      }, {
-        id: 'users',
-        text: 'Quản lý người dùng',
-        icon: 'fas fa-users',
-        path: '/users'
-      }, {
-        id: 'subjects',
-        text: 'Quản lý môn học',
-        icon: 'fas fa-book',
-        path: '/subjects'
-      }],
-      teacher: [{
-        id: 'room-requests',
-        text: 'Yêu cầu đổi phòng',
-        icon: 'fas fa-exchange-alt',
-        path: '/room-requests'
-      }],
-      student: []
-    };
-
-    return [...commonItems, ...(roleSpecificItems[userRole || ''] || [])];
   };
 
   return (
@@ -232,33 +191,7 @@ const Layout: React.FC = () => {
 
       <div style={{ display: 'flex', flex: 1, backgroundColor: '#f5f5f5' }}>
         {/* Sidebar */}
-        <div style={{
-          width: '250px',
-          backgroundColor: '#2C3E50',
-          color: '#fff',
-          padding: '20px 0'
-        }}>
-          <div style={{ display: 'flex', flexDirection: 'column' }}>
-            {getMenuItems().map((item) => (
-              <div
-                key={item.id}
-                onClick={() => navigate(item.path)}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '12px 20px',
-                  color: '#fff',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.3s'
-                }}
-              >
-                <i className={item.icon}></i>
-                <span>{item.text}</span>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Sidebar />
 
         {/* Main Content */}
         <div style={{

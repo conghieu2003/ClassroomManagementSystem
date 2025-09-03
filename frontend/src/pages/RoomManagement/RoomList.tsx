@@ -10,7 +10,6 @@ interface Filters {
 }
 
 interface ExtendedRoom extends Room {
-  status?: 'available' | 'in-use' | 'maintenance';
   location?: string;
 }
 
@@ -83,7 +82,7 @@ const RoomList: React.FC = () => {
         >
           <option value="all">Tất cả trạng thái</option>
           <option value="available">Trống</option>
-          <option value="in-use">Đang sử dụng</option>
+          <option value="inUse">Đang sử dụng</option>
           <option value="maintenance">Bảo trì</option>
         </select>
 
@@ -117,7 +116,7 @@ const RoomList: React.FC = () => {
               <h3>{room.name}</h3>
               <span className={`status-badge ${room.status}`}>
                 {room.status === 'available' && 'Trống'}
-                {room.status === 'in-use' && 'Đang sử dụng'}
+                {room.status === 'inUse' && 'Đang sử dụng'}
                 {room.status === 'maintenance' && 'Bảo trì'}
               </span>
             </div>

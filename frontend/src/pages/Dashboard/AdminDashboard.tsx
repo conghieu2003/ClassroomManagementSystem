@@ -115,7 +115,7 @@ const AdminDashboard: React.FC = () => {
 
   const filteredRooms = (): Room[] => {
     if (filterValue === 'all') return rooms;
-    return rooms.filter(room => room.isAvailable === (filterValue === 'available'));
+    return rooms.filter(room => room.status === filterValue);
   };
 
   const StatCard: React.FC<StatCardProps> = ({ title, value, color }) => (

@@ -5,12 +5,23 @@ const emailService = require('./email.service');
 function mapAccountRow(account) {
     const academicProfile = account.user?.academicProfile;
     
+    // Debug log để kiểm tra dữ liệu
+    console.log('=== DEBUG: Account data ===');
+    console.log('Account ID:', account.id);
+    console.log('User ID:', account.user?.id);
+    console.log('User phone:', account.user?.phone);
+    console.log('User fullName:', account.user?.fullName);
+    console.log('Teacher code:', account.user?.teacher?.teacherCode);
+    console.log('Student code:', account.user?.student?.studentCode);
+    console.log('========================');
+    
     return {
         id: account.user?.id || null,
         accountId: account.id,
         username: account.username,
         fullName: account.user?.fullName || '',
         email: account.user?.email || '',
+        phone: account.user?.phone || null,  // Thêm field phone
         role: account.role,
         status: account.isActive ? 'active' : 'inactive',
         teacherCode: account.user?.teacher?.teacherCode || null,
@@ -353,6 +364,40 @@ class UserService {
             };
         } catch (error) {
             throw new Error(`Lỗi lấy thông tin user: ${error.message}`);
+        }
+    }
+
+    async updateUser(userId, updateData) {
+        try {
+            const { phone, isActive } = updateData;
+            
+            // Cập nhật thông tin user
+            if (phone !== undefined) {
+                await prisma.user.update({
+                    where: { id: userId },
+                    data: { phone }
+                });
+            }
+            
+            // Cập nhật trạng thái account
+            if (isActive !== undefined) {
+                const user = await prisma.user.findUnique({
+                    where: { id: userId },
+                    select: { accountId: true }
+                });
+                
+                if (user) {
+                    await prisma.account.update({
+                        where: { id: user.accountId },
+                        data: { isActive }
+                    });
+                }
+            }
+            
+            // Lấy thông tin user đã cập nhật
+            return await this.getUserById(userId);
+        } catch (error) {
+            throw new Error(`Lỗi cập nhật user: ${error.message}`);
         }
     }
 }
