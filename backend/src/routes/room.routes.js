@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const roomController = require('../controllers/room.controller');
-const { authorize } = require('../middleware/auth');
+const { authorize } = require('../middleware/auth.middleware');
 
 // Lấy danh sách tất cả phòng học
 router.get('/', authorize(['admin', 'teacher', 'student']), roomController.getAllRooms);

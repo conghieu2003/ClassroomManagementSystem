@@ -1,8 +1,6 @@
 const jwt = require('jsonwebtoken');
-const { PrismaClient } = require('@prisma/client');
 const bcryptConfig = require('../config/bcrypt.config');
-
-const prisma = new PrismaClient();
+const prisma = require('../config/db.config');
 
 class AuthService {
     async register(userData) {
@@ -161,6 +159,14 @@ class AuthService {
                 process.env.JWT_SECRET || 'classroom_management_secret_key',
                 { expiresIn: '24h' }
             );
+
+            // Debug: Log account data
+            console.log('Account data:', JSON.stringify(account, null, 2));
+
+            // Kiểm tra account.user có tồn tại không
+            if (!account.user) {
+                throw new Error('Thông tin người dùng không tồn tại');
+            }
 
             return {
                 success: true,

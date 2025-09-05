@@ -24,19 +24,19 @@ services:
       test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P 'Ach0101@' -C -Q 'SELECT 1' || exit 1"]
       interval: 30s
       timeout: 10s
-      retries: 5
-      start_period: 120s
+      retries: 10
+      start_period: 180s
 
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: classroom_backend
-    env_file:
-      - ./backend/.env
     environment:
-      - DB_HOST=host.docker.internal
-      - DATABASE_URL=sqlserver://host.docker.internal:1433;database=ClassroomManagement;user=sa;password=Ach0101@;encrypt=false;trustServerCertificate=true;connection_limit=20;pool_timeout=0
+      - PORT=5000
+      - CORS_ORIGIN=http://localhost:3000
+      - JWT_SECRET=classroom_management_secret_key
+      - DATABASE_URL=sqlserver://sqlserver:1433;database=ClassroomManagement;user=sa;password=Ach0101@;encrypt=false;trustServerCertificate=true;connection_limit=20;pool_timeout=0
     ports:
       - "5000:5000"
     depends_on:
@@ -47,12 +47,6 @@ services:
       - classroom_network
     volumes:
       - ./backend/logs:/app/logs
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
 
 networks:
   classroom_network:

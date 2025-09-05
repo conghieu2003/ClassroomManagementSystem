@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { AppDispatch, RootState } from '../../redux/store';
@@ -18,22 +18,22 @@ const Login: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { isLoading, error, isAuthenticated } = useSelector((state: RootState) => state.auth);
-  
+
   const [selectedRole, setSelectedRole] = useState<string>('student');
   const [loginData, setLoginData] = useState<LoginData>({
     username: '',
     password: ''
   });
-  
+
   // State để track lỗi validation
   const [loginErrors, setLoginErrors] = useState<{
     username?: string;
     password?: string;
   }>({});
-  
-  // Refs để focus vào trường bị lỗi
-  const usernameRef = useRef<any>(null);
-  const passwordRef = useRef<any>(null);
+
+  // Refs để focus vào trường bị lỗi - DevExtreme TextBox không hỗ trợ focus() trực tiếp
+  // const usernameRef = useRef<any>(null);
+  // const passwordRef = useRef<any>(null);
 
   // Rive animations - fallback to simple divs if animations fail to load
   const { RiveComponent: LoginAnimation, rive: loginRive } = useRive({
@@ -83,47 +83,49 @@ const Login: React.FC = () => {
 
   const handleLogin = async (e?: React.FormEvent): Promise<void> => {
     if (e) e.preventDefault();
-    
+
     // Reset errors
     setLoginErrors({});
     dispatch(clearErrors());
-    
+
     // Kiểm tra dữ liệu nhập và focus vào trường bị lỗi
     if (!loginData.username.trim()) {
       setLoginErrors({ username: 'Vui lòng nhập tên đăng nhập' });
-      setTimeout(() => usernameRef.current?.focus(), 100);
+      // DevExtreme TextBox không hỗ trợ focus() trực tiếp
+      // setTimeout(() => usernameRef.current?.focus(), 100);
       return;
     }
-    
+
     if (!loginData.password.trim()) {
       setLoginErrors({ password: 'Vui lòng nhập mật khẩu' });
-      setTimeout(() => passwordRef.current?.focus(), 100);
+      // DevExtreme TextBox không hỗ trợ focus() trực tiếp
+      // setTimeout(() => passwordRef.current?.focus(), 100);
       return;
     }
 
     try {
       // Sử dụng Redux thunk action
-      await dispatch(login({ 
-        username: loginData.username, 
-        password: loginData.password 
+      await dispatch(login({
+        username: loginData.username,
+        password: loginData.password
       })).unwrap();
-      
+
       // Trigger success animation
       if (loginRive) {
         loginRive.play('Success');
       }
       notify('Đăng nhập thành công', 'success', 2000);
       setTimeout(() => navigate('/dashboard'), 1500);
-      
+
     } catch (error: any) {
       let errorMessage = 'Đăng nhập thất bại';
       let focusField: 'username' | 'password' | null = null;
-      
+
       // Trigger error animation
       if (loginRive) {
         loginRive.play('Error');
       }
-      
+
       // Xử lý lỗi từ Redux
       if (error && typeof error === 'string') {
         if (error.includes('không chính xác')) {
@@ -142,15 +144,15 @@ const Login: React.FC = () => {
           errorMessage = error;
         }
       }
-      
+
       notify(errorMessage, 'error', 3000);
-      
-      // Focus vào trường bị lỗi
-      if (focusField === 'username') {
-        setTimeout(() => usernameRef.current?.focus(), 100);
-      } else if (focusField === 'password') {
-        setTimeout(() => passwordRef.current?.focus(), 100);
-      }
+
+      // Focus vào trường bị lỗi - DevExtreme TextBox không hỗ trợ focus() trực tiếp
+      // if (focusField === 'username') {
+      //   setTimeout(() => usernameRef.current?.focus(), 100);
+      // } else if (focusField === 'password') {
+      //   setTimeout(() => passwordRef.current?.focus(), 100);
+      // }
     }
   };
 
@@ -236,21 +238,21 @@ const Login: React.FC = () => {
             justifyContent: 'center',
             boxShadow: '0 10px 30px rgba(102, 126, 234, 0.4)'
           }}>
-            <i className="fas fa-graduation-cap" style={{ 
-              fontSize: '32px', 
-              color: '#fff' 
+            <i className="fas fa-graduation-cap" style={{
+              fontSize: '32px',
+              color: '#fff'
             }}></i>
           </div>
-          <h1 style={{ 
-            fontSize: '28px', 
+          <h1 style={{
+            fontSize: '28px',
             marginBottom: '8px',
             color: '#fff',
             fontWeight: '600'
           }}>
             Hệ thống Quản lý Phòng học
           </h1>
-          <p style={{ 
-            fontSize: '14px', 
+          <p style={{
+            fontSize: '14px',
             color: 'rgba(255, 255, 255, 0.7)',
             margin: 0
           }}>
@@ -259,10 +261,10 @@ const Login: React.FC = () => {
         </div>
 
         {/* Role Selection */}
-        <div style={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          gap: '12px', 
+        <div style={{
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '12px',
           marginBottom: '32px'
         }}>
           {['student', 'teacher', 'admin'].map((role) => (
@@ -276,8 +278,8 @@ const Login: React.FC = () => {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
-                background: selectedRole === role 
-                  ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' 
+                background: selectedRole === role
+                  ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
                   : 'rgba(255, 255, 255, 0.1)',
                 color: selectedRole === role ? '#fff' : 'rgba(255, 255, 255, 0.8)',
                 border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -287,8 +289,8 @@ const Login: React.FC = () => {
                 minWidth: '80px'
               }}
             >
-              <i className={`fas fa-${role === 'student' ? 'user-graduate' : role === 'teacher' ? 'chalkboard-teacher' : 'user-shield'}`} 
-                 style={{ fontSize: '18px' }}></i>
+              <i className={`fas fa-${role === 'student' ? 'user-graduate' : role === 'teacher' ? 'chalkboard-teacher' : 'user-shield'}`}
+                style={{ fontSize: '18px' }}></i>
               <span style={{ fontSize: '12px', fontWeight: '500' }}>
                 {role === 'student' ? 'Sinh viên' : role === 'teacher' ? 'Giảng viên' : 'Admin'}
               </span>
@@ -300,14 +302,13 @@ const Login: React.FC = () => {
         <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); }} style={{ width: '100%' }}>
           <div style={{ marginBottom: '20px' }}>
             <TextBox
-              ref={usernameRef}
               stylingMode="filled"
               placeholder={selectedRole === 'student' ? 'Mã số sinh viên' : selectedRole === 'teacher' ? 'Mã giảng viên' : 'Tên đăng nhập'}
               value={loginData.username}
               onValueChanged={(e: any) => {
-                setLoginData({...loginData, username: e.value});
+                setLoginData({ ...loginData, username: e.value });
                 if (loginErrors.username) {
-                  setLoginErrors({...loginErrors, username: undefined});
+                  setLoginErrors({ ...loginErrors, username: undefined });
                 }
               }}
               onKeyDown={(e: any) => {
@@ -326,9 +327,9 @@ const Login: React.FC = () => {
               }}
             />
             {loginErrors.username && (
-              <div style={{ 
-                color: '#ff6b6b', 
-                fontSize: '12px', 
+              <div style={{
+                color: '#ff6b6b',
+                fontSize: '12px',
                 marginTop: '6px',
                 textAlign: 'left'
               }}>
@@ -336,18 +337,17 @@ const Login: React.FC = () => {
               </div>
             )}
           </div>
-          
+
           <div style={{ marginBottom: '24px' }}>
             <TextBox
-              ref={passwordRef}
               stylingMode="filled"
               mode="password"
               placeholder="Mật khẩu"
               value={loginData.password}
               onValueChanged={(e: any) => {
-                setLoginData({...loginData, password: e.value});
+                setLoginData({ ...loginData, password: e.value });
                 if (loginErrors.password) {
-                  setLoginErrors({...loginErrors, password: undefined});
+                  setLoginErrors({ ...loginErrors, password: undefined });
                 }
               }}
               onKeyDown={(e: any) => {
@@ -366,9 +366,9 @@ const Login: React.FC = () => {
               }}
             />
             {loginErrors.password && (
-              <div style={{ 
-                color: '#ff6b6b', 
-                fontSize: '12px', 
+              <div style={{
+                color: '#ff6b6b',
+                fontSize: '12px',
                 marginTop: '6px',
                 textAlign: 'left'
               }}>
@@ -379,14 +379,14 @@ const Login: React.FC = () => {
 
           {/* Forgot Password */}
           <div style={{ textAlign: 'center', marginBottom: '24px' }}>
-            <button 
+            <button
               type="button"
               onClick={() => notify('Tính năng quên mật khẩu đang được phát triển', 'info', 3000)}
-              style={{ 
-                background: 'none', 
-                border: 'none', 
-                color: 'rgba(255, 255, 255, 0.7)', 
-                fontSize: '14px', 
+              style={{
+                background: 'none',
+                border: 'none',
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontSize: '14px',
                 cursor: 'pointer',
                 textDecoration: 'underline',
                 transition: 'color 0.3s ease'
