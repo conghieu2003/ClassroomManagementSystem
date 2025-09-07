@@ -56,11 +56,9 @@ const Sidebar: React.FC = () => {
         icon: 'fas fa-door-open',
         children: [
           { id: 'all', name: 'Danh sách phòng', path: '/rooms', icon: 'fas fa-list' },
-          { id: 'available', name: 'Phòng trống', path: '/rooms/available', icon: 'fas fa-check-circle' },
-          { id: 'inUse', name: 'Phòng đang sử dụng', path: '/rooms/in-use', icon: 'fas fa-clock' },
-          { id: 'maintenance', name: 'Phòng bảo trì', path: '/rooms/maintenance', icon: 'fas fa-tools' },
-          { id: 'requests', name: 'Yêu cầu đổi/xin phòng', path: '/rooms/requests', icon: 'fas fa-exchange-alt' },
-          { id: 'statistics', name: 'Thống kê phòng', path: '/rooms/statistics', icon: 'fas fa-chart-bar' }
+          { id: 'request-form', name: 'Yêu cầu xin/đổi phòng', path: '/rooms/requests', icon: 'fas fa-exchange-alt' },
+          { id: 'request-list', name: 'Danh sách yêu cầu', path: '/rooms/requests/list', icon: 'fas fa-clipboard-list' },
+          { id: 'room-scheduling', name: 'Sắp xếp phòng học', path: '/rooms/scheduling', icon: 'fas fa-calendar-check' }
         ]
       },
       {
@@ -216,8 +214,6 @@ const Sidebar: React.FC = () => {
       return null;
     }
 
-    console.log('Rendering menu for role:', userRole, 'with items:', currentMenu);
-
     return (
       <>
         {currentMenu.map((item: MenuItem) => renderMenuItem(item))}
@@ -228,11 +224,15 @@ const Sidebar: React.FC = () => {
   return (
     <div style={{
       width: '250px',
+      minWidth: '250px',
+      maxWidth: '250px',
       backgroundColor: '#2C3E50',
       color: '#fff',
       height: '100%',
       overflowY: 'auto' as const,
-      boxShadow: '2px 0 5px rgba(0, 0, 0, 0.1)'
+      boxShadow: '2px 0 5px rgba(0, 0, 0, 0.1)',
+      flexShrink: 0, // Không cho phép co lại
+      position: 'relative' // Cố định vị trí
     }}>
       <div style={{
         padding: '20px',

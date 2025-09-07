@@ -1,15 +1,55 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { DataGrid } from 'devextreme-react/data-grid';
-import { LoadPanel } from 'devextreme-react/load-panel';
-import { Button } from 'devextreme-react/button';
-import { SelectBox } from 'devextreme-react/select-box';
-import { Popup } from 'devextreme-react/popup';
-import { TextBox } from 'devextreme-react/text-box';
-import { CheckBox } from 'devextreme-react/check-box';
+import {
+  Box,
+  Typography,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Switch,
+  FormControlLabel,
+  CircularProgress,
+  Alert,
+  Tooltip,
+  Paper,
+  Stack
+} from '@mui/material';
+import {
+  DataGrid,
+  GridColDef,
+  GridFilterModel,
+  GridSortModel,
+  GridToolbar,
+  GridActionsCellItem,
+  GridRowParams,
+  useGridApiRef
+} from '@mui/x-data-grid';
+import {
+  Add as AddIcon,
+  Edit as EditIcon,
+  Email as EmailIcon,
+  Refresh as RefreshIcon,
+  Person as PersonIcon,
+  School as SchoolIcon,
+  PersonAdd as PersonAddIcon,
+  TrendingUp as TrendingUpIcon,
+  FileDownload as FileDownloadIcon,
+} from '@mui/icons-material';
+import dayjs from 'dayjs';
 import { User } from '../../types';
-import { fetchUsersThunk, updateUserThunk, clearUsersError } from '../../redux/slices/userSlice';
+import { fetchUsersThunk, updateUserThunk } from '../../redux/slices/userSlice';
 import { RootState, AppDispatch } from '../../redux/store';
 
 interface RoleOption {
@@ -17,14 +57,19 @@ interface RoleOption {
   text: string;
 }
 
-const UserManagement: React.FC = () => {
+const UserManagement = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const { users, usersLoading, usersError } = useSelector((state: RootState) => state.user);
   const [filterRole, setFilterRole] = useState<string>('all');
-  const [editPopupVisible, setEditPopupVisible] = useState<boolean>(false);
+  const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
+  const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
+  const [sortModel, setSortModel] = useState<GridSortModel>([]);
+  const [isFiltering, setIsFiltering] = useState(false);
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+  const dataGridRef = useGridApiRef();
 
   const roleOptions: RoleOption[] = [{
     id: 'all',
@@ -37,15 +82,60 @@ const UserManagement: React.FC = () => {
     text: 'Sinh viên'
   }];
 
-  useEffect(() => {
-    fetchUsers();
-  }, [filterRole]);
+  // Computed statistics
+  const userStats = useMemo(() => {  
+    const totalUsers = users.length;
+    const students = users.filter(user => user.role === 'student').length;
+    const teachers = users.filter(user => user.role === 'teacher').length;
+    const admins = users.filter(user => user.role === 'admin').length;
+    const activeUsers = users.filter(user => user.status === 'active' || user.isActive).length;
+    const inactiveUsers = totalUsers - activeUsers;
 
-  const fetchUsers = (): void => {
+    return {
+      total: totalUsers,
+      students,
+      teachers,
+      admins,
+      active: activeUsers,
+      inactive: inactiveUsers
+    };
+  }, [users]);
+
+  const fetchUsers = useCallback((role?: string): void => {
+    const roleFilter = role === 'all' || !role ? undefined : (role as any);
+    const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
+    dispatch(fetchUsersThunk({ role: roleFilter, username: currentUser?.username }));
+  }, [dispatch]);
+
+  const handleRoleFilterChange = useCallback((newRole: string) => {
+    setIsFiltering(true);
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+    
+    debounceRef.current = setTimeout(() => {
+      setFilterRole(newRole);
+      fetchUsers(newRole);
+      setIsFiltering(false);
+    }, 500);
+  }, [fetchUsers]);
+
+  // Initial load only
+  useEffect(() => {
     const roleFilter = filterRole === 'all' ? undefined : (filterRole as any);
     const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
     dispatch(fetchUsersThunk({ role: roleFilter, username: currentUser?.username }));
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run once on mount
+
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
 
   const handleEdit = (user: User) => {
     setEditingUser(user);
@@ -53,278 +143,570 @@ const UserManagement: React.FC = () => {
       isActive: user.status === 'active',
       phone: user.phone || ''
     });
-    setEditPopupVisible(true);
+  
+    setEditDialogOpen(true);
   };
 
   const handleSaveEdit = async () => {
     if (!editingUser) return;
     
     try {
-      // Chuyển đổi dữ liệu để phù hợp với backend
       const updateData = {
         phone: editFormData.phone,
         isActive: editFormData.isActive
       };
       
-      // Gọi API để cập nhật user thông qua Redux
+      // Gọi API thông qua slice - slice sẽ tự động cập nhật state
       await dispatch(updateUserThunk({ userId: editingUser.id, userData: updateData }));
       
-      setEditPopupVisible(false);
+      setEditDialogOpen(false);
       setEditingUser(null);
       setEditFormData({});
     } catch (error) {
       console.error('Error updating user:', error);
-      alert('Có lỗi xảy ra khi cập nhật người dùng');
     }
   };
 
   const handleSendEmail = (user: User) => {
-    // Mở email client với thông tin người dùng
     const subject = encodeURIComponent('Thông báo từ hệ thống quản lý lớp học');
     const body = encodeURIComponent(`Xin chào ${user.fullName},\n\nĐây là email được gửi từ hệ thống quản lý lớp học.\n\nTrân trọng,\nBan quản trị`);
     window.open(`mailto:${user.email}?subject=${subject}&body=${body}`);
   };
 
-  const columns = [{
-    dataField: 'username',
-    caption: 'Tên đăng nhập',
-    width: 150
-  }, {
-    dataField: 'fullName',
-    caption: 'Họ và tên',
-    width: 200
-  }, {
-    caption: 'Mã số',
-    width: 120,
-    cellTemplate: (container: any, options: any) => {
-      const user = options.data;
-      
-      let code = 'N/A';
-      if (user.role === 'teacher') {
-        code = user.teacherCode || 'N/A';
-      } else if (user.role === 'student') {
-        code = user.studentCode || 'N/A';
-      } else if (user.role === 'admin') {
-        code = 'ADMIN';
-      }
-      
-      container.textContent = code;
+  const getRoleText = (role: string) => {
+    switch (role) {
+      case 'teacher': return 'Giảng viên';
+      case 'student': return 'Sinh viên';
+      case 'admin': return 'Quản trị viên';
+      default: return role;
     }
-  }, {
-    dataField: 'role',
-    caption: 'Vai trò',
-    width: 120,
-    lookup: {
-      dataSource: [
-        { id: 'teacher', text: 'Giảng viên' },
-        { id: 'student', text: 'Sinh viên' },
-        { id: 'admin', text: 'Quản trị viên' }
-      ],
-      displayExpr: 'text',
-      valueExpr: 'id'
+  };
+
+  const getRoleColor = (role: string) => {
+    switch (role) {
+      case 'teacher': return 'primary';
+      case 'student': return 'secondary';
+      case 'admin': return 'error';
+      default: return 'default';
     }
-  }, {
-    dataField: 'phone',
-    caption: 'Số điện thoại',
-    width: 150,
-    cellRender: (cellData: any) => {
-      return cellData.value || 'N/A';
-    }
-  }, {
-    dataField: 'email',
-    caption: 'Email',
-    width: 200
-  }, {
-    dataField: 'status',
-    caption: 'Trạng thái',
-    width: 120,
-    cellRender: (cellData: any) => {
-      const isActive = cellData.value === 'active';
-      const color = isActive ? '#4caf50' : '#f44336';
-      const text = isActive ? 'Hoạt động' : 'Đã khóa';
-      return (
-        <div style={{
-          backgroundColor: color,
-          color: 'white',
-          padding: '4px 8px',
-          borderRadius: '4px',
-          textAlign: 'center',
-          cursor: 'pointer'
-        }}
-        onClick={() => handleEdit(cellData.data)}
-        title="Click để chỉnh sửa">
-          {text}
-        </div>
-      );
-    }
-  }, {
-    caption: 'Thao tác',
-    width: 200,
-    cellTemplate: (container: any, options: any) => {
-      const user = options.data;
-      
-      const actionsDiv = document.createElement('div');
-      actionsDiv.style.display = 'flex';
-      actionsDiv.style.gap = '8px';
-      
-      const editBtn = document.createElement('button');
-      editBtn.textContent = 'Chỉnh sửa';
-      editBtn.style.padding = '4px 8px';
-      editBtn.style.backgroundColor = '#007bff';
-      editBtn.style.color = 'white';
-      editBtn.style.border = 'none';
-      editBtn.style.borderRadius = '4px';
-      editBtn.style.cursor = 'pointer';
-      editBtn.onclick = () => handleEdit(user);
-      
-      const emailBtn = document.createElement('button');
-      emailBtn.textContent = 'Gửi mail';
-      emailBtn.style.padding = '4px 8px';
-      emailBtn.style.backgroundColor = '#28a745';
-      emailBtn.style.color = 'white';
-      emailBtn.style.border = 'none';
-      emailBtn.style.borderRadius = '4px';
-      emailBtn.style.cursor = 'pointer';
-      emailBtn.onclick = () => handleSendEmail(user);
-      
-      actionsDiv.appendChild(editBtn);
-      actionsDiv.appendChild(emailBtn);
-      container.appendChild(actionsDiv);
-    }
-  }];
+  };
+
 
   const handleRefresh = (): void => {
-    fetchUsers();
-  };  
-  return (
-    <div style={{ padding: '20px' }}>
-      <LoadPanel
-        visible={usersLoading}
-        showIndicator={true}
-        shading={true}
-        showPane={true}
-        shadingColor="rgba(0,0,0,0.4)"
-      />
+    setIsFiltering(true);
+    fetchUsers(filterRole);
+    setTimeout(() => setIsFiltering(false), 500);
+  };
 
-      <div style={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        marginBottom: '20px' 
-      }}>
-        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-          <SelectBox
-            items={roleOptions}
-            value={filterRole}
-            onValueChanged={(e: any) => setFilterRole(e.value)}
-            width={200}
-            displayExpr="text"
-            valueExpr="id"
-          />
-          <Button
-            icon="refresh"
-            onClick={handleRefresh}
-            stylingMode="contained"
-          />
-        </div>
-        <Button
-          text="Thêm người dùng"
-          icon="plus"
-          type="default"
-          stylingMode="contained"
-          onClick={() => navigate('/users/create')}
+  // Sử dụng DataGrid API để export với ref
+  const handleExportData = (): void => {
+    if (dataGridRef.current) {
+      // Sử dụng API của DataGrid để export
+      dataGridRef.current.exportDataAsCsv({
+        fileName: `users_${dayjs().format('YYYY-MM-DD')}`,
+        utf8WithBom: true, // Thêm BOM cho tiếng Việt
+        includeHeaders: true,
+        delimiter: ',',
+        getRowsToExport: () => {
+          // Trả về array của row IDs
+          return users.map(user => user.id);
+        }
+      });
+    }
+  };
+
+
+  // DataGrid columns configuration - Tối ưu width để fill hết table
+  const columns: GridColDef[] = [
+    {
+      field: 'username',
+      headerName: 'ID',
+      width: 100,
+      filterable: true,
+      sortable: true
+    },
+    {
+      field: 'fullName',
+      headerName: 'Họ và tên',
+      width: 180,
+      filterable: true,
+      sortable: true,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PersonIcon color="action" />
+          {params?.value || 'N/A'}
+        </Box>
+      )
+    },
+    {
+      field: 'code',
+      headerName: 'Mã số',
+      width: 100,
+      filterable: true,
+      sortable: true,
+      renderCell: (params: any) => {
+        const user = params?.row;
+        
+        if (!user) return 'N/A';
+        
+        let code = 'N/A';
+        if (user.role === 'teacher') {
+          code = user.teacherCode || 'N/A';
+        } else if (user.role === 'student') {
+          code = user.studentCode || 'N/A';
+        } else if (user.role === 'admin') {
+          code = 'ADMIN';
+        }
+        
+        return code;
+      }
+    },
+    {
+      field: 'role',
+      headerName: 'Vai trò',
+      width: 140,
+      filterable: true,
+      sortable: true,
+      renderCell: (params) => (
+        <Chip 
+          label={getRoleText(params?.value || '')} 
+          color={getRoleColor(params?.value || '') as any}
+          size="small"
         />
-      </div>
+      )
+    },
+    {
+      field: 'phone',
+      headerName: 'Số điện thoại',
+      width: 130,
+      filterable: true,
+      sortable: true,
+      renderCell: (params: any) => {
+        const phone = params?.row?.phone || params?.value;
+        return phone || 'N/A';
+      }
+    },
+    {
+      field: 'email',
+      headerName: 'Email',
+      width: 320,
+      filterable: true,
+      sortable: true
+    },
+    {
+      field: 'status',
+      headerName: 'Trạng thái',
+      width: 120,
+      filterable: true,
+      sortable: true,
+      renderCell: (params) => {
+        if (!params?.row) return <Chip label="N/A" size="small" />;
+        return (
+          <Chip
+            label={params.row.status === 'active' || params.row.isActive ? 'Hoạt động' : 'Đã khóa'}
+            color={params.row.status === 'active' || params.row.isActive ? 'success' : 'error'}
+            size="small"
+            onClick={() => handleEdit(params.row)}
+            sx={{ cursor: 'pointer' }}
+          />
+        );
+      }
+    },
+    {
+      field: 'actions',
+      type: 'actions',
+      headerName: 'Thao tác',
+      width: 120,
+      getActions: (params: GridRowParams) => {
+        if (!params?.row) return [];
+        return [
+          <GridActionsCellItem
+            icon={<EditIcon />}
+            label="Chỉnh sửa"
+            onClick={() => handleEdit(params.row)}
+            color="primary"
+          />,
+          <GridActionsCellItem
+            icon={<EmailIcon />}
+            label="Gửi email"
+            onClick={() => handleSendEmail(params.row)}
+          />
+        ];
+      }
+    }
+  ];
 
-      <DataGrid
-        dataSource={users}
-        columns={columns}
-        showBorders={true}
-        rowAlternationEnabled={true}
-        showColumnLines={true}
-        showRowLines={true}
-        columnAutoWidth={true}
-        wordWrapEnabled={true}
-        height="calc(100vh - 200px)"
-        paging={{
-          pageSize: 10
-        }}
-        pager={{
-          showPageSizeSelector: true,
-          allowedPageSizes: [5, 10, 20],
-          showInfo: true
-        }}
-      />
+  if (usersLoading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
 
-      {/* Edit User Popup */}
-      <Popup
-        visible={editPopupVisible}
-        onHiding={() => {
-          setEditPopupVisible(false);
-          setEditingUser(null);
-          setEditFormData({});
-        }}
-        title="Chỉnh sửa người dùng"
-        width={400}
-        height={300}
-        showTitle={true}
-        dragEnabled={false}
-        closeOnOutsideClick={true}
-      >
-        <div style={{ padding: '20px' }}>
-          {editingUser && (
-            <>
-              <div style={{ marginBottom: '20px' }}>
-                <strong>Người dùng:</strong> {editingUser.fullName}
-              </div>
-              
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', marginBottom: '5px' }}>
-                  Số điện thoại:
-                </label>
-                <TextBox
-                  value={editFormData.phone}
-                  onValueChanged={(e: any) => setEditFormData({
-                    ...editFormData,
-                    phone: e.value
-                  })}
-                  placeholder="Nhập số điện thoại"
-                />
-              </div>
+  return (
+    <Box sx={{ 
+      p: 3,
+      width: '100%',
+      minWidth: '1200px', // Kích thước tối thiểu
+      maxWidth: '100%',
+      overflow: 'hidden',
+      position: 'relative'
+    }}>
+      {usersError && (
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {usersError}
+        </Alert>
+      )}
 
-              <div style={{ marginBottom: '20px' }}>
-                <CheckBox
-                  text="Hoạt động"
-                  value={editFormData.isActive}
-                  onValueChanged={(e: any) => setEditFormData({
-                    ...editFormData,
-                    isActive: e.value
-                  })}
-                />
-              </div>
+        {/* Statistics Cards */}
+      <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: 'repeat(6, 1fr)', 
+          gap: 2, 
+          mb: 3,
+          width: '100%',
+          minWidth: '1200px', // Kích thước tối thiểu
+          maxWidth: '100%',
+          overflow: 'hidden',
+          flexShrink: 0 // Không cho phép co lại
+        }}>
+          <Card sx={{ 
+            height: 120, 
+            minWidth: 150,
+            maxWidth: 200,
+            flex: '0 0 auto'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                    Tổng người dùng
+                  </Typography>
+                  <Typography variant="h5" component="div" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    {userStats.total}
+                  </Typography>
+                </Box>
+                <PersonIcon sx={{ fontSize: 28, color: 'primary.main' }} />
+              </Box>
+            </CardContent>
+          </Card>
+          
+          <Card sx={{ 
+            height: 120, 
+            minWidth: 150,
+            maxWidth: 200,
+            flex: '0 0 auto'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                    Sinh viên
+                  </Typography>
+                  <Typography variant="h5" component="div" color="secondary.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    {userStats.students}
+                  </Typography>
+                </Box>
+                <SchoolIcon sx={{ fontSize: 28, color: 'secondary.main' }} />
+              </Box>
+            </CardContent>
+          </Card>
+          
+          <Card sx={{ 
+            height: 120, 
+            minWidth: 150,
+            maxWidth: 200,
+            flex: '0 0 auto'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                    Giảng viên
+                  </Typography>
+                  <Typography variant="h5" component="div" color="info.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    {userStats.teachers}
+                  </Typography>
+                </Box>
+                <PersonAddIcon sx={{ fontSize: 28, color: 'info.main' }} />
+              </Box>
+            </CardContent>
+          </Card>
+          
+          <Card sx={{ 
+            height: 120, 
+            minWidth: 150,
+            maxWidth: 200,
+            flex: '0 0 auto'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                    Hoạt động
+                  </Typography>
+                  <Typography variant="h5" component="div" color="success.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    {userStats.active}
+                  </Typography>
+                </Box>
+                <TrendingUpIcon sx={{ fontSize: 28, color: 'success.main' }} />
+              </Box>
+            </CardContent>
+          </Card>
+          
+          <Card sx={{ 
+            height: 120, 
+            minWidth: 150,
+            maxWidth: 200,
+            flex: '0 0 auto'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                    Đã khóa
+                  </Typography>
+                  <Typography variant="h5" component="div" color="error.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    {userStats.inactive}
+                  </Typography>
+                </Box>
+                <PersonIcon sx={{ fontSize: 28, color: 'error.main' }} />
+              </Box>
+            </CardContent>
+          </Card>
+          
+          <Card sx={{ 
+            height: 120, 
+            minWidth: 150,
+            maxWidth: 200,
+            flex: '0 0 auto'
+          }}>
+            <CardContent sx={{ p: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                    Quản trị viên
+                  </Typography>
+                  <Typography variant="h5" component="div" color="warning.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                    {userStats.admins}
+                  </Typography>
+                </Box>
+                <PersonIcon sx={{ fontSize: 28, color: 'warning.main' }} />
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <Button
-                  text="Hủy"
-                  stylingMode="outlined"
-                  onClick={() => {
-                    setEditPopupVisible(false);
-                    setEditingUser(null);
-                    setEditFormData({});
+        {/* Filters and Actions */}
+        <Paper sx={{ 
+          p: 2, 
+          mb: 3,
+          borderRadius: 2,
+          boxShadow: 1
+        }}>
+          <Stack direction="row" spacing={3} alignItems="center" justifyContent="space-between">
+            <Stack direction="row" spacing={2} alignItems="center">
+              <FormControl sx={{ minWidth: 180, maxWidth: 200 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Lọc theo vai trò</InputLabel>
+            <Select
+              value={filterRole}
+                  onChange={(e: any) => handleRoleFilterChange(e.target.value)}
+              label="Lọc theo vai trò"
+                  size="small"
+                  disabled={isFiltering}
+                  sx={{ 
+                    fontSize: '0.75rem',
+                    opacity: isFiltering ? 0.7 : 1,
+                    transition: 'opacity 0.2s ease-in-out'
                   }}
-                />
-                <Button
-                  text="Lưu"
-                  stylingMode="contained"
-                  type="default"
-                  onClick={handleSaveEdit}
-                />
-              </div>
-            </>
+            >
+              {roleOptions.map((option) => (
+                    <MenuItem key={option.id} value={option.id} sx={{ fontSize: '0.75rem' }}>
+                  {option.text}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+              
+              <Tooltip title="Làm mới dữ liệu">
+                <IconButton 
+                  onClick={handleRefresh}
+                  sx={{ 
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    '&:hover': { bgcolor: 'primary.dark' }
+                  }}
+                >
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+              
+            </Stack>
+            
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Button
+                variant="outlined"
+                startIcon={<FileDownloadIcon />}
+                onClick={handleExportData}
+                size="small"
+                sx={{ 
+                  fontSize: '0.75rem',
+                  minWidth: 120
+                }}
+              >
+                Xuất dữ liệu
+              </Button>
+              
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => navigate('/users/create')}
+                size="small"
+                sx={{ 
+                  fontSize: '0.75rem',
+                  minWidth: 140
+                }}
+        >
+          Thêm người dùng
+        </Button>
+            </Stack>
+          </Stack>
+        </Paper>
+
+        {/* DataGrid với layout cố định */}
+        <Paper sx={{ 
+          height: 600, 
+          width: '100%', 
+          maxWidth: '100%',
+          position: 'relative',
+          minWidth: 1200, // Kích thước tối thiểu để không bị co lại khi zoom
+          overflow: 'hidden'
+        }}>
+          {isFiltering && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                zIndex: 1,
+              }}
+            >
+              <CircularProgress size={40} />
+                  </Box>
           )}
-        </div>
-      </Popup>
-    </div>
+          <DataGrid
+            apiRef={dataGridRef}
+            rows={users}
+            columns={columns}
+            getRowId={(row) => row.id}
+            filterModel={filterModel}
+            onFilterModelChange={setFilterModel}
+            sortModel={sortModel}
+            onSortModelChange={setSortModel}
+            loading={usersLoading || isFiltering}
+            slots={{
+              toolbar: GridToolbar,
+            }}
+            slotProps={{
+              toolbar: {
+                showQuickFilter: false,
+              },
+            }}
+            pageSizeOptions={[10, 25, 50, 100]}
+            initialState={{
+              pagination: {
+                paginationModel: { page: 0, pageSize: 25 },
+              },
+            }}
+            disableRowSelectionOnClick
+            disableColumnFilter
+            disableColumnMenu={false}
+            disableColumnResize={true}
+            autoPageSize={false}
+            sx={{
+              minWidth: 1200,
+              height: 600,
+              '& .MuiDataGrid-columnHeaders': {
+                backgroundColor: 'primary.main',
+                color: 'black',
+                '& .MuiDataGrid-columnHeaderTitle': {
+                  color: 'black',
+                  fontWeight: 'bold',
+                },
+              },
+              '& .MuiDataGrid-cell': {
+                fontSize: '0.75rem',
+              },
+            }}
+            density="comfortable"
+            checkboxSelection={false}
+            disableColumnSelector={false}
+            disableDensitySelector={false}
+          />
+        </Paper>
+
+      {/* Edit Dialog */}
+      <Dialog 
+        open={editDialogOpen} 
+        onClose={() => setEditDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Chỉnh sửa người dùng</DialogTitle>
+        <DialogContent>
+          {editingUser && (
+            <Box sx={{ pt: 2 }}>
+              <Typography variant="body1" sx={{ mb: 2 }}>
+                <Typography component="span" fontWeight="bold">Người dùng:</Typography> {editingUser.fullName}
+              </Typography>
+              
+              <TextField
+                fullWidth
+                label="Số điện thoại"
+                value={editFormData.phone}
+                onChange={(e: any) => setEditFormData({
+                  ...editFormData,
+                  phone: e.target.value
+                })}
+                sx={{ mb: 2 }}
+              />
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={editFormData.isActive}
+                    onChange={(e: any) => setEditFormData({
+                      ...editFormData,
+                      isActive: e.target.checked
+                    })}
+                  />
+                }
+                label="Hoạt động"
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditDialogOpen(false)}>
+            Hủy
+          </Button>
+          <Button 
+            onClick={handleSaveEdit} 
+            variant="contained"
+            disabled={!editingUser}
+          >
+            Lưu
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
   );
 };
 

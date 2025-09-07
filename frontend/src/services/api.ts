@@ -179,6 +179,11 @@ export const authService = {
 
 // Schedule Service
 export const scheduleService = {
+  getAllSchedules: async (): Promise<any> => {
+    const response = await api.get('/schedules');
+    return response.data;
+  },
+
   getRoomSchedule: async (roomId: string): Promise<any> => {
     const response = await api.get(`/schedules/room/${roomId}`);
     return response.data;
@@ -198,6 +203,16 @@ export const scheduleService = {
     const response = await api.post('/schedules', scheduleData);
     return response.data;
   },
+
+  updateSchedule: async (scheduleId: string, scheduleData: any): Promise<any> => {
+    const response = await api.put(`/schedules/${scheduleId}`, scheduleData);
+    return response.data;
+  },
+
+  deleteSchedule: async (scheduleId: string): Promise<any> => {
+    const response = await api.delete(`/schedules/${scheduleId}`);
+    return response.data;
+  },
 };
 
 // Room Service
@@ -212,8 +227,43 @@ export const roomService = {
     return response.data;
   },
 
+  createRoom: async (roomData: any): Promise<any> => {
+    const response = await api.post('/rooms', roomData);
+    return response.data;
+  },
+
+  updateRoom: async (roomId: string, roomData: any): Promise<any> => {
+    const response = await api.put(`/rooms/${roomId}`, roomData);
+    return response.data;
+  },
+
+  deleteRoom: async (roomId: string): Promise<any> => {
+    const response = await api.delete(`/rooms/${roomId}`);
+    return response.data;
+  },
+
   createRoomRequest: async (requestData: any): Promise<any> => {
-    const response = await api.post('/room-requests', requestData);
+    const response = await api.post('/rooms/requests', requestData);
+    return response.data;
+  },
+
+  getRoomRequests: async (): Promise<any> => {
+    const response = await api.get('/rooms/requests/all');
+    return response.data;
+  },
+
+  updateRoomRequestStatus: async (requestId: string, status: string): Promise<any> => {
+    const response = await api.put(`/rooms/requests/${requestId}/status`, { status });
+    return response.data;
+  },
+
+  getTeachersWithClasses: async (): Promise<any> => {
+    const response = await api.get('/rooms/teachers-with-classes');
+    return response.data;
+  },
+
+  getTimeSlots: async (): Promise<any> => {
+    const response = await api.get('/rooms/time-slots');
     return response.data;
   },
 };

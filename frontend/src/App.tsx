@@ -1,62 +1,66 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Provider } from 'react-redux';
 import { ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+import { store } from './redux/store';
 import Login from './pages/Auth/Login';
 import Layout from './components/Layout/Layout';
-import AdminDashboard from './pages/Dashboard/AdminDashboard';
+import Dashboard from './pages/Dashboard/Dashboard';
 import UserManagement from './pages/Management/UserManagement';
 import CreateUser from './pages/Management/CreateUser';
-import ScheduleManagement from './pages/Management/ScheduleManagement';
-import RoomManagement from './pages/Management/RoomManagement';
-import RoomDetail from './pages/Management/RoomDetail';
+import RoomList from './pages/RoomManagement/RoomList';
+import RoomRequest from './pages/RoomManagement/RoomRequest';
+import RoomRequestList from './pages/RoomManagement/RoomRequestList';
+import RoomScheduling from './pages/RoomManagement/RoomScheduling';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 
-const App: React.FC = () => {
+const App = () => {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        
-        <Route path="/" element={
-          <ProtectedRoute>
-            <Layout />
-          </ProtectedRoute>
-        }>
-          {/* Admin Routes */}
-          <Route path="/" element={<Navigate to="/dashboard" replace />} />
-          <Route path="/dashboard" element={<AdminDashboard />} />
-          <Route path="/users" element={<UserManagement />} />
-          <Route path="/users/create" element={<CreateUser />} />
-          <Route path="/schedule" element={<ScheduleManagement />} />
-          <Route path="/schedules" element={<ScheduleManagement />} />
-          <Route path="/rooms" element={<RoomManagement />} />
-          <Route path="/rooms/available" element={<RoomManagement />} />
-          <Route path="/rooms/in-use" element={<RoomManagement />} />
-          <Route path="/rooms/maintenance" element={<RoomManagement />} />
-          <Route path="/rooms/requests" element={<RoomManagement />} />
-          <Route path="/rooms/statistics" element={<RoomManagement />} />
-          <Route path="/rooms/:roomId" element={<RoomDetail />} />
+    <Provider store={store}>
+      <BrowserRouter>
+        <Routes>
+          {/* @ts-ignore */}
+          <Route path="/login" element={<Login />} />
           
-          {/* Teacher Routes */}
-          <Route path="/room-requests" element={<RoomManagement />} />
-          
-          {/* Student Routes */}
-          <Route path="/profile" element={<AdminDashboard />} />
-        </Route>
-      </Routes>
-      <ToastContainer
-        position="top-right"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
-    </BrowserRouter>
+          <Route path="/" element={
+            // @ts-ignore
+            <ProtectedRoute>
+              {/* @ts-ignore */}
+              <Layout />
+            </ProtectedRoute>
+          }>
+            {/* Admin Routes */}
+            <Route path="/" element={<Navigate to="/dashboard" replace />} />
+            {/* @ts-ignore */}
+            <Route path="/dashboard" element={<Dashboard />} />
+            {/* @ts-ignore */}
+            <Route path="/users" element={<UserManagement />} />
+            {/* @ts-ignore */}
+            <Route path="/users/create" element={<CreateUser />} />
+            {/* @ts-ignore */}
+            <Route path="/rooms" element={<RoomList />} />
+            {/* @ts-ignore */}
+            <Route path="/rooms/requests" element={<RoomRequest />} />
+            {/* @ts-ignore */}
+            <Route path="/rooms/requests/list" element={<RoomRequestList />} />
+            {/* @ts-ignore */}
+            <Route path="/rooms/scheduling" element={<RoomScheduling />} />
+          </Route>
+        </Routes>
+        <ToastContainer
+          position="top-right"
+          autoClose={5000}
+          hideProgressBar={false}
+          newestOnTop={false}
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+        />
+      </BrowserRouter>
+    </Provider>
   );
 };
 

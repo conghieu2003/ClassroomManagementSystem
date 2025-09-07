@@ -39,9 +39,14 @@ export const fetchRoomsThunk = createAsyncThunk(
   'room/fetchRooms',
   async (_, { rejectWithValue }) => {
     try {
-      const response = await fetch('/api/rooms', {
+      // Add cache-busting parameter to prevent 304 responses
+      const timestamp = new Date().getTime();
+      const response = await fetch(`http://localhost:5000/api/rooms?_t=${timestamp}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
         }
       });
 
@@ -103,6 +108,11 @@ const roomSlice = createSlice({
     },
     clearRoomsError: (state) => {
       state.roomsError = null;
+    },
+    clearRooms: (state) => {
+      state.rooms = [];
+      state.roomsLoading = false;
+      state.roomsError = null;
     }
   },
   extraReducers: (builder) => {
@@ -134,7 +144,7 @@ const roomSlice = createSlice({
   }
 });
 
-export const { setSelectedRoom, clearRoomsError } = roomSlice.actions;
+export const { setSelectedRoom, clearRoomsError, clearRooms } = roomSlice.actions;
 
 // Selectors
 export const selectRooms = (state: RootState) => state.room.rooms;

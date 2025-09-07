@@ -210,7 +210,12 @@ const userSlice = createSlice({
       .addCase(updateUserThunk.fulfilled, (state, action) => {
         const { userId, userData } = action.payload;
         state.users = state.users.map(user =>
-          user.id === userId ? { ...user, ...userData } : user
+          user.id === userId ? { 
+            ...user, 
+            phone: userData.phone,
+            status: userData.isActive ? 'active' : 'inactive',
+            isActive: userData.isActive
+          } : user
         );
       });
   }

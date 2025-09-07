@@ -33,7 +33,9 @@ model User {
   academicProfile AcademicProfile?
   familyInfo      FamilyInfo?
   personalProfile PersonalProfile?
-  roomRequests    RoomRequest[]    @relation("RoomRequestRequester")
+  assignedSchedules ClassSchedule[] @relation("ClassScheduleAssignedBy")
+  scheduleRequests ScheduleRequest[] @relation("ScheduleRequestRequester")
+  scheduleApprovals ScheduleRequest[] @relation("ScheduleRequestApprover")
   student         Student?
   teacher         Teacher?
   account         Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
@@ -95,6 +97,8 @@ model Department {
   majors    Major[]
   students  Student[] @relation("StudentDepartment")
   teachers  Teacher[] @relation("TeacherDepartment")
+  classes   Class[]   @relation("ClassDepartment")
+  classRooms ClassRoom[] @relation("ClassRoomDepartment")
 }
 
 model Major {
@@ -107,6 +111,7 @@ model Major {
   department   Department @relation(fields: [departmentId], references: [id])
   students     Student[]  @relation("StudentMajor")
   teachers     Teacher[]  @relation("TeacherMajor")
+  classes      Class[]    @relation("ClassMajor")
 }
 
 model Teacher {
@@ -123,6 +128,7 @@ model Teacher {
   department     Department?     @relation("TeacherDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   major          Major?          @relation("TeacherMajor", fields: [majorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  scheduleRequestSubstitutes ScheduleRequest[] @relation("ScheduleRequestSubstitute")
 }
 
 model Student {
@@ -140,26 +146,30 @@ model Student {
 }
 
 model Class {
-  id                Int             @id @default(autoincrement())
-  code              String          @unique @db.NVarChar(50)
-  className         String          @db.NVarChar(255)
-  subjectName       String          @db.NVarChar(255)
-  subjectCode       String          @db.NVarChar(50)
-  credits           Int
-  teacherId         Int
-  semester          String          @db.NVarChar(50)
-  academicYear      String          @db.NVarChar(50)
-  maxStudents       Int
-  totalWeeks        Int
-  startDate         DateTime        @db.Date
-  endDate           DateTime        @db.Date
-  classType         String          @db.NVarChar(50) @default("theory")
-  practiceEnabled   Boolean         @default(false)
-  maxPracticeGroups Int?
-  description       String?         @db.NVarChar(Max)
-  teacher           Teacher         @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  classSchedules    ClassSchedule[]
-  classStudents     ClassStudent[]
+  id           Int             @id @default(autoincrement())
+  code         String          @unique @db.NVarChar(50)
+  className    String          @db.NVarChar(255)
+  subjectName  String          @db.NVarChar(255)
+  subjectCode  String          @db.NVarChar(50)
+  credits      Int
+  teacherId    Int
+  departmentId Int
+  majorId      Int?
+  semester     String          @db.NVarChar(50)
+  academicYear String          @db.NVarChar(50)
+  maxStudents  Int
+  totalWeeks   Int
+  startDate    DateTime        @db.Date
+  endDate      DateTime        @db.Date
+  classType    String          @db.NVarChar(50) @default("theory")
+  description  String?         @db.NVarChar(Max)
+  createdAt    DateTime        @default(now())
+  updatedAt    DateTime        @default(now()) @updatedAt
+  teacher      Teacher         @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  department   Department      @relation("ClassDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  major        Major?          @relation("ClassMajor", fields: [majorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classSchedules ClassSchedule[]
+  classStudents  ClassStudent[]
 
   @@map("Class")
 }
@@ -187,9 +197,17 @@ model ClassRoom {
   floor          Int
   campus         String?         @db.NVarChar(255)
   type           String          @db.NVarChar(50)
+  departmentId   Int?
+  isAvailable    Boolean         @default(true)
   description    String?         @db.NVarChar(Max)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @default(now()) @updatedAt
+  department     Department?     @relation("ClassRoomDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   classSchedules ClassSchedule[]
-  roomRequests   RoomRequest[]
+  scheduleRequestRooms ScheduleRequest[] @relation("ScheduleRequestRoom")
+  scheduleRequestOldRooms ScheduleRequest[] @relation("ScheduleRequestOldRoom")
+  scheduleRequestNewRooms ScheduleRequest[] @relation("ScheduleRequestNewRoom")
+  scheduleRequestMovedRooms ScheduleRequest[] @relation("ScheduleRequestMovedRoom")
 }
 
 model TimeSlot {
@@ -199,41 +217,77 @@ model TimeSlot {
   endTime        DateTime        @db.Time
   shift          String          @db.NVarChar(50)
   classSchedules ClassSchedule[]
-  roomRequests   RoomRequest[]
+  scheduleRequestTimes ScheduleRequest[] @relation("ScheduleRequestTime")
+  scheduleRequestOldTimes ScheduleRequest[] @relation("ScheduleRequestOldTime")
+  scheduleRequestNewTimes ScheduleRequest[] @relation("ScheduleRequestNewTime")
+  scheduleRequestMovedTimes ScheduleRequest[] @relation("ScheduleRequestMovedTime")
 }
 
 model ClassSchedule {
   id          Int       @id @default(autoincrement())
   classId     Int
   teacherId   Int
-  classRoomId Int
+  classRoomId Int?
   dayOfWeek   Int
   timeSlotId  Int
   weekPattern String    @default("weekly") @db.NVarChar(50)
   startWeek   Int
   endWeek     Int
-  status      String    @default("active") @db.NVarChar(50)
+  status      String    @default("pending") @db.NVarChar(50)
+  assignedBy  Int?
+  assignedAt  DateTime?
   note        String?   @db.NVarChar(Max)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
   class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classRoom   ClassRoom @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  classRoom   ClassRoom? @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   teacher     Teacher   @relation("ClassScheduleTeacher", fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   timeSlot    TimeSlot  @relation(fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  assignedByUser User?  @relation("ClassScheduleAssignedBy", fields: [assignedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  scheduleRequests ScheduleRequest[]
 
   @@unique([dayOfWeek, timeSlotId, classRoomId])
   @@unique([dayOfWeek, timeSlotId, teacherId])
 }
 
-model RoomRequest {
-  id          Int       @id @default(autoincrement())
-  classRoomId Int
-  requesterId Int
-  purpose     String    @db.NVarChar(Max)
-  date        DateTime  @db.Date
-  timeSlotId  Int
-  status      String    @default("pending") @db.NVarChar(50)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
-  classRoom   ClassRoom @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  requester   User      @relation("RoomRequestRequester", fields: [requesterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  timeSlot    TimeSlot  @relation(fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model ScheduleRequest {
+  id                Int         @id @default(autoincrement())
+  requestType       String      @db.NVarChar(50) // 'room_request', 'schedule_change', 'exception'
+  classScheduleId   Int?
+  classRoomId       Int?
+  requesterId       Int
+  requestDate       DateTime    @db.Date
+  timeSlotId        Int
+  changeType        String?     @db.NVarChar(50) // 'room_change', 'time_change', 'both', 'exception'
+  oldClassRoomId    Int?
+  newClassRoomId    Int?
+  oldTimeSlotId     Int?
+  newTimeSlotId     Int?
+  exceptionDate     DateTime?   @db.Date
+  exceptionType     String?     @db.NVarChar(50) // 'cancelled', 'exam', 'moved', 'substitute'
+  movedToDate       DateTime?   @db.Date
+  movedToTimeSlotId Int?
+  movedToClassRoomId Int?
+  substituteTeacherId Int?
+  reason            String      @db.NVarChar(Max)
+  approvedBy        Int?
+  status            String      @default("pending") @db.NVarChar(50) // 'pending', 'approved', 'rejected'
+  approvedAt        DateTime?
+  note              String?     @db.NVarChar(Max)
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @default(now()) @updatedAt
+  
+  // Relations
+  classSchedule     ClassSchedule? @relation(fields: [classScheduleId], references: [id], onDelete: Cascade)
+  classRoom         ClassRoom?  @relation("ScheduleRequestRoom", fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  oldClassRoom      ClassRoom?  @relation("ScheduleRequestOldRoom", fields: [oldClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  newClassRoom      ClassRoom?  @relation("ScheduleRequestNewRoom", fields: [newClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movedToClassRoom  ClassRoom?  @relation("ScheduleRequestMovedRoom", fields: [movedToClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  timeSlot          TimeSlot    @relation("ScheduleRequestTime", fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  oldTimeSlot       TimeSlot?   @relation("ScheduleRequestOldTime", fields: [oldTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  newTimeSlot       TimeSlot?   @relation("ScheduleRequestNewTime", fields: [newTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  movedToTimeSlot   TimeSlot?   @relation("ScheduleRequestMovedTime", fields: [movedToTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  substituteTeacher Teacher?    @relation("ScheduleRequestSubstitute", fields: [substituteTeacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  requester         User        @relation("ScheduleRequestRequester", fields: [requesterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  approver          User?       @relation("ScheduleRequestApprover", fields: [approvedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
