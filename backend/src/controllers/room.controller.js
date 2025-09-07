@@ -52,6 +52,120 @@ class RoomController {
       });
     }
   }
+
+  async createRoom(req, res) {
+    try {
+      const roomData = req.body;
+      const room = await roomService.createRoom(roomData);
+      return res.status(201).json({ 
+        success: true, 
+        data: room,
+        message: 'Phòng học đã được tạo thành công'
+      });
+    } catch (error) {
+      return res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+
+  async updateRoom(req, res) {
+    try {
+      const { roomId } = req.params;
+      const roomData = req.body;
+      const room = await roomService.updateRoom(roomId, roomData);
+      return res.status(200).json({ 
+        success: true, 
+        data: room,
+        message: 'Phòng học đã được cập nhật thành công'
+      });
+    } catch (error) {
+      return res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+
+  async deleteRoom(req, res) {
+    try {
+      const { roomId } = req.params;
+      await roomService.deleteRoom(roomId);
+      return res.status(200).json({ 
+        success: true, 
+        message: 'Phòng học đã được xóa thành công'
+      });
+    } catch (error) {
+      return res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+
+  async getRoomRequests(req, res) {
+    try {
+      const requests = await roomService.getRoomRequests();
+      return res.status(200).json({ 
+        success: true, 
+        data: requests 
+      });
+    } catch (error) {
+      return res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+
+  async updateRoomRequestStatus(req, res) {
+    try {
+      const { requestId } = req.params;
+      const { status } = req.body;
+      const request = await roomService.updateRoomRequestStatus(requestId, status);
+      return res.status(200).json({ 
+        success: true, 
+        data: request,
+        message: 'Trạng thái yêu cầu phòng đã được cập nhật'
+      });
+    } catch (error) {
+      return res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+
+  async getTeachersWithClasses(req, res) {
+    try {
+      const teachers = await roomService.getTeachersWithClasses();
+      return res.status(200).json({ 
+        success: true, 
+        data: teachers 
+      });
+    } catch (error) {
+      return res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
+
+  async getTimeSlots(req, res) {
+    try {
+      const timeSlots = await roomService.getTimeSlots();
+      return res.status(200).json({ 
+        success: true, 
+        data: timeSlots 
+      });
+    } catch (error) {
+      return res.status(400).json({ 
+        success: false, 
+        message: error.message 
+      });
+    }
+  }
 }
 
 module.exports = new RoomController();

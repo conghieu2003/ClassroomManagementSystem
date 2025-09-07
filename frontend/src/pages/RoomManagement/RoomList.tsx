@@ -1,153 +1,456 @@
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import { roomService } from '../../services/api';
+import React, { useEffect, useState, useMemo } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
+import { fetchRoomsThunk, selectRooms, selectRoomsLoading, selectRoomsError, clearRooms } from '../../redux/slices/roomSlice';
 import { Room } from '../../types';
-
-interface Filters {
-  status: string;
-  type: string;
-  capacity: string;
-}
+import {
+  Typography,
+  Box,
+  CircularProgress,
+  Alert,
+  Button,
+  IconButton,
+  Tooltip,
+  Card,
+  CardContent,
+  Container,
+  Chip,
+  Paper
+} from '@mui/material';
+import {
+  DataGrid,
+  GridColDef,
+  GridToolbar,
+  useGridApiRef
+} from '@mui/x-data-grid';
+import {
+  Refresh as RefreshIcon,
+  MeetingRoom as RoomIcon,
+  School as TheoryIcon,
+  Science as LabIcon,
+  Groups as SeminarIcon,
+  Computer as OnlineIcon,
+  Business as PracticeIcon
+} from '@mui/icons-material';
 
 interface ExtendedRoom extends Room {
   location?: string;
 }
 
-const RoomList: React.FC = () => {
-  const [rooms, setRooms] = useState<ExtendedRoom[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [filters, setFilters] = useState<Filters>({
-    status: 'all',
-    type: 'all',
-    capacity: 'all'
-  });
+const RoomList = () => {
+  const dispatch = useDispatch();
+  const rooms = useSelector(selectRooms) as ExtendedRoom[];
+  const loading = useSelector(selectRoomsLoading);
+  const error = useSelector(selectRoomsError);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const dataGridRef = useGridApiRef();
 
   useEffect(() => {
-    fetchRooms();
-  }, []);
+    console.log('🔄 Đang dispatch fetchRoomsThunk...');
+    dispatch(fetchRoomsThunk() as any);
+  }, [dispatch, refreshKey]);
 
-  const fetchRooms = async (): Promise<void> => {
-    try {
-      const response = await roomService.getAllRooms();
-      setRooms(response.data || []);
-    } catch (error) {
-      console.error('Lỗi khi tải danh sách phòng:', error);
-    } finally {
-      setLoading(false);
+  const handleRefresh = (): void => {
+    console.log('🔄 Đang refresh danh sách phòng...');
+    // Clear rooms state trước khi fetch lại
+    dispatch(clearRooms());
+    setRefreshKey(prev => prev + 1);
+  };
+
+  const getTypeText = (type: string) => {
+    switch (type) {
+      case 'theory': return 'Lý thuyết';
+      case 'lecture': return 'Lý thuyết'; // Fallback cho dữ liệu cũ
+      case 'lab': return 'Thực hành';
+      case 'practice': return 'Thực hành';
+      case 'seminar': return 'Hội thảo';
+      case 'online': return 'Trực tuyến';
+      default: return type;
     }
   };
 
-  const handleFilterChange = (e: React.ChangeEvent<HTMLSelectElement>): void => {
-    const { name, value } = e.target;
-    setFilters(prev => ({
-      ...prev,
-      [name]: value
-    }));
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'theory':
+      case 'lecture': return 'primary';
+      case 'lab': return 'secondary';
+      case 'practice': return 'info';
+      case 'seminar': return 'warning';
+      case 'online': return 'success';
+      default: return 'default';
+    }
   };
 
-  const filteredRooms = rooms.filter(room => {
-    if (filters.status !== 'all' && room.status !== filters.status) return false;
-    if (filters.type !== 'all' && room.type !== filters.type) return false;
-    if (filters.capacity !== 'all') {
-      const capacity = parseInt(room.capacity.toString());
-      switch (filters.capacity) {
-        case 'small': return capacity <= 30;
-        case 'medium': return capacity > 30 && capacity <= 60;
-        case 'large': return capacity > 60;
-        default: return true;
+  const getTypeIcon = (type: string) => {
+    switch (type) {
+      case 'theory':
+      case 'lecture': return <TheoryIcon />;
+      case 'lab': return <LabIcon />;
+      case 'practice': return <PracticeIcon />;
+      case 'seminar': return <SeminarIcon />;
+      case 'online': return <OnlineIcon />;
+      default: return <RoomIcon />;
+    }
+  };
+
+  // Tính thống kê phòng theo loại
+  const roomStats = useMemo(() => {
+    const stats = {
+      total: rooms.length,
+      theory: 0,
+      lab: 0,
+      practice: 0,
+      seminar: 0,
+      online: 0,
+      other: 0
+    };
+
+    rooms.forEach(room => {
+      switch (room.type) {
+        case 'theory':
+        case 'lecture':
+          stats.theory++;
+          break;
+        case 'lab':
+          stats.lab++;
+          break;
+        case 'practice':
+          stats.practice++;
+          break;
+        case 'seminar':
+          stats.seminar++;
+          break;
+        case 'online':
+          stats.online++;
+          break;
+        default:
+          stats.other++;
       }
+    });
+
+    return stats;
+  }, [rooms]);
+
+  // DataGrid columns configuration
+  const columns: GridColDef[] = [
+    {
+      field: 'roomNumber',
+      headerName: 'Số phòng',
+      width: 120,
+      filterable: true,
+      sortable: true,
+      renderCell: (params) => (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <RoomIcon color="primary" />
+          <Typography variant="body2" sx={{ fontWeight: 'bold', color: 'primary.main' }}>
+            {params.value}
+          </Typography>
+        </Box>
+      )
+    },
+    {
+      field: 'building',
+      headerName: 'Tòa nhà',
+      width: 120,
+      filterable: true,
+      sortable: true
+    },
+    {
+      field: 'floor',
+      headerName: 'Tầng',
+      width: 80,
+      filterable: true,
+      sortable: true
+    },
+    {
+      field: 'capacity',
+      headerName: 'Sức chứa',
+      width: 100,
+      filterable: true,
+      sortable: true,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
+          {params.value} người
+        </Typography>
+      )
+    },
+    {
+      field: 'type',
+      headerName: 'Loại phòng',
+      width: 140,
+      filterable: true,
+      sortable: true,
+      renderCell: (params) => (
+        <Chip
+          icon={getTypeIcon(params.value)}
+          label={getTypeText(params.value)}
+          color={getTypeColor(params.value) as any}
+          size="small"
+          variant="outlined"
+        />
+      )
+    },
+    {
+      field: 'description',
+      headerName: 'Mô tả',
+      width: 200,
+      filterable: true,
+      sortable: true,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ 
+          overflow: 'hidden',
+          textOverflow: 'ellipsis',
+          whiteSpace: 'nowrap'
+        }}>
+          {params.value || 'Không có mô tả'}
+        </Typography>
+      )
     }
-    return true;
-  });
+  ];
 
   if (loading) {
-    return <div>Đang tải...</div>;
+    return (
+      <Box 
+        display="flex" 
+        justifyContent="center" 
+        alignItems="center" 
+        height="400px"
+        flexDirection="column"
+      >
+        <CircularProgress size={60} thickness={4} />
+        <Typography variant="h6" sx={{ mt: 3, color: 'text.secondary' }}>
+          Đang tải danh sách phòng học...
+        </Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Card>
+          <CardContent>
+            <Alert severity="error" sx={{ mb: 2 }}>
+              <Typography variant="h6">Không thể tải danh sách phòng học</Typography>
+              <Typography>{error}</Typography>
+            </Alert>
+            <Button 
+              variant="contained" 
+              onClick={handleRefresh}
+              startIcon={<RefreshIcon />}
+              sx={{ mt: 2 }}
+            >
+              Thử lại
+            </Button>
+          </CardContent>
+        </Card>
+      </Container>
+    );
   }
 
   return (
-    <div className="room-list-page">
-      <div className="page-header">
-        <h2>Quản lý phòng học</h2>
-        <Link to="/rooms/create" className="create-btn">
-          <i className="fas fa-plus"></i>
-          Thêm phòng học mới
-        </Link>
-      </div>
-
-      <div className="filters-section">
-        <select
-          name="status"
-          value={filters.status}
-          onChange={handleFilterChange}
-        >
-          <option value="all">Tất cả trạng thái</option>
-          <option value="available">Trống</option>
-          <option value="inUse">Đang sử dụng</option>
-          <option value="maintenance">Bảo trì</option>
-        </select>
-
-        <select
-          name="type"
-          value={filters.type}
-          onChange={handleFilterChange}
-        >
-          <option value="all">Tất cả loại phòng</option>
-          <option value="theory">Phòng lý thuyết</option>
-          <option value="lab">Phòng thực hành</option>
-          <option value="seminar">Phòng hội thảo</option>
-        </select>
-
-        <select
-          name="capacity"
-          value={filters.capacity}
-          onChange={handleFilterChange}
-        >
-          <option value="all">Tất cả sức chứa</option>
-          <option value="small">Nhỏ (&le; 30)</option>
-          <option value="medium">Trung bình (31-60)</option>
-          <option value="large">Lớn (&gt; 60)</option>
-        </select>
-      </div>
-
-      <div className="room-grid">
-        {filteredRooms.map((room) => (
-          <div key={room.id} className={`room-card ${room.status}`}>
-            <div className="room-header">
-              <h3>{room.name}</h3>
-              <span className={`status-badge ${room.status}`}>
-                {room.status === 'available' && 'Trống'}
-                {room.status === 'inUse' && 'Đang sử dụng'}
-                {room.status === 'maintenance' && 'Bảo trì'}
-              </span>
-            </div>
+    <Container maxWidth="xl" sx={{ py: 3 }}>
+      {/* Header Card */}
+      <Card sx={{ mb: 3, boxShadow: 3 }}>
+        <CardContent>
+          <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+            <Typography variant="h4" component="h1" sx={{ 
+              color: 'primary.main', 
+              fontWeight: 'bold',
+              fontSize: { xs: '1.5rem', md: '2rem' }
+            }}>
+              Quản lý phòng học
+            </Typography>
             
-            <div className="room-info">
-              <p>
-                <i className="fas fa-users"></i>
-                Sức chứa: {room.capacity} sinh viên
-              </p>
-              <p>
-                <i className="fas fa-door-open"></i>
-                Loại phòng: {room.type === 'theory' ? 'Lý thuyết' : room.type === 'lab' ? 'Thực hành' : 'Hội thảo'}
-              </p>
-              <p>
-                <i className="fas fa-map-marker-alt"></i>
-                Vị trí: {room.location || 'Chưa xác định'}
-              </p>
-            </div>
+            <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+              <Tooltip title="Làm mới dữ liệu">
+                <IconButton 
+                  onClick={handleRefresh}
+                  color="primary"
+                  sx={{ 
+                    bgcolor: 'primary.main',
+                    color: 'white',
+                    '&:hover': {
+                      bgcolor: 'primary.dark'
+                    }
+                  }}
+                >
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
+            </Box>
+          </Box>
+        </CardContent>
+      </Card>
 
-            <div className="room-actions">
-              <Link to={`/rooms/${room.id}`} className="view-btn">
-                Chi tiết
-              </Link>
-              <Link to={`/rooms/${room.id}/edit`} className="edit-btn">
-                Chỉnh sửa
-              </Link>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
+      {/* Statistics Cards */}
+      <Box sx={{ 
+        display: 'grid', 
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+        gap: 2, 
+        mb: 3 
+      }}>
+        <Card sx={{ 
+          height: 120, 
+          minWidth: 150,
+          maxWidth: 250,
+          flex: '0 0 auto'
+        }}>
+          <CardContent sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                  Tổng phòng
+                </Typography>
+                <Typography variant="h5" component="div" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                  {roomStats.total}
+                </Typography>
+              </Box>
+              <RoomIcon sx={{ fontSize: 28, color: 'primary.main' }} />
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ 
+          height: 120, 
+          minWidth: 150,
+          maxWidth: 250,
+          flex: '0 0 auto'
+        }}>
+          <CardContent sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                  Lý thuyết
+                </Typography>
+                <Typography variant="h5" component="div" color="primary.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                  {roomStats.theory}
+                </Typography>
+              </Box>
+              <TheoryIcon sx={{ fontSize: 28, color: 'primary.main' }} />
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ 
+          height: 120, 
+          minWidth: 150,
+          maxWidth: 250,
+          flex: '0 0 auto'
+        }}>
+          <CardContent sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                  Thực hành
+                </Typography>
+                <Typography variant="h5" component="div" color="secondary.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                  {roomStats.lab + roomStats.practice}
+                </Typography>
+              </Box>
+              <LabIcon sx={{ fontSize: 28, color: 'secondary.main' }} />
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ 
+          height: 120, 
+          minWidth: 150,
+          maxWidth: 250,
+          flex: '0 0 auto'
+        }}>
+          <CardContent sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                  Hội thảo
+                </Typography>
+                <Typography variant="h5" component="div" color="warning.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                  {roomStats.seminar}
+                </Typography>
+              </Box>
+              <SeminarIcon sx={{ fontSize: 28, color: 'warning.main' }} />
+            </Box>
+          </CardContent>
+        </Card>
+
+        <Card sx={{ 
+          height: 120, 
+          minWidth: 150,
+          maxWidth: 250,
+          flex: '0 0 auto'
+        }}>
+          <CardContent sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
+                  Trực tuyến
+                </Typography>
+                <Typography variant="h5" component="div" color="success.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                  {roomStats.online}
+                </Typography>
+              </Box>
+              <OnlineIcon sx={{ fontSize: 28, color: 'success.main' }} />
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+
+      {/* DataGrid */}
+      <Paper sx={{ 
+        height: 600, 
+        width: '100%', 
+        maxWidth: '100%',
+        position: 'relative',
+        minWidth: 1200,
+        overflow: 'hidden'
+      }}>
+        <DataGrid
+          apiRef={dataGridRef}
+          rows={rooms}
+          columns={columns}
+          getRowId={(row) => row.id}
+          loading={loading}
+          pageSizeOptions={[10, 25, 50, 100]}
+          initialState={{
+            pagination: {
+              paginationModel: { page: 0, pageSize: 25 },
+            },
+          }}
+          disableRowSelectionOnClick
+          disableColumnFilter
+          disableColumnMenu={false}
+          disableColumnResize={true}
+          autoPageSize={false}
+          sx={{
+            minWidth: 1200,
+            height: 600,
+            '& .MuiDataGrid-columnHeaders': {
+              backgroundColor: 'primary.main',
+              color: 'black',
+              '& .MuiDataGrid-columnHeaderTitle': {
+                color: 'black',
+                fontWeight: 'bold',
+              },
+            },
+            '& .MuiDataGrid-cell': {
+              fontSize: '0.75rem',
+            },
+          }}
+          slots={{
+            toolbar: GridToolbar,
+          }}
+          slotProps={{
+            toolbar: {
+              showQuickFilter: false,
+            },
+          }}
+          density="comfortable"
+          checkboxSelection={false}
+          disableColumnSelector={false}
+          disableDensitySelector={false}
+        />
+      </Paper>
+    </Container>
   );
 };
 

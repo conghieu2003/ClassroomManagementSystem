@@ -42,6 +42,7 @@ const WeeklySchedule: React.FC<WeeklyScheduleProps> = ({ schedules, onRoomReques
   const getScheduleForSlot = (date: string, timeSlot: TimeSlot): Schedule | undefined => {
     return schedules?.find(
       (schedule) =>
+        schedule.startDate && 
         format(new Date(schedule.startDate), 'dd/MM/yyyy') === date &&
         schedule.startTime >= timeSlot.start &&
         schedule.endTime <= timeSlot.end

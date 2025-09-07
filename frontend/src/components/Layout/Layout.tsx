@@ -56,16 +56,34 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100vh',
+      width: '100vw',
+      minWidth: '1200px', // Kích thước tối thiểu để không bị co lại khi zoom
+      maxWidth: '100vw', // Không vượt quá viewport width
+      overflow: 'hidden', // Ngăn scroll toàn trang
+      position: 'fixed', // Cố định layout
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: 1
+    }}>
       {/* Header */}
       <div style={{
         height: '50px',
+        minHeight: '50px',
+        maxHeight: '50px',
         backgroundColor: '#fff',
         display: 'flex',
         alignItems: 'center',
         padding: '0 20px',
         justifyContent: 'space-between',
-        borderBottom: '1px solid #e0e0e0'
+        borderBottom: '1px solid #e0e0e0',
+        flexShrink: 0, // Không cho phép co lại
+        width: '100%'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
           <img src="/logo.png" alt="Logo" style={{ height: '30px' }} />
@@ -189,7 +207,13 @@ const Layout: React.FC = () => {
         </div>
       </div>
 
-      <div style={{ display: 'flex', flex: 1, backgroundColor: '#f5f5f5' }}>
+      <div style={{ 
+        display: 'flex', 
+        flex: 1, 
+        backgroundColor: '#f5f5f5',
+        minHeight: 0, // Quan trọng để flex hoạt động đúng
+        width: '100%'
+      }}>
         {/* Sidebar */}
         <Sidebar />
 
@@ -197,7 +221,9 @@ const Layout: React.FC = () => {
         <div style={{
           flex: 1,
           padding: '20px',
-          overflowY: 'auto'
+          overflowY: 'auto',
+          minWidth: 0, // Quan trọng để flex hoạt động đúng
+          width: '100%'
         }}>
           <Outlet />
         </div>

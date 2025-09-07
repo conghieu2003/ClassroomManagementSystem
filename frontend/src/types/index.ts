@@ -68,19 +68,25 @@ export interface Subject {
 // Schedule types
 export interface Schedule {
   id: string;
-  classId: string;
+  classId?: string;
   roomId: string;
-  dayOfWeek: number; // 0-6 (Sunday-Saturday)
-  startTime: string; // HH:mm format
-  endTime: string; // HH:mm format
-  startDate: Date;
-  endDate: Date;
+  dayOfWeek?: number; // 0-6 (Sunday-Saturday)
+  startTime: string; // ISO string or HH:mm format
+  endTime: string; // ISO string or HH:mm format
+  startDate?: Date;
+  endDate?: Date;
   status?: string;
+  subject?: string; // Môn học
   subjectName?: string;
   roomName?: string;
   teacherName?: string;
-  createdAt: Date;
-  updatedAt: Date;
+  teacherId?: string;
+  studentIds?: string[];
+  title?: string; // Tiêu đề lịch
+  description?: string; // Mô tả
+  type?: string; // Loại lịch (class, exam, meeting, event)
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 // Room types
