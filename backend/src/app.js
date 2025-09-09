@@ -34,11 +34,13 @@ app.get('/', (req, res) => {
 const authRoutes = require('./routes/auth.routes');
 const classRoutes = require('./routes/class.routes');
 const scheduleRoutes = require('./routes/schedule.routes');
+const scheduleRequestRoutes = require('./routes/scheduleRequest.routes');
 const userRoutes = require('./routes/user.routes');
 const roomRoutes = require('./routes/room.routes');
 app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/schedules', scheduleRoutes);
+app.use('/api/schedule-requests', scheduleRequestRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
 

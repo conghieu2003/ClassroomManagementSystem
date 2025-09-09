@@ -33,10 +33,10 @@ class RoomService {
         const currentSchedule = room.classSchedules.find(schedule => {
           const scheduleStartTime = schedule.timeSlot.startTime.toTimeString().slice(0, 8);
           const scheduleEndTime = schedule.timeSlot.endTime.toTimeString().slice(0, 8);
-          
-          return schedule.dayOfWeek === currentDayOfWeek && 
-                 currentTime >= scheduleStartTime && 
-                 currentTime <= scheduleEndTime;
+
+          return schedule.dayOfWeek === currentDayOfWeek &&
+            currentTime >= scheduleStartTime &&
+            currentTime <= scheduleEndTime;
         });
 
         // Xác định trạng thái phòng
@@ -410,6 +410,54 @@ class RoomService {
       }));
     } catch (error) {
       throw new Error(`Lỗi lấy danh sách tiết học: ${error.message}`);
+    }
+  }
+
+  async getTeacherSchedules(teacherId) {
+    try {
+      const classSchedules = await prisma.classSchedule.findMany({
+        where: {
+          teacherId: parseInt(teacherId)
+        },
+        include: {
+          class: {
+            select: {
+              id: true,
+              code: true,
+              className: true,
+              subjectName: true,
+              subjectCode: true,
+              maxStudents: true
+            }
+          },
+          classRoom: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              capacity: true,
+              type: true
+            }
+          },
+          timeSlot: {
+            select: {
+              id: true,
+              slotName: true,
+              startTime: true,
+              endTime: true,
+              shift: true
+            }
+          }
+        },
+        orderBy: [
+          { dayOfWeek: 'asc' },
+          { timeSlotId: 'asc' }
+        ]
+      });
+
+      return classSchedules;
+    } catch (error) {
+      throw new Error(`Lỗi lấy lịch giảng viên: ${error.message}`);
     }
   }
 
