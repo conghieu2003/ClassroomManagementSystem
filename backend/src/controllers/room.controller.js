@@ -4,14 +4,14 @@ class RoomController {
   async getAllRooms(req, res) {
     try {
       const rooms = await roomService.getAllRooms();
-      return res.status(200).json({ 
-        success: true, 
-        data: rooms 
+      return res.status(200).json({
+        success: true,
+        data: rooms
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -20,14 +20,14 @@ class RoomController {
     try {
       const { roomId } = req.params;
       const room = await roomService.getRoomById(roomId);
-      return res.status(200).json({ 
-        success: true, 
-        data: room 
+      return res.status(200).json({
+        success: true,
+        data: room
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -38,17 +38,17 @@ class RoomController {
         ...req.body,
         requesterId: req.user.id // Lấy từ middleware auth
       };
-      
+
       const roomRequest = await roomService.createRoomRequest(requestData);
-      return res.status(201).json({ 
-        success: true, 
+      return res.status(201).json({
+        success: true,
         data: roomRequest,
         message: 'Yêu cầu phòng đã được tạo thành công'
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -57,15 +57,15 @@ class RoomController {
     try {
       const roomData = req.body;
       const room = await roomService.createRoom(roomData);
-      return res.status(201).json({ 
-        success: true, 
+      return res.status(201).json({
+        success: true,
         data: room,
         message: 'Phòng học đã được tạo thành công'
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -75,15 +75,15 @@ class RoomController {
       const { roomId } = req.params;
       const roomData = req.body;
       const room = await roomService.updateRoom(roomId, roomData);
-      return res.status(200).json({ 
-        success: true, 
+      return res.status(200).json({
+        success: true,
         data: room,
         message: 'Phòng học đã được cập nhật thành công'
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -92,14 +92,14 @@ class RoomController {
     try {
       const { roomId } = req.params;
       await roomService.deleteRoom(roomId);
-      return res.status(200).json({ 
-        success: true, 
+      return res.status(200).json({
+        success: true,
         message: 'Phòng học đã được xóa thành công'
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -107,14 +107,14 @@ class RoomController {
   async getRoomRequests(req, res) {
     try {
       const requests = await roomService.getRoomRequests();
-      return res.status(200).json({ 
-        success: true, 
-        data: requests 
+      return res.status(200).json({
+        success: true,
+        data: requests
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -124,15 +124,15 @@ class RoomController {
       const { requestId } = req.params;
       const { status } = req.body;
       const request = await roomService.updateRoomRequestStatus(requestId, status);
-      return res.status(200).json({ 
-        success: true, 
+      return res.status(200).json({
+        success: true,
         data: request,
         message: 'Trạng thái yêu cầu phòng đã được cập nhật'
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -140,14 +140,14 @@ class RoomController {
   async getTeachersWithClasses(req, res) {
     try {
       const teachers = await roomService.getTeachersWithClasses();
-      return res.status(200).json({ 
-        success: true, 
-        data: teachers 
+      return res.status(200).json({
+        success: true,
+        data: teachers
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }
@@ -155,14 +155,30 @@ class RoomController {
   async getTimeSlots(req, res) {
     try {
       const timeSlots = await roomService.getTimeSlots();
-      return res.status(200).json({ 
-        success: true, 
-        data: timeSlots 
+      return res.status(200).json({
+        success: true,
+        data: timeSlots
       });
     } catch (error) {
-      return res.status(400).json({ 
-        success: false, 
-        message: error.message 
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
+  async getTeacherSchedules(req, res) {
+    try {
+      const { teacherId } = req.params;
+      const schedules = await roomService.getTeacherSchedules(teacherId);
+      return res.status(200).json({
+        success: true,
+        data: schedules
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
       });
     }
   }

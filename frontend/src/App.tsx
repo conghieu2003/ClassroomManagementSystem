@@ -11,6 +11,7 @@ import UserManagement from './pages/Management/UserManagement';
 import CreateUser from './pages/Management/CreateUser';
 import RoomList from './pages/RoomManagement/RoomList';
 import RoomRequest from './pages/RoomManagement/RoomRequest';
+import RoomRequestForm from './pages/RoomManagement/RoomRequestForm';
 import RoomRequestList from './pages/RoomManagement/RoomRequestList';
 import RoomScheduling from './pages/RoomManagement/RoomScheduling';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
@@ -22,7 +23,7 @@ const App = () => {
         <Routes>
           {/* @ts-ignore */}
           <Route path="/login" element={<Login />} />
-          
+
           <Route path="/" element={
             // @ts-ignore
             <ProtectedRoute>
@@ -42,6 +43,8 @@ const App = () => {
             <Route path="/rooms" element={<RoomList />} />
             {/* @ts-ignore */}
             <Route path="/rooms/requests" element={<RoomRequest />} />
+            {/* @ts-ignore */}
+            <Route path="/room-requests" element={<RoomRequestForm />} />
             {/* @ts-ignore */}
             <Route path="/rooms/requests/list" element={<RoomRequestList />} />
             {/* @ts-ignore */}
