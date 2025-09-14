@@ -13,6 +13,8 @@ import RoomList from './pages/RoomManagement/RoomList';
 import RoomRequest from './pages/RoomManagement/RoomRequest';
 import RoomRequestList from './pages/RoomManagement/RoomRequestList';
 import RoomScheduling from './pages/RoomManagement/RoomScheduling';
+import WeeklySchedule from './pages/Schedule/WeeklySchedule';
+import ScheduleManagement from './pages/Schedule/ScheduleManagement';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 
 const App = () => {
@@ -46,6 +48,10 @@ const App = () => {
             <Route path="/rooms/requests/list" element={<RoomRequestList />} />
             {/* @ts-ignore */}
             <Route path="/rooms/scheduling" element={<RoomScheduling />} />
+            {/* @ts-ignore */}
+            <Route path="/schedule/weekly" element={<WeeklySchedule />} />
+            {/* @ts-ignore */}
+            <Route path="/schedule/management" element={<ScheduleManagement />} />
           </Route>
         </Routes>
         <ToastContainer

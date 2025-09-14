@@ -216,32 +216,41 @@ const UserManagement = () => {
   };
 
 
-  // DataGrid columns configuration - Tối ưu width để fill hết table
+  // DataGrid columns configuration với flex layout - Tối ưu width để fill hết table
   const columns: GridColDef[] = [
     {
       field: 'username',
       headerName: 'ID',
-      width: 100,
+      flex: 0.10, // 10% width
+      minWidth: 80,
       filterable: true,
       sortable: true
     },
     {
       field: 'fullName',
       headerName: 'Họ và tên',
-      width: 180,
+      flex: 0.20, // 20% width
+      minWidth: 150,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PersonIcon color="action" />
-          {params?.value || 'N/A'}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, width: '100%' }}>
+          <PersonIcon color="action" sx={{ marginTop: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ 
+            wordBreak: 'break-word',
+            whiteSpace: 'normal',
+            lineHeight: 1.4
+          }}>
+            {params?.value || 'N/A'}
+          </Typography>
         </Box>
       )
     },
     {
       field: 'code',
       headerName: 'Mã số',
-      width: 100,
+      flex: 0.10, // 10% width
+      minWidth: 80,
       filterable: true,
       sortable: true,
       renderCell: (params: any) => {
@@ -264,7 +273,8 @@ const UserManagement = () => {
     {
       field: 'role',
       headerName: 'Vai trò',
-      width: 140,
+      flex: 0.12, // 12% width
+      minWidth: 100,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -278,7 +288,8 @@ const UserManagement = () => {
     {
       field: 'phone',
       headerName: 'Số điện thoại',
-      width: 130,
+      flex: 0.12, // 12% width
+      minWidth: 100,
       filterable: true,
       sortable: true,
       renderCell: (params: any) => {
@@ -289,14 +300,25 @@ const UserManagement = () => {
     {
       field: 'email',
       headerName: 'Email',
-      width: 320,
+      flex: 0.28, // 28% width - cột email chiếm nhiều không gian nhất
+      minWidth: 200,
       filterable: true,
-      sortable: true
+      sortable: true,
+      renderCell: (params) => (
+        <Typography variant="body2" sx={{ 
+          wordBreak: 'break-word',
+          whiteSpace: 'normal',
+          lineHeight: 1.4
+        }}>
+          {params?.value || 'N/A'}
+        </Typography>
+      )
     },
     {
       field: 'status',
       headerName: 'Trạng thái',
-      width: 120,
+      flex: 0.10, // 10% width
+      minWidth: 100,
       filterable: true,
       sortable: true,
       renderCell: (params) => {
@@ -316,7 +338,8 @@ const UserManagement = () => {
       field: 'actions',
       type: 'actions',
       headerName: 'Thao tác',
-      width: 120,
+      flex: 0.08, // 8% width
+      minWidth: 100,
       getActions: (params: GridRowParams) => {
         if (!params?.row) return [];
         return [
@@ -574,13 +597,12 @@ const UserManagement = () => {
           </Stack>
         </Paper>
 
-        {/* DataGrid với layout cố định */}
+        {/* DataGrid với flex layout */}
         <Paper sx={{ 
           height: 600, 
           width: '100%', 
           maxWidth: '100%',
           position: 'relative',
-          minWidth: 1200, // Kích thước tối thiểu để không bị co lại khi zoom
           overflow: 'hidden'
         }}>
           {isFiltering && (
@@ -628,11 +650,11 @@ const UserManagement = () => {
             disableRowSelectionOnClick
             disableColumnFilter
             disableColumnMenu={false}
-            disableColumnResize={true}
+            disableColumnResize={false} // Cho phép resize cột
             autoPageSize={false}
             sx={{
-              minWidth: 1200,
               height: 600,
+              width: '100%',
               '& .MuiDataGrid-columnHeaders': {
                 backgroundColor: 'primary.main',
                 color: 'black',
@@ -643,6 +665,16 @@ const UserManagement = () => {
               },
               '& .MuiDataGrid-cell': {
                 fontSize: '0.75rem',
+                display: 'flex',
+                alignItems: 'flex-start',
+                paddingTop: '8px',
+                paddingBottom: '8px',
+              },
+              '& .MuiDataGrid-row': {
+                minHeight: '60px !important',
+                '&:hover': {
+                  backgroundColor: 'rgba(0, 0, 0, 0.04)',
+                },
               },
             }}
             density="comfortable"

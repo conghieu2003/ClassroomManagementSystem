@@ -130,12 +130,13 @@ const RoomList = () => {
     return stats;
   }, [rooms]);
 
-  // DataGrid columns configuration
+  // DataGrid columns configuration với flex layout
   const columns: GridColDef[] = [
     {
       field: 'roomNumber',
       headerName: 'Số phòng',
-      width: 120,
+      flex: 0.15, // 15% width
+      minWidth: 100,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -150,21 +151,24 @@ const RoomList = () => {
     {
       field: 'building',
       headerName: 'Tòa nhà',
-      width: 120,
+      flex: 0.12, // 12% width
+      minWidth: 80,
       filterable: true,
       sortable: true
     },
     {
       field: 'floor',
       headerName: 'Tầng',
-      width: 80,
+      flex: 0.08, // 8% width
+      minWidth: 60,
       filterable: true,
       sortable: true
     },
     {
       field: 'capacity',
       headerName: 'Sức chứa',
-      width: 100,
+      flex: 0.12, // 12% width
+      minWidth: 90,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -176,7 +180,8 @@ const RoomList = () => {
     {
       field: 'type',
       headerName: 'Loại phòng',
-      width: 140,
+      flex: 0.18, // 18% width
+      minWidth: 120,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -192,14 +197,16 @@ const RoomList = () => {
     {
       field: 'description',
       headerName: 'Mô tả',
-      width: 200,
+      flex: 0.35, // 35% width - cột mô tả chiếm nhiều không gian nhất
+      minWidth: 200,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
         <Typography variant="body2" sx={{ 
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          whiteSpace: 'nowrap'
+          wordBreak: 'break-word',
+          whiteSpace: 'normal',
+          lineHeight: 1.4,
+          maxWidth: '100%'
         }}>
           {params.value || 'Không có mô tả'}
         </Typography>
@@ -401,7 +408,6 @@ const RoomList = () => {
         width: '100%', 
         maxWidth: '100%',
         position: 'relative',
-        minWidth: 1200,
         overflow: 'hidden'
       }}>
         <DataGrid
@@ -419,11 +425,11 @@ const RoomList = () => {
           disableRowSelectionOnClick
           disableColumnFilter
           disableColumnMenu={false}
-          disableColumnResize={true}
+          disableColumnResize={false} // Cho phép resize cột
           autoPageSize={false}
           sx={{
-            minWidth: 1200,
             height: 600,
+            width: '100%',
             '& .MuiDataGrid-columnHeaders': {
               backgroundColor: 'primary.main',
               color: 'black',
@@ -434,6 +440,27 @@ const RoomList = () => {
             },
             '& .MuiDataGrid-cell': {
               fontSize: '0.75rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              paddingTop: '8px',
+              paddingBottom: '8px',
+            },
+            '& .MuiDataGrid-row': {
+              minHeight: '60px !important',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              },
+            },
+            '& .MuiDataGrid-columnHeader': {
+              '&:focus': {
+                outline: 'none',
+              },
+            },
+            '& .MuiDataGrid-cell:focus': {
+              outline: 'none',
+            },
+            '& .MuiDataGrid-row:hover': {
+              backgroundColor: 'rgba(0, 0, 0, 0.04)',
             },
           }}
           slots={{
