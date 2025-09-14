@@ -41,7 +41,7 @@ export const fetchRoomsThunk = createAsyncThunk(
     try {
       // Add cache-busting parameter to prevent 304 responses
       const timestamp = new Date().getTime();
-      const response = await fetch(`http://localhost:5000/api/rooms?_t=${timestamp}`, {
+      const response = await fetch(`http://localhost:5000/api/rooms`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json',

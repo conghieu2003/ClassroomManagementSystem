@@ -7,7 +7,41 @@ USE ClassroomManagement;
 GO
 
 -- =====================================================
--- 1. DỮ LIỆU KHOA/PHÒNG BAN
+-- 1. DỮ LIỆU TRẠNG THÁI HỌC VẤN
+-- =====================================================
+INSERT INTO AcademicStatus (name) VALUES
+(N'Đang học'),
+(N'Đã tốt nghiệp'),
+(N'Bỏ học');
+
+-- =====================================================
+-- 2. DỮ LIỆU LOẠI PHÒNG/LỚP
+-- =====================================================
+INSERT INTO ClassRoomType (name) VALUES
+(N'Lý thuyết'),
+(N'Thực hành'),
+(N'Online');
+
+-- =====================================================
+-- 3. DỮ LIỆU LOẠI YÊU CẦU
+-- =====================================================
+INSERT INTO RequestType (name) VALUES
+(N'Đổi phòng'),
+(N'Đổi lịch'),
+(N'Tạm ngưng'),
+(N'Thi'),
+(N'Đổi giáo viên');
+
+-- =====================================================
+-- 4. DỮ LIỆU TRẠNG THÁI YÊU CẦU
+-- =====================================================
+INSERT INTO RequestStatus (name) VALUES
+(N'Chờ xử lý'),
+(N'Hoàn thành'),
+(N'Từ chối');
+
+-- =====================================================
+-- 5. DỮ LIỆU KHOA/PHÒNG BAN
 -- =====================================================
 INSERT INTO Department (code, name) VALUES
 ('CNTT', N'Khoa Công nghệ Thông tin'),
@@ -18,7 +52,7 @@ INSERT INTO Department (code, name) VALUES
 ('NN', N'Khoa Ngoại ngữ');
 
 -- =====================================================
--- 2. DỮ LIỆU CHUYÊN NGÀNH
+-- 6. DỮ LIỆU CHUYÊN NGÀNH
 -- =====================================================
 INSERT INTO Major (code, name, departmentId) VALUES
 -- Khoa CNTT
@@ -41,31 +75,31 @@ INSERT INTO Major (code, name, departmentId) VALUES
 ('TA', N'Ngôn ngữ Anh', (SELECT TOP 1 id FROM Department WHERE code = 'NN'));
 
 -- =====================================================
--- 3. DỮ LIỆU KHUNG GIỜ HỌC (theo lịch IUH)
+-- 7. DỮ LIỆU KHUNG GIỜ HỌC (theo lịch IUH)
 -- =====================================================
 INSERT INTO TimeSlot (slotName, startTime, endTime, shift) VALUES
--- Buổi sáng
-(N'Tiết 1', '06:30:00', '07:20:00', 'morning'),
-(N'Tiết 2', '07:20:00', '08:10:00', 'morning'),
-(N'Tiết 3', '08:10:00', '09:00:00', 'morning'),
-(N'Tiết 4', '09:10:00', '10:00:00', 'morning'),
-(N'Tiết 5', '10:00:00', '10:50:00', 'morning'),
-(N'Tiết 6', '10:50:00', '11:40:00', 'morning'),
--- Buổi chiều
-(N'Tiết 7', '12:30:00', '13:20:00', 'afternoon'),
-(N'Tiết 8', '13:20:00', '14:10:00', 'afternoon'),
-(N'Tiết 9', '14:10:00', '15:00:00', 'afternoon'),
-(N'Tiết 10', '15:10:00', '16:00:00', 'afternoon'),
-(N'Tiết 11', '16:00:00', '16:50:00', 'afternoon'),
-(N'Tiết 12', '16:50:00', '17:40:00', 'afternoon'),
--- Buổi tối
-(N'Tiết 13', '18:00:00', '18:50:00', 'evening'),
-(N'Tiết 14', '18:50:00', '19:40:00', 'evening'),
-(N'Tiết 15', '19:50:00', '20:40:00', 'evening'),
-(N'Tiết 16', '20:40:00', '21:30:00', 'evening');
+-- Buổi sáng (shift = 1)
+(N'Tiết 1', '06:30:00', '07:20:00', 1),
+(N'Tiết 2', '07:20:00', '08:10:00', 1),
+(N'Tiết 3', '08:10:00', '09:00:00', 1),
+(N'Tiết 4', '09:10:00', '10:00:00', 1),
+(N'Tiết 5', '10:00:00', '10:50:00', 1),
+(N'Tiết 6', '10:50:00', '11:40:00', 1),
+-- Buổi chiều (shift = 2)
+(N'Tiết 7', '12:30:00', '13:20:00', 2),
+(N'Tiết 8', '13:20:00', '14:10:00', 2),
+(N'Tiết 9', '14:10:00', '15:00:00', 2),
+(N'Tiết 10', '15:10:00', '16:00:00', 2),
+(N'Tiết 11', '16:00:00', '16:50:00', 2),
+(N'Tiết 12', '16:50:00', '17:40:00', 2),
+-- Buổi tối (shift = 3)
+(N'Tiết 13', '18:00:00', '18:50:00', 3),
+(N'Tiết 14', '18:50:00', '19:40:00', 3),
+(N'Tiết 15', '19:50:00', '20:40:00', 3),
+(N'Tiết 16', '20:40:00', '21:30:00', 3);
 
 -- =====================================================
--- 4. DỮ LIỆU TÀI KHOẢN ADMIN
+-- 8. DỮ LIỆU TÀI KHOẢN ADMIN
 -- =====================================================
 INSERT INTO Account (username, password, role, isActive)
 VALUES ('admin', '$2b$10$Yrn9g4GJ7VmaD0atsM.EzurUFzq7D7qr9y4RkPAGYRLfBtMG9sthi', 'admin', 1);
@@ -83,7 +117,7 @@ VALUES (
 );
 
 -- =====================================================
--- 5. DỮ LIỆU GIẢNG VIÊN (5 người)
+-- 9. DỮ LIỆU GIẢNG VIÊN (5 người)
 -- =====================================================
 -- Giảng viên 1: CNTT
 INSERT INTO Account (username, password, role, isActive)
@@ -206,7 +240,7 @@ VALUES (
 );
 
 -- =====================================================
--- 6. DỮ LIỆU SINH VIÊN (20 người)
+-- 10. DỮ LIỆU SINH VIÊN (20 người)
 -- =====================================================
 -- Sinh viên CNTT (10 người)
 INSERT INTO Account (username, password, role, isActive)
@@ -689,66 +723,66 @@ VALUES (
 );
 
 -- =====================================================
--- 7. DỮ LIỆU PHÒNG HỌC
+-- 11. DỮ LIỆU PHÒNG HỌC
 -- =====================================================
 -- Phòng học Khoa CNTT (Dãy H, A)
-INSERT INTO ClassRoom (code, name, capacity, building, floor, campus, type, departmentId, isAvailable, description)
+INSERT INTO ClassRoom (code, name, capacity, building, floor, campus, classRoomTypeId, departmentId, isAvailable, description)
 VALUES 
--- Dãy H - CNTT
-('H1.1', N'Phòng lý thuyết H1.1', 50, N'Tòa H', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 1'),
-('H1.2', N'Phòng lý thuyết H1.2', 50, N'Tòa H', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 1'),
-('H2.1', N'Phòng lý thuyết H2.1', 60, N'Tòa H', 2, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 2'),
-('H2.2', N'Phòng lý thuyết H2.2', 60, N'Tòa H', 2, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 2'),
-('H3.1', N'Phòng thực hành H3.1', 30, N'Tòa H', 3, N'Cơ sở chính', 'lab', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng thực hành CNTT tầng 3'),
-('H3.2', N'Phòng thực hành H3.2', 30, N'Tòa H', 3, N'Cơ sở chính', 'lab', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng thực hành CNTT tầng 3'),
-('H3.3', N'Phòng thực hành H3.3', 30, N'Tòa H', 3, N'Cơ sở chính', 'lab', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng thực hành CNTT tầng 3'),
-('H3.4', N'Phòng thực hành H3.4', 30, N'Tòa H', 3, N'Cơ sở chính', 'lab', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng thực hành CNTT tầng 3'),
+-- Dãy H - CNTT (Lý thuyết = 1, Thực hành = 2, Online = 3)
+('H1.1', N'Phòng lý thuyết H1.1', 50, N'Tòa H', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 1'),
+('H1.2', N'Phòng lý thuyết H1.2', 50, N'Tòa H', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 1'),
+('H2.1', N'Phòng lý thuyết H2.1', 60, N'Tòa H', 2, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 2'),
+('H2.2', N'Phòng lý thuyết H2.2', 60, N'Tòa H', 2, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 2'),
+('H3.1', N'Phòng thực hành H3.1', 30, N'Tòa H', 3, N'Cơ sở chính', 2, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng thực hành CNTT tầng 3'),
+('H3.2', N'Phòng thực hành H3.2', 30, N'Tòa H', 3, N'Cơ sở chính', 2, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng thực hành CNTT tầng 3'),
+('H3.3', N'Phòng thực hành H3.3', 30, N'Tòa H', 3, N'Cơ sở chính', 2, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng thực hành CNTT tầng 3'),
+('H3.4', N'Phòng thực hành H3.4', 30, N'Tòa H', 3, N'Cơ sở chính', 2, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng thực hành CNTT tầng 3'),
 
 -- Dãy A - CNTT
-('A1.1', N'Phòng lý thuyết A1.1', 80, N'Tòa A', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 1'),
-('A1.2', N'Phòng lý thuyết A1.2', 80, N'Tòa A', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 1'),
-('A2.1', N'Phòng lý thuyết A2.1', 100, N'Tòa A', 2, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 2'),
+('A1.1', N'Phòng lý thuyết A1.1', 80, N'Tòa A', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 1'),
+('A1.2', N'Phòng lý thuyết A1.2', 80, N'Tòa A', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 1'),
+('A2.1', N'Phòng lý thuyết A2.1', 100, N'Tòa A', 2, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), 1, N'Phòng lý thuyết CNTT tầng 2'),
 
 -- Phòng học Khoa Cơ khí (Dãy D, B)
-('D1.1', N'Phòng lý thuyết D1.1', 60, N'Tòa D', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CK'), 1, N'Phòng lý thuyết Cơ khí tầng 1'),
-('D1.2', N'Phòng lý thuyết D1.2', 60, N'Tòa D', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CK'), 1, N'Phòng lý thuyết Cơ khí tầng 1'),
-('B1.1', N'Phòng thực hành B1.1', 25, N'Tòa B', 1, N'Cơ sở chính', 'lab', (SELECT TOP 1 id FROM Department WHERE code = 'CK'), 1, N'Phòng thực hành Cơ khí tầng 1'),
-('B1.2', N'Phòng thực hành B1.2', 25, N'Tòa B', 1, N'Cơ sở chính', 'lab', (SELECT TOP 1 id FROM Department WHERE code = 'CK'), 1, N'Phòng thực hành Cơ khí tầng 1'),
+('D1.1', N'Phòng lý thuyết D1.1', 60, N'Tòa D', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CK'), 1, N'Phòng lý thuyết Cơ khí tầng 1'),
+('D1.2', N'Phòng lý thuyết D1.2', 60, N'Tòa D', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CK'), 1, N'Phòng lý thuyết Cơ khí tầng 1'),
+('B1.1', N'Phòng thực hành B1.1', 25, N'Tòa B', 1, N'Cơ sở chính', 2, (SELECT TOP 1 id FROM Department WHERE code = 'CK'), 1, N'Phòng thực hành Cơ khí tầng 1'),
+('B1.2', N'Phòng thực hành B1.2', 25, N'Tòa B', 1, N'Cơ sở chính', 2, (SELECT TOP 1 id FROM Department WHERE code = 'CK'), 1, N'Phòng thực hành Cơ khí tầng 1'),
 
 -- Phòng học Khoa Điện tử (Dãy V)
-('V1.1', N'Phòng lý thuyết V1.1', 50, N'Tòa V', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'CDT'), 1, N'Phòng lý thuyết Điện tử tầng 1'),
-('V2.1', N'Phòng thực hành V2.1', 30, N'Tòa V', 2, N'Cơ sở chính', 'lab', (SELECT TOP 1 id FROM Department WHERE code = 'CDT'), 1, N'Phòng thực hành Điện tử tầng 2'),
+('V1.1', N'Phòng lý thuyết V1.1', 50, N'Tòa V', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'CDT'), 1, N'Phòng lý thuyết Điện tử tầng 1'),
+('V2.1', N'Phòng thực hành V2.1', 30, N'Tòa V', 2, N'Cơ sở chính', 2, (SELECT TOP 1 id FROM Department WHERE code = 'CDT'), 1, N'Phòng thực hành Điện tử tầng 2'),
 
 -- Phòng học Khoa QTKD (Dãy X)
-('X1.1', N'Phòng lý thuyết X1.1', 70, N'Tòa X', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'QTKD'), 1, N'Phòng lý thuyết QTKD tầng 1'),
-('X1.2', N'Phòng lý thuyết X1.2', 70, N'Tòa X', 1, N'Cơ sở chính', 'theory', (SELECT TOP 1 id FROM Department WHERE code = 'QTKD'), 1, N'Phòng lý thuyết QTKD tầng 1'),
+('X1.1', N'Phòng lý thuyết X1.1', 70, N'Tòa X', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'QTKD'), 1, N'Phòng lý thuyết QTKD tầng 1'),
+('X1.2', N'Phòng lý thuyết X1.2', 70, N'Tòa X', 1, N'Cơ sở chính', 1, (SELECT TOP 1 id FROM Department WHERE code = 'QTKD'), 1, N'Phòng lý thuyết QTKD tầng 1'),
 
 -- Phòng học chung
-('CHUNG1', N'Phòng học chung 1', 150, N'Tòa Trung tâm', 1, N'Cơ sở chính', 'theory', NULL, 1, N'Phòng học chung lớn'),
-('CHUNG2', N'Phòng học chung 2', 200, N'Tòa Trung tâm', 2, N'Cơ sở chính', 'theory', NULL, 1, N'Phòng học chung rất lớn');
+('CHUNG1', N'Phòng học chung 1', 150, N'Tòa Trung tâm', 1, N'Cơ sở chính', 1, NULL, 1, N'Phòng học chung lớn'),
+('CHUNG2', N'Phòng học chung 2', 200, N'Tòa Trung tâm', 2, N'Cơ sở chính', 1, NULL, 1, N'Phòng học chung rất lớn');
 
 -- =====================================================
--- 8. DỮ LIỆU LỚP HỌC (chưa có phòng)
+-- 12. DỮ LIỆU LỚP HỌC (chưa có phòng)
 -- =====================================================
-INSERT INTO Class (code, className, subjectName, subjectCode, credits, teacherId, departmentId, majorId, semester, academicYear, maxStudents, totalWeeks, startDate, endDate, classType, description)
+INSERT INTO Class (code, className, subjectName, subjectCode, credits, teacherId, departmentId, majorId, semester, academicYear, maxStudents, totalWeeks, startDate, endDate, classRoomTypeId, description)
 VALUES 
--- Lớp CNTT
-('COMP101', N'Lập trình cơ bản', N'Nhập môn lập trình', 'NMLT', 3, 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), (SELECT TOP 1 id FROM Major WHERE code = 'SE'), N'Học kỳ 1', '2024-2025', 50, 15, '2024-09-01', '2024-12-15', 'mixed', N'Môn học cơ bản về lập trình'),
-('COMP102', N'Cơ sở dữ liệu', N'Cơ sở dữ liệu', 'CSDL', 4, 2, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), (SELECT TOP 1 id FROM Major WHERE code = 'SE'), N'Học kỳ 1', '2024-2025', 40, 15, '2024-09-01', '2024-12-15', 'mixed', N'Môn học về cơ sở dữ liệu'),
-('COMP103', N'Lập trình Web', N'Lập trình Web', 'LTW', 3, 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), (SELECT TOP 1 id FROM Major WHERE code = 'SE'), N'Học kỳ 1', '2024-2025', 35, 15, '2024-09-01', '2024-12-15', 'theory', N'Môn học lập trình Web'),
+-- Lớp CNTT (Lý thuyết = 1, Thực hành = 2, Online = 3)
+('COMP101', N'Lập trình cơ bản', N'Nhập môn lập trình', 'NMLT', 3, 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), (SELECT TOP 1 id FROM Major WHERE code = 'SE'), N'Học kỳ 1', '2024-2025', 50, 15, '2024-09-01', '2024-12-15', 1, N'Môn học cơ bản về lập trình'),
+('COMP102', N'Cơ sở dữ liệu', N'Cơ sở dữ liệu', 'CSDL', 4, 2, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), (SELECT TOP 1 id FROM Major WHERE code = 'SE'), N'Học kỳ 1', '2024-2025', 40, 15, '2024-09-01', '2024-12-15', 1, N'Môn học về cơ sở dữ liệu'),
+('COMP103', N'Lập trình Web', N'Lập trình Web', 'LTW', 3, 1, (SELECT TOP 1 id FROM Department WHERE code = 'CNTT'), (SELECT TOP 1 id FROM Major WHERE code = 'SE'), N'Học kỳ 1', '2024-2025', 35, 15, '2024-09-01', '2024-12-15', 1, N'Môn học lập trình Web'),
 
 -- Lớp Cơ khí
-('MECH101', N'Cơ học kỹ thuật', N'Cơ học kỹ thuật', 'CHKT', 3, 3, (SELECT TOP 1 id FROM Department WHERE code = 'CK'), (SELECT TOP 1 id FROM Major WHERE code = 'CTM'), N'Học kỳ 1', '2024-2025', 45, 15, '2024-09-01', '2024-12-15', 'mixed', N'Môn học cơ học kỹ thuật'),
-('MECH102', N'Thực hành CNC', N'Thực hành CNC', 'THCNC', 2, 3, (SELECT TOP 1 id FROM Department WHERE code = 'CK'), (SELECT TOP 1 id FROM Major WHERE code = 'CNC'), N'Học kỳ 1', '2024-2025', 20, 15, '2024-09-01', '2024-12-15', 'practice', N'Môn học thực hành CNC'),
+('MECH101', N'Cơ học kỹ thuật', N'Cơ học kỹ thuật', 'CHKT', 3, 3, (SELECT TOP 1 id FROM Department WHERE code = 'CK'), (SELECT TOP 1 id FROM Major WHERE code = 'CTM'), N'Học kỳ 1', '2024-2025', 45, 15, '2024-09-01', '2024-12-15', 1, N'Môn học cơ học kỹ thuật'),
+('MECH102', N'Thực hành CNC', N'Thực hành CNC', 'THCNC', 2, 3, (SELECT TOP 1 id FROM Department WHERE code = 'CK'), (SELECT TOP 1 id FROM Major WHERE code = 'CNC'), N'Học kỳ 1', '2024-2025', 20, 15, '2024-09-01', '2024-12-15', 2, N'Môn học thực hành CNC'),
 
 -- Lớp Điện tử
-('ELEC101', N'Điện tử cơ bản', N'Điện tử cơ bản', 'DTCB', 3, 4, (SELECT TOP 1 id FROM Department WHERE code = 'CDT'), (SELECT TOP 1 id FROM Major WHERE code = 'VT'), N'Học kỳ 1', '2024-2025', 40, 15, '2024-09-01', '2024-12-15', 'mixed', N'Môn học điện tử cơ bản'),
+('ELEC101', N'Điện tử cơ bản', N'Điện tử cơ bản', 'DTCB', 3, 4, (SELECT TOP 1 id FROM Department WHERE code = 'CDT'), (SELECT TOP 1 id FROM Major WHERE code = 'VT'), N'Học kỳ 1', '2024-2025', 40, 15, '2024-09-01', '2024-12-15', 1, N'Môn học điện tử cơ bản'),
 
 -- Lớp QTKD
-('BUS101', N'Kế toán tài chính', N'Kế toán tài chính', 'KTTN', 3, 5, (SELECT TOP 1 id FROM Department WHERE code = 'QTKD'), (SELECT TOP 1 id FROM Major WHERE code = 'KT'), N'Học kỳ 1', '2024-2025', 60, 15, '2024-09-01', '2024-12-15', 'theory', N'Môn học kế toán tài chính');
+('BUS101', N'Kế toán tài chính', N'Kế toán tài chính', 'KTTN', 3, 5, (SELECT TOP 1 id FROM Department WHERE code = 'QTKD'), (SELECT TOP 1 id FROM Major WHERE code = 'KT'), N'Học kỳ 1', '2024-2025', 60, 15, '2024-09-01', '2024-12-15', 1, N'Môn học kế toán tài chính');
 
 -- =====================================================
--- 9. DỮ LIỆU LỊCH HỌC (chưa có phòng - status = pending)
+-- 13. DỮ LIỆU LỊCH HỌC (chưa có phòng - status = pending)
 -- =====================================================
 INSERT INTO ClassSchedule (classId, teacherId, classRoomId, dayOfWeek, timeSlotId, weekPattern, startWeek, endWeek, status, assignedBy, assignedAt, note)
 VALUES 
@@ -779,30 +813,30 @@ VALUES
 (7, 5, NULL, 2, 7, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch học lý thuyết BUS101 - Chờ phân phòng');
 
 -- =====================================================
--- 10. DỮ LIỆU YÊU CẦU THAY ĐỔI LỊCH HỌC
+-- 14. DỮ LIỆU YÊU CẦU THAY ĐỔI LỊCH HỌC
 -- =====================================================
-INSERT INTO ScheduleRequest (requestType, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, status, approvedAt, note)
+INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
 VALUES 
--- Yêu cầu phòng độc lập (room_request)
-('room_request', NULL, 1, 1, '2024-10-15', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, N'Yêu cầu phòng cho buổi thuyết trình', NULL, 'pending', NULL, NULL),
+-- Yêu cầu phòng độc lập (Đổi phòng = 1)
+(1, NULL, 1, 1, '2024-10-15', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, N'Yêu cầu phòng cho buổi thuyết trình', NULL, 1, NULL, NULL),
 
--- Yêu cầu thay đổi phòng học (schedule_change)
-('schedule_change', 1, NULL, 1, '2024-10-15', 1, 'room_change', 1, 2, NULL, NULL, NULL, NULL, N'Phòng hiện tại quá nhỏ cho số lượng sinh viên', 1, 'approved', '2024-10-01 10:00:00', N'Admin đã phê duyệt thay đổi phòng'),
+-- Yêu cầu thay đổi phòng học (Đổi phòng = 1)
+(1, 1, NULL, 1, '2024-10-15', 1, 'room_change', 1, 2, NULL, NULL, NULL, NULL, N'Phòng hiện tại quá nhỏ cho số lượng sinh viên', 1, 2, '2024-10-01 10:00:00', N'Admin đã phê duyệt thay đổi phòng'),
 
--- Yêu cầu thay đổi tiết học (schedule_change)
-('schedule_change', 2, NULL, 2, '2024-10-15', 7, 'time_change', NULL, NULL, 7, 10, NULL, NULL, N'Giảng viên có lịch trùng với tiết 7-9', 1, 'pending', NULL, N'Đang chờ admin xem xét'),
+-- Yêu cầu thay đổi tiết học (Đổi lịch = 2)
+(2, 2, NULL, 2, '2024-10-15', 7, 'time_change', NULL, NULL, 7, 10, NULL, NULL, N'Giảng viên có lịch trùng với tiết 7-9', 1, 1, NULL, N'Đang chờ admin xem xét'),
 
--- Yêu cầu thay đổi cả phòng và tiết (schedule_change)
-('schedule_change', 3, NULL, 3, '2024-10-15', 4, 'both', 2, 3, 4, 5, NULL, NULL, N'Phòng và tiết hiện tại không phù hợp', NULL, 'pending', NULL, N'Chờ admin phê duyệt'),
+-- Yêu cầu thay đổi cả phòng và tiết (Đổi lịch = 2)
+(2, 3, NULL, 3, '2024-10-15', 4, 'both', 2, 3, 4, 5, NULL, NULL, N'Phòng và tiết hiện tại không phù hợp', NULL, 1, NULL, N'Chờ admin phê duyệt'),
 
--- Ngoại lệ: Chuyển sang thi (exception)
-('exception', 1, NULL, 1, '2024-10-15', 1, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'exam', N'Chuyển từ học sang thi giữa kỳ', 1, 'approved', '2024-10-01 10:00:00', N'Admin đã phê duyệt chuyển sang thi'),
+-- Ngoại lệ: Chuyển sang thi (Thi = 4)
+(4, 1, NULL, 1, '2024-10-15', 1, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'exam', N'Chuyển từ học sang thi giữa kỳ', 1, 2, '2024-10-01 10:00:00', N'Admin đã phê duyệt chuyển sang thi'),
 
--- Ngoại lệ: Nghỉ học (exception)
-('exception', 2, NULL, 2, '2024-10-15', 7, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'cancelled', N'Nghỉ học do bão', NULL, 'pending', NULL, N'Chờ admin phê duyệt'),
+-- Ngoại lệ: Nghỉ học (Tạm ngưng = 3)
+(3, 2, NULL, 2, '2024-10-15', 7, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'cancelled', N'Nghỉ học do bão', NULL, 1, NULL, N'Chờ admin phê duyệt'),
 
--- Ngoại lệ: Chuyển sang ngày khác (exception)
-('exception', 3, NULL, 3, '2024-10-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'moved', N'Chuyển lớp do nghỉ lễ', NULL, 'pending', NULL, N'Chờ admin phê duyệt');
+-- Ngoại lệ: Chuyển sang ngày khác (Đổi lịch = 2)
+(2, 3, NULL, 3, '2024-10-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'moved', N'Chuyển lớp do nghỉ lễ', NULL, 1, NULL, N'Chờ admin phê duyệt');
 
 -- =====================================================
 -- END OF SAMPLE DATA

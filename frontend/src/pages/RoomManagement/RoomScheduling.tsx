@@ -51,6 +51,7 @@ const sampleSchedules = [
     subjectCode: 'NMLT',
     teacherId: 1,
     teacherName: 'Nguyễn Văn Giáo',
+    departmentId: 1,
     roomId: null,
     roomName: null,
     timeSlotId: 1,
@@ -71,6 +72,7 @@ const sampleSchedules = [
     subjectCode: 'CSDL',
     teacherId: 2,
     teacherName: 'Trần Thị Dạy',
+    departmentId: 1,
     roomId: null,
     roomName: null,
     timeSlotId: 2,
@@ -91,6 +93,7 @@ const sampleSchedules = [
     subjectCode: 'CTDL',
     teacherId: 3,
     teacherName: 'Lê Thị Minh',
+    departmentId: 2,
     roomId: null,
     roomName: null,
     timeSlotId: 3,
@@ -111,6 +114,7 @@ const sampleSchedules = [
     subjectCode: 'LTW',
     teacherId: 4,
     teacherName: 'Phạm Văn Học',
+    departmentId: 1,
     roomId: null,
     roomName: null,
     timeSlotId: 4,
@@ -119,7 +123,7 @@ const sampleSchedules = [
     dayName: 'Thứ 6',
     week: 1,
     semester: 'HK1-2024',
-    status: 'pending' as const,
+    status: 'rejected' as const,
     capacity: 30,
     enrolledStudents: 28,
     utilization: 0
@@ -131,6 +135,7 @@ const sampleSchedules = [
     subjectCode: 'OOP',
     teacherId: 5,
     teacherName: 'Hoàng Thị Giảng',
+    departmentId: 2,
     roomId: null,
     roomName: null,
     timeSlotId: 1,
@@ -151,6 +156,7 @@ const sampleSchedules = [
     subjectCode: 'MMT',
     teacherId: 6,
     teacherName: 'Võ Thị Mạng',
+    departmentId: 1,
     roomId: 1,
     roomName: 'LT101 - Phòng lý thuyết 101',
     timeSlotId: 2,
@@ -171,6 +177,7 @@ const sampleSchedules = [
     subjectCode: 'HDH',
     teacherId: 7,
     teacherName: 'Đặng Văn Hệ',
+    departmentId: 2,
     roomId: 2,
     roomName: 'LT201 - Phòng lý thuyết 201',
     timeSlotId: 3,
@@ -202,6 +209,32 @@ const sampleTimeSlots = [
   { id: 5, name: 'Tiết 13-15', time: '18:30-21:00', shift: 'evening' }
 ];
 
+const sampleDepartments = [
+  { id: 1, name: 'Khoa Công nghệ thông tin' },
+  { id: 2, name: 'Khoa Kỹ thuật phần mềm' },
+  { id: 3, name: 'Khoa An toàn thông tin' }
+];
+
+const sampleClasses = [
+  { id: 1, name: 'Lập trình cơ bản' },
+  { id: 2, name: 'Cơ sở dữ liệu' },
+  { id: 3, name: 'Cấu trúc dữ liệu và giải thuật' },
+  { id: 4, name: 'Lập trình Web' },
+  { id: 5, name: 'Lập trình hướng đối tượng' },
+  { id: 6, name: 'Mạng máy tính' },
+  { id: 7, name: 'Hệ điều hành' }
+];
+
+const sampleTeachers = [
+  { id: 1, name: 'Nguyễn Văn Giáo' },
+  { id: 2, name: 'Trần Thị Dạy' },
+  { id: 3, name: 'Lê Thị Minh' },
+  { id: 4, name: 'Phạm Văn Học' },
+  { id: 5, name: 'Hoàng Thị Giảng' },
+  { id: 6, name: 'Võ Thị Mạng' },
+  { id: 7, name: 'Đặng Văn Hệ' }
+];
+
 interface Schedule {
   id: number;
   classId: number;
@@ -209,6 +242,7 @@ interface Schedule {
   subjectCode: string;
   teacherId: number;
   teacherName: string;
+  departmentId?: number;
   roomId: number | null;
   roomName: string | null;
   timeSlotId: number;
@@ -217,7 +251,7 @@ interface Schedule {
   dayName: string;
   week: number;
   semester: string;
-  status: 'scheduled' | 'pending' | 'conflict';
+  status: 'scheduled' | 'pending' | 'rejected';
   capacity: number;
   enrolledStudents: number;
   utilization: number;
@@ -230,8 +264,10 @@ const RoomScheduling = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
-  const [filterWeek, setFilterWeek] = useState('all');
-  const [filterDay, setFilterDay] = useState('all');
+  const [filterDepartment, setFilterDepartment] = useState('all');
+  const [filterClass, setFilterClass] = useState('all');
+  const [filterTeacher, setFilterTeacher] = useState('all');
+  const [filterRoom, setFilterRoom] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null);
@@ -282,16 +318,16 @@ const RoomScheduling = () => {
     switch (status) {
       case 'scheduled': return 'success';
       case 'pending': return 'warning';
-      case 'conflict': return 'error';
+      case 'rejected': return 'error';
       default: return 'default';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'scheduled': return 'Đã sắp xếp';
-      case 'pending': return 'Chưa sắp xếp';
-      case 'conflict': return 'Xung đột';
+      case 'scheduled': return 'Hoàn thành';
+      case 'pending': return 'Chờ xử lý';
+      case 'rejected': return 'Từ chối';
       default: return status;
     }
   };
@@ -300,46 +336,52 @@ const RoomScheduling = () => {
   // Filter schedules
   const filteredSchedules = useMemo(() => {
     return schedules.filter(schedule => {
-      if (filterWeek !== 'all' && schedule.week.toString() !== filterWeek) return false;
-      if (filterDay !== 'all' && schedule.dayOfWeek.toString() !== filterDay) return false;
+      if (filterDepartment !== 'all' && schedule.departmentId?.toString() !== filterDepartment) return false;
+      if (filterClass !== 'all' && schedule.classId.toString() !== filterClass) return false;
+      if (filterTeacher !== 'all' && schedule.teacherId.toString() !== filterTeacher) return false;
+      if (filterRoom !== 'all' && schedule.roomId?.toString() !== filterRoom) return false;
       if (filterStatus !== 'all' && schedule.status !== filterStatus) return false;
       return true;
     });
-  }, [schedules, filterWeek, filterDay, filterStatus]);
+  }, [schedules, filterDepartment, filterClass, filterTeacher, filterRoom, filterStatus]);
 
   // Calculate statistics
   const stats = useMemo(() => {
     const total = schedules.length;
-    const scheduled = schedules.filter(s => s.status === 'scheduled' && s.roomId).length;
     const pending = schedules.filter(s => s.status === 'pending' || !s.roomId).length;
-    const conflicts = schedules.filter(s => s.status === 'conflict').length;
-    const scheduledSchedules = schedules.filter(s => s.roomId);
-    const avgUtilization = scheduledSchedules.length > 0 
-      ? Math.round(scheduledSchedules.reduce((sum, s) => sum + s.utilization, 0) / scheduledSchedules.length)
-      : 0;
+    const completed = schedules.filter(s => s.status === 'scheduled' && s.roomId).length;
+    const rejected = schedules.filter(s => s.status === 'rejected').length;
 
-    return { total, scheduled, pending, conflicts, avgUtilization };
+    return { total, pending, completed, rejected };
   }, [schedules]);
 
-  // DataGrid columns
+  // DataGrid columns với flex layout
   const columns: GridColDef[] = [
     {
       field: 'id',
       headerName: 'ID',
-      width: 60,
+      flex: 0.05, // 5% width
+      minWidth: 50,
       filterable: true,
       sortable: true
     },
     {
       field: 'className',
       headerName: 'Lớp học',
-      width: 200,
+      flex: 0.18, // 18% width
+      minWidth: 150,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <ClassIcon color="secondary" sx={{ fontSize: 16 }} />
-          <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.75rem', lineHeight: 1.2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
+          <ClassIcon color="secondary" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ 
+            fontWeight: 'medium', 
+            fontSize: '0.75rem', 
+            lineHeight: 1.4,
+            wordBreak: 'break-word',
+            whiteSpace: 'normal'
+          }}>
             {params.value}
           </Typography>
         </Box>
@@ -348,13 +390,19 @@ const RoomScheduling = () => {
     {
       field: 'teacherName',
       headerName: 'Giảng viên',
-      width: 150,
+      flex: 0.15, // 15% width
+      minWidth: 120,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <PersonIcon color="primary" sx={{ fontSize: 16 }} />
-          <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
+          <PersonIcon color="primary" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ 
+            fontSize: '0.75rem', 
+            lineHeight: 1.4,
+            wordBreak: 'break-word',
+            whiteSpace: 'normal'
+          }}>
             {params.value}
           </Typography>
         </Box>
@@ -363,19 +411,22 @@ const RoomScheduling = () => {
     {
       field: 'roomName',
       headerName: 'Phòng học',
-      width: 180,
+      flex: 0.15, // 15% width
+      minWidth: 130,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <RoomIcon color={params.value ? "info" : "disabled"} sx={{ fontSize: 16 }} />
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
+          <RoomIcon color={params.value ? "info" : "disabled"} sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
           <Typography 
             variant="body2" 
             sx={{ 
               fontSize: '0.75rem', 
-              lineHeight: 1.2,
+              lineHeight: 1.4,
               color: params.value ? 'text.primary' : 'text.secondary',
-              fontStyle: params.value ? 'normal' : 'italic'
+              fontStyle: params.value ? 'normal' : 'italic',
+              wordBreak: 'break-word',
+              whiteSpace: 'normal'
             }}
           >
             {params.value || 'Chưa sắp xếp'}
@@ -386,13 +437,19 @@ const RoomScheduling = () => {
     {
       field: 'timeSlot',
       headerName: 'Tiết học',
-      width: 150,
+      flex: 0.12, // 12% width
+      minWidth: 100,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <TimeIcon color="action" sx={{ fontSize: 16 }} />
-          <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
+          <TimeIcon color="action" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ 
+            fontSize: '0.75rem', 
+            lineHeight: 1.4,
+            wordBreak: 'break-word',
+            whiteSpace: 'normal'
+          }}>
             {params.value}
           </Typography>
         </Box>
@@ -401,47 +458,29 @@ const RoomScheduling = () => {
     {
       field: 'dayName',
       headerName: 'Thứ',
-      width: 80,
+      flex: 0.08, // 8% width
+      minWidth: 60,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <CalendarIcon color="secondary" sx={{ fontSize: 16 }} />
-          <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
+          <CalendarIcon color="secondary" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ 
+            fontSize: '0.75rem', 
+            lineHeight: 1.4,
+            wordBreak: 'break-word',
+            whiteSpace: 'normal'
+          }}>
             {params.value}
           </Typography>
         </Box>
       )
     },
     {
-      field: 'utilization',
-      headerName: 'Sử dụng',
-      width: 100,
-      filterable: true,
-      sortable: true,
-      renderCell: (params) => (
-        <Box sx={{ textAlign: 'center' }}>
-          {params.row.roomId ? (
-            <>
-              <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
-                {params.value}%
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }}>
-                {params.row.enrolledStudents}/{params.row.capacity}
-              </Typography>
-            </>
-          ) : (
-            <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.2, color: 'text.secondary', fontStyle: 'italic' }}>
-              Chưa sắp xếp
-            </Typography>
-          )}
-        </Box>
-      )
-    },
-    {
       field: 'status',
       headerName: 'Trạng thái',
-      width: 120,
+      flex: 0.10, // 10% width
+      minWidth: 100,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -457,7 +496,8 @@ const RoomScheduling = () => {
     {
       field: 'actions',
       headerName: 'Thao tác',
-      width: 100,
+      flex: 0.05, // 5% width
+      minWidth: 80,
       sortable: false,
       filterable: false,
       renderCell: (params) => (
@@ -554,14 +594,15 @@ const RoomScheduling = () => {
 
       {/* Statistics Cards */}
       <Box sx={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
+        display: 'flex', 
+        justifyContent: 'space-around',
         gap: 2, 
-        mb: 3 
+        mb: 3,
+        flexWrap: 'wrap'
       }}>
         <Card sx={{ 
           height: 120, 
-          minWidth: 150,
+          minWidth: 200,
           maxWidth: 250,
           flex: '0 0 auto'
         }}>
@@ -582,7 +623,7 @@ const RoomScheduling = () => {
 
         <Card sx={{ 
           height: 120, 
-          minWidth: 150,
+          minWidth: 200,
           maxWidth: 250,
           flex: '0 0 auto'
         }}>
@@ -590,28 +631,7 @@ const RoomScheduling = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
                 <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
-                  Đã sắp xếp
-                </Typography>
-                <Typography variant="h5" component="div" color="success.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
-                  {stats.scheduled}
-                </Typography>
-              </Box>
-              <ApproveIcon sx={{ fontSize: 28, color: 'success.main' }} />
-            </Box>
-          </CardContent>
-        </Card>
-
-        <Card sx={{ 
-          height: 120, 
-          minWidth: 150,
-          maxWidth: 250,
-          flex: '0 0 auto'
-        }}>
-          <CardContent sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box>
-                <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
-                  Chưa sắp xếp
+                  Chờ xử lý
                 </Typography>
                 <Typography variant="h5" component="div" color="warning.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
                   {stats.pending}
@@ -624,7 +644,7 @@ const RoomScheduling = () => {
 
         <Card sx={{ 
           height: 120, 
-          minWidth: 150,
+          minWidth: 200,
           maxWidth: 250,
           flex: '0 0 auto'
         }}>
@@ -632,20 +652,20 @@ const RoomScheduling = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
                 <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
-                  Xung đột
+                  Hoàn thành
                 </Typography>
-                <Typography variant="h5" component="div" color="error.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
-                  {stats.conflicts}
+                <Typography variant="h5" component="div" color="success.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                  {stats.completed}
                 </Typography>
               </Box>
-              <RejectIcon sx={{ fontSize: 28, color: 'error.main' }} />
+              <ApproveIcon sx={{ fontSize: 28, color: 'success.main' }} />
             </Box>
           </CardContent>
         </Card>
 
         <Card sx={{ 
           height: 120, 
-          minWidth: 150,
+          minWidth: 200,
           maxWidth: 250,
           flex: '0 0 auto'
         }}>
@@ -653,13 +673,13 @@ const RoomScheduling = () => {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
               <Box>
                 <Typography color="textSecondary" gutterBottom variant="body2" sx={{ fontSize: '0.65rem' }}>
-                  Sử dụng TB
+                  Từ chối
                 </Typography>
-                <Typography variant="h5" component="div" color="info.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
-                  {stats.avgUtilization}%
+                <Typography variant="h5" component="div" color="error.main" sx={{ fontSize: '1.2rem', fontWeight: 'bold' }}>
+                  {stats.rejected}
                 </Typography>
               </Box>
-              <RoomIcon sx={{ fontSize: 28, color: 'info.main' }} />
+              <RejectIcon sx={{ fontSize: 28, color: 'error.main' }} />
             </Box>
           </CardContent>
         </Card>
@@ -674,34 +694,69 @@ const RoomScheduling = () => {
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
             <Box sx={{ flex: '1 1 200px', minWidth: 200 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Tuần</InputLabel>
+                <InputLabel>Khoa</InputLabel>
                 <Select
-                  value={filterWeek}
-                  onChange={(e) => setFilterWeek(e.target.value)}
-                  label="Tuần"
+                  value={filterDepartment}
+                  onChange={(e) => setFilterDepartment(e.target.value)}
+                  label="Khoa"
                 >
                   <MenuItem value="all">Tất cả</MenuItem>
-                  <MenuItem value="1">Tuần 1</MenuItem>
-                  <MenuItem value="2">Tuần 2</MenuItem>
-                  <MenuItem value="3">Tuần 3</MenuItem>
-                  <MenuItem value="4">Tuần 4</MenuItem>
+                  {sampleDepartments.map((dept) => (
+                    <MenuItem key={dept.id} value={dept.id.toString()}>
+                      {dept.name}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Box>
             <Box sx={{ flex: '1 1 200px', minWidth: 200 }}>
               <FormControl fullWidth size="small">
-                <InputLabel>Thứ</InputLabel>
+                <InputLabel>Lớp</InputLabel>
                 <Select
-                  value={filterDay}
-                  onChange={(e) => setFilterDay(e.target.value)}
-                  label="Thứ"
+                  value={filterClass}
+                  onChange={(e) => setFilterClass(e.target.value)}
+                  label="Lớp"
                 >
                   <MenuItem value="all">Tất cả</MenuItem>
-                  <MenuItem value="2">Thứ 2</MenuItem>
-                  <MenuItem value="3">Thứ 3</MenuItem>
-                  <MenuItem value="4">Thứ 4</MenuItem>
-                  <MenuItem value="5">Thứ 5</MenuItem>
-                  <MenuItem value="6">Thứ 6</MenuItem>
+                  {sampleClasses.map((cls) => (
+                    <MenuItem key={cls.id} value={cls.id.toString()}>
+                      {cls.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: '1 1 200px', minWidth: 200 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Giảng viên</InputLabel>
+                <Select
+                  value={filterTeacher}
+                  onChange={(e) => setFilterTeacher(e.target.value)}
+                  label="Giảng viên"
+                >
+                  <MenuItem value="all">Tất cả</MenuItem>
+                  {sampleTeachers.map((teacher) => (
+                    <MenuItem key={teacher.id} value={teacher.id.toString()}>
+                      {teacher.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+            <Box sx={{ flex: '1 1 200px', minWidth: 200 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>Phòng</InputLabel>
+                <Select
+                  value={filterRoom}
+                  onChange={(e) => setFilterRoom(e.target.value)}
+                  label="Phòng"
+                >
+                  <MenuItem value="all">Tất cả</MenuItem>
+                  {rooms.map((room) => (
+                    <MenuItem key={room.id} value={room.id.toString()}>
+                      {room.name}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Box>
@@ -714,9 +769,9 @@ const RoomScheduling = () => {
                   label="Trạng thái"
                 >
                   <MenuItem value="all">Tất cả</MenuItem>
-                  <MenuItem value="scheduled">Đã sắp xếp</MenuItem>
-                  <MenuItem value="pending">Chưa sắp xếp</MenuItem>
-                  <MenuItem value="conflict">Xung đột</MenuItem>
+                  <MenuItem value="scheduled">Hoàn thành</MenuItem>
+                  <MenuItem value="pending">Chờ xử lý</MenuItem>
+                  <MenuItem value="rejected">Từ chối</MenuItem>
                 </Select>
               </FormControl>
             </Box>
@@ -727,7 +782,10 @@ const RoomScheduling = () => {
       {/* DataGrid */}
        <Paper sx={{ 
          height: 600, 
-         minWidth: 1200
+         width: '100%',
+         maxWidth: '100%',
+         position: 'relative',
+         overflow: 'hidden'
        }}>
         <DataGrid
           apiRef={dataGridRef}
@@ -747,8 +805,8 @@ const RoomScheduling = () => {
           disableColumnResize={false}
           autoPageSize={false}
            sx={{
-             minWidth: 1200,
              height: 600,
+             width: '100%',
              '& .MuiDataGrid-columnHeader:last-child': {
                display: 'none',
              },
@@ -765,9 +823,16 @@ const RoomScheduling = () => {
              },
              '& .MuiDataGrid-cell': {
                fontSize: '0.75rem',
+               display: 'flex',
+               alignItems: 'flex-start',
+               paddingTop: '8px',
+               paddingBottom: '8px',
              },
              '& .MuiDataGrid-row': {
-               minHeight: '60px',
+               minHeight: '60px !important',
+               '&:hover': {
+                 backgroundColor: 'rgba(0, 0, 0, 0.04)',
+               },
              },
            }}
           slots={{
@@ -875,9 +940,9 @@ const RoomScheduling = () => {
                       value={selectedSchedule.status}
                       label="Trạng thái"
                     >
-                      <MenuItem value="scheduled">Đã sắp xếp</MenuItem>
-                      <MenuItem value="pending">Chưa sắp xếp</MenuItem>
-                      <MenuItem value="conflict">Xung đột</MenuItem>
+                      <MenuItem value="scheduled">Hoàn thành</MenuItem>
+                      <MenuItem value="pending">Chờ xử lý</MenuItem>
+                      <MenuItem value="rejected">Từ chối</MenuItem>
                     </Select>
                   </FormControl>
                 </Box>

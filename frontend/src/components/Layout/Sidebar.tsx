@@ -65,7 +65,11 @@ const Sidebar: React.FC = () => {
         id: 'schedules',
         name: 'Quản lý lịch học',
         path: '/schedules',
-        icon: 'fas fa-calendar-alt'
+        icon: 'fas fa-calendar-alt',
+        children: [
+          { id: 'weekly-schedule', name: 'Lịch học theo tuần', path: '/schedule/weekly', icon: 'fas fa-calendar-week' },
+          { id: 'schedule-management', name: 'Quản lý đổi lịch', path: '/schedule/management', icon: 'fas fa-exchange-alt' }
+        ]
       }
     ],
     teacher: [
@@ -79,7 +83,10 @@ const Sidebar: React.FC = () => {
         id: 'schedule',
         name: 'Lịch dạy',
         path: '/schedule',
-        icon: 'fas fa-calendar-alt'
+        icon: 'fas fa-calendar-alt',
+        children: [
+          { id: 'weekly-schedule', name: 'Lịch dạy theo tuần', path: '/schedule/weekly', icon: 'fas fa-calendar-week' }
+        ]
       },
       {
         id: 'room-requests',
@@ -105,7 +112,10 @@ const Sidebar: React.FC = () => {
         id: 'schedule',
         name: 'Lịch học',
         path: '/schedule',
-        icon: 'fas fa-calendar-alt'
+        icon: 'fas fa-calendar-alt',
+        children: [
+          { id: 'weekly-schedule', name: 'Lịch học theo tuần', path: '/schedule/weekly', icon: 'fas fa-calendar-week' }
+        ]
       },
       {
         id: 'profile',

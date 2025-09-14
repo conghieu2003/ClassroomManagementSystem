@@ -319,19 +319,21 @@ const RoomRequestList = () => {
     return { total, pending, approved, rejected, roomRequests, scheduleChanges };
   }, [requests]);
 
-  // DataGrid columns - tối ưu cho admin xử lý yêu cầu
+  // DataGrid columns với flex layout - tối ưu cho admin xử lý yêu cầu
   const columns: GridColDef[] = [
     {
       field: 'id',
       headerName: 'ID',
-      width: 50,
+      flex: 0.05, // 5% width
+      minWidth: 40,
       filterable: true,
       sortable: true
     },
     {
       field: 'requestType',
       headerName: 'Loại yêu cầu',
-      width: 120,
+      flex: 0.12, // 12% width
+      minWidth: 100,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -347,7 +349,8 @@ const RoomRequestList = () => {
     {
       field: 'status',
       headerName: 'Trạng thái',
-      width: 130,
+      flex: 0.12, // 12% width
+      minWidth: 110,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -364,13 +367,20 @@ const RoomRequestList = () => {
     {
       field: 'teacherName',
       headerName: 'Giảng viên yêu cầu',
-      width: 180,
+      flex: 0.15, // 15% width
+      minWidth: 140,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <PersonIcon color="primary" sx={{ fontSize: 16 }} />
-          <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.75rem', lineHeight: 1.2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
+          <PersonIcon color="primary" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ 
+            fontWeight: 'medium', 
+            fontSize: '0.75rem', 
+            lineHeight: 1.4,
+            wordBreak: 'break-word',
+            whiteSpace: 'normal'
+          }}>
             {params.value}
           </Typography>
         </Box>
@@ -379,13 +389,20 @@ const RoomRequestList = () => {
     {
       field: 'className',
       headerName: 'Lớp học',
-      width: 200,
+      flex: 0.15, // 15% width
+      minWidth: 130,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-          <ClassIcon color="secondary" sx={{ fontSize: 16 }} />
-          <Typography variant="body2" sx={{ fontWeight: 'medium', fontSize: '0.75rem', lineHeight: 1.2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
+          <ClassIcon color="secondary" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
+          <Typography variant="body2" sx={{ 
+            fontWeight: 'medium', 
+            fontSize: '0.75rem', 
+            lineHeight: 1.4,
+            wordBreak: 'break-word',
+            whiteSpace: 'normal'
+          }}>
             {params.value}
           </Typography>
         </Box>
@@ -394,7 +411,8 @@ const RoomRequestList = () => {
     {
       field: 'timeSlot',
       headerName: 'Yêu cầu thay đổi',
-      width: 200,
+      flex: 0.18, // 18% width
+      minWidth: 150,
       filterable: true,
       sortable: true,
       renderCell: (params) => {
@@ -414,9 +432,14 @@ const RoomRequestList = () => {
         }
         
         return (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0 }}>
-            <ScheduleIcon color="info" sx={{ fontSize: 16 }} />
-            <Typography variant="body2" sx={{ fontSize: '0.75rem', lineHeight: 1.2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
+            <ScheduleIcon color="info" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
+            <Typography variant="body2" sx={{ 
+              fontSize: '0.75rem', 
+              lineHeight: 1.4,
+              wordBreak: 'break-word',
+              whiteSpace: 'normal'
+            }}>
               {changeText}
             </Typography>
           </Box>
@@ -426,7 +449,8 @@ const RoomRequestList = () => {
     {
       field: 'reason',
       headerName: 'Lý do yêu cầu',
-      width: 250,
+      flex: 0.20, // 20% width - cột quan trọng nhất
+      minWidth: 180,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -434,12 +458,11 @@ const RoomRequestList = () => {
           variant="body2" 
           sx={{ 
             fontSize: '0.75rem', 
-            lineHeight: 1.2,
-            overflow: 'hidden',
-            textOverflow: 'ellipsis',
-            whiteSpace: 'nowrap'
+            lineHeight: 1.4,
+            wordBreak: 'break-word',
+            whiteSpace: 'normal',
+            maxWidth: '100%'
           }}
-          title={params.value}
         >
           {params.value}
         </Typography>
@@ -448,7 +471,8 @@ const RoomRequestList = () => {
     {
       field: 'requestDate',
       headerName: 'Ngày gửi',
-      width: 100,
+      flex: 0.08, // 8% width
+      minWidth: 80,
       filterable: true,
       sortable: true,
       renderCell: (params) => (
@@ -460,7 +484,8 @@ const RoomRequestList = () => {
     {
       field: 'actions',
       headerName: 'Xử lý',
-      width: 100,
+      flex: 0.10, // 10% width
+      minWidth: 90,
       sortable: false,
       filterable: false,
       renderCell: (params) => (
@@ -719,7 +744,6 @@ const RoomRequestList = () => {
         width: '100%', 
         maxWidth: '100%',
         position: 'relative',
-        minWidth: 1200,
         overflow: 'hidden'
       }}>
         <DataGrid
@@ -740,8 +764,8 @@ const RoomRequestList = () => {
           disableColumnResize={false}
           autoPageSize={false}
           sx={{
-            minWidth: 1200,
             height: 600,
+            width: '100%',
             '& .MuiDataGrid-columnHeaders': {
               backgroundColor: 'primary.main',
               color: 'black',
@@ -752,9 +776,16 @@ const RoomRequestList = () => {
             },
             '& .MuiDataGrid-cell': {
               fontSize: '0.75rem',
+              display: 'flex',
+              alignItems: 'flex-start',
+              paddingTop: '8px',
+              paddingBottom: '8px',
             },
             '& .MuiDataGrid-row': {
-              minHeight: '60px',
+              minHeight: '60px !important',
+              '&:hover': {
+                backgroundColor: 'rgba(0, 0, 0, 0.04)',
+              },
             },
           }}
           slots={{
