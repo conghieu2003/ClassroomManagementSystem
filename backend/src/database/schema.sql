@@ -278,10 +278,12 @@ CREATE TABLE ClassSchedule (
     classRoomId INT NULL, -- ID phòng học (NULL nếu chưa được phân phòng)
     dayOfWeek INT NOT NULL, -- Ngày trong tuần (1: Chủ nhật, 2: Thứ 2, ..., 7: Thứ 7)
     timeSlotId INT NOT NULL, -- ID tiết học (CỐ ĐỊNH - Admin không thay đổi)
+    classRoomTypeId INT NOT NULL, -- ID loại phòng/lớp (1: Lý thuyết, 2: Thực hành, 3: Online)
+    practiceGroup INT NULL, -- Số nhóm thực hành (NULL nếu là lý thuyết)
     weekPattern NVARCHAR(50) NOT NULL DEFAULT 'weekly', -- Mẫu tuần: 'weekly', 'biweekly', 'specific'
     startWeek INT NOT NULL, -- Tuần bắt đầu
     endWeek INT NOT NULL, -- Tuần kết thúc
-    status NVARCHAR(50) NOT NULL DEFAULT 'pending', -- Trạng thái: 'pending', 'assigned', 'active', 'cancelled', 'paused', 'exam'
+    statusId INT NOT NULL DEFAULT 1, -- ID trạng thái lịch học (1: Chờ phân phòng, 2: Đã phân phòng, 3: Đang hoạt động, 4: Đã hủy, 5: Tạm ngưng, 6: Thi)
     assignedBy INT NULL, -- ID admin phân phòng (NULL nếu chưa phân)
     assignedAt DATETIME NULL, -- Thời gian phân phòng
     note NVARCHAR(MAX), -- Ghi chú
@@ -291,7 +293,9 @@ CREATE TABLE ClassSchedule (
     FOREIGN KEY (teacherId) REFERENCES Teacher(id),
     FOREIGN KEY (classRoomId) REFERENCES ClassRoom(id),
     FOREIGN KEY (timeSlotId) REFERENCES TimeSlot(id),
-    FOREIGN KEY (assignedBy) REFERENCES [User](id)
+    FOREIGN KEY (classRoomTypeId) REFERENCES ClassRoomType(id),
+    FOREIGN KEY (assignedBy) REFERENCES [User](id),
+    FOREIGN KEY (statusId) REFERENCES RequestType(id)
 );
 
 -- =====================================================
@@ -368,11 +372,24 @@ ADD CONSTRAINT CK_TimeSlot_Time CHECK (startTime < endTime);
 ALTER TABLE ClassSchedule
 ADD CONSTRAINT CK_ClassSchedule_DayOfWeek CHECK (dayOfWeek BETWEEN 1 AND 7);
 
+-- Trạng thái lịch học phải là 1-6 (các trạng thái lịch học trong RequestType)
 ALTER TABLE ClassSchedule
-ADD CONSTRAINT CK_ClassSchedule_Status CHECK (status IN ('pending', 'assigned', 'active', 'cancelled', 'paused', 'exam'));
+ADD CONSTRAINT CK_ClassSchedule_StatusId CHECK (statusId BETWEEN 1 AND 6);
 
 ALTER TABLE ClassSchedule
 ADD CONSTRAINT CK_ClassSchedule_Weeks CHECK (startWeek <= endWeek);
+
+-- Ràng buộc loại phòng/lớp: 1 = Lý thuyết, 2 = Thực hành, 3 = Online
+ALTER TABLE ClassSchedule
+ADD CONSTRAINT CK_ClassSchedule_ClassRoomType CHECK (classRoomTypeId BETWEEN 1 AND 3);
+
+-- Ràng buộc nhóm thực hành: NULL nếu là lý thuyết, 1-99 nếu là thực hành
+ALTER TABLE ClassSchedule
+ADD CONSTRAINT CK_ClassSchedule_PracticeGroup CHECK (
+    (classRoomTypeId = 1 AND practiceGroup IS NULL) OR 
+    (classRoomTypeId = 2 AND practiceGroup IS NOT NULL AND practiceGroup BETWEEN 1 AND 99) OR
+    (classRoomTypeId = 3 AND practiceGroup IS NULL)
+);
 
 -- Tránh trùng lịch: phòng học không thể bị double-book trong cùng ngày/ca
 CREATE UNIQUE INDEX UQ_ClassSchedule_Room_Time ON ClassSchedule (dayOfWeek, timeSlotId, classRoomId) WHERE classRoomId IS NOT NULL;
@@ -382,7 +399,7 @@ CREATE UNIQUE INDEX UQ_ClassSchedule_Teacher_Time ON ClassSchedule (dayOfWeek, t
 
 -- ScheduleRequest
 ALTER TABLE ScheduleRequest
-ADD CONSTRAINT CK_ScheduleRequest_Type CHECK (requestTypeId BETWEEN 1 AND 5);
+ADD CONSTRAINT CK_ScheduleRequest_Type CHECK (requestTypeId BETWEEN 1 AND 9);
 
 ALTER TABLE ScheduleRequest
 ADD CONSTRAINT CK_ScheduleRequest_Status CHECK (requestStatusId BETWEEN 1 AND 3);

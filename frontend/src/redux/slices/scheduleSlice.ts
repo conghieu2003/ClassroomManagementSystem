@@ -1,5 +1,60 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { scheduleService, ScheduleItem, ScheduleFilter, Department, Class, Teacher } from '../../services/scheduleService';
+import { scheduleService, enhancedScheduleService } from '../../services/api';
+
+// Types for schedule-related data
+export interface ScheduleItem {
+  id: number;
+  title: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  roomId: number;
+  roomName?: string;
+  teacherId: number;
+  teacherName?: string;
+  classId: number;
+  className?: string;
+  type: 'class' | 'practice' | 'exam' | 'meeting' | 'event';
+  status: 'pending' | 'active' | 'cancelled' | 'completed';
+  dayOfWeek?: number;
+  timeSlot?: string;
+  weekPattern?: string;
+  startWeek?: number;
+  endWeek?: number;
+  note?: string;
+}
+
+export interface ScheduleFilter {
+  departmentId?: number;
+  classId?: number;
+  teacherId?: number;
+  scheduleType?: string;
+  startDate?: string;
+  endDate?: string;
+  weekStartDate?: string;
+}
+
+export interface Department {
+  id: number;
+  name: string;
+  code?: string;
+}
+
+export interface Class {
+  id: number;
+  name: string;
+  code?: string;
+  departmentId?: number;
+  maxStudents?: number;
+}
+
+export interface Teacher {
+  id: number;
+  name: string;
+  code?: string;
+  departmentId?: number;
+  departmentName?: string;
+}
 
 // Interface cho state
 interface ScheduleState {
@@ -27,63 +82,63 @@ const initialState: ScheduleState = {
 export const fetchSchedules = createAsyncThunk(
   'schedule/fetchSchedules',
   async (filters: ScheduleFilter = {}) => {
-    const response = await scheduleService.getSchedules(filters);
-    return response;
+    const response = await enhancedScheduleService.getSchedules(filters);
+    return response.data || response;
   }
 );
 
 export const fetchWeeklySchedule = createAsyncThunk(
   'schedule/fetchWeeklySchedule',
   async ({ weekStartDate, filters }: { weekStartDate: string; filters: ScheduleFilter }) => {
-    const response = await scheduleService.getWeeklySchedule(weekStartDate, filters);
-    return response;
+    const response = await enhancedScheduleService.getWeeklySchedule(weekStartDate, filters);
+    return response.data || response;
   }
 );
 
 export const fetchDepartments = createAsyncThunk(
   'schedule/fetchDepartments',
   async () => {
-    const response = await scheduleService.getDepartments();
-    return response;
+    const response = await enhancedScheduleService.getDepartments();
+    return response.data || response;
   }
 );
 
 export const fetchClasses = createAsyncThunk(
   'schedule/fetchClasses',
   async (departmentId?: number) => {
-    const response = await scheduleService.getClasses(departmentId);
-    return response;
+    const response = await enhancedScheduleService.getClasses(departmentId);
+    return response.data || response;
   }
 );
 
 export const fetchTeachers = createAsyncThunk(
   'schedule/fetchTeachers',
   async (departmentId?: number) => {
-    const response = await scheduleService.getTeachers(departmentId);
-    return response;
+    const response = await enhancedScheduleService.getTeachers(departmentId);
+    return response.data || response;
   }
 );
 
 export const createSchedule = createAsyncThunk(
   'schedule/createSchedule',
   async (scheduleData: Partial<ScheduleItem>) => {
-    const response = await scheduleService.createSchedule(scheduleData);
-    return response;
+    const response = await enhancedScheduleService.createSchedule(scheduleData);
+    return response.data || response;
   }
 );
 
 export const updateSchedule = createAsyncThunk(
   'schedule/updateSchedule',
   async ({ id, scheduleData }: { id: number; scheduleData: Partial<ScheduleItem> }) => {
-    const response = await scheduleService.updateSchedule(id, scheduleData);
-    return response;
+    const response = await enhancedScheduleService.updateSchedule(id, scheduleData);
+    return response.data || response;
   }
 );
 
 export const deleteSchedule = createAsyncThunk(
   'schedule/deleteSchedule',
   async (id: number) => {
-    await scheduleService.deleteSchedule(id);
+    await enhancedScheduleService.deleteSchedule(id);
     return id;
   }
 );

@@ -37,12 +37,29 @@ const scheduleRoutes = require('./routes/schedule.routes');
 const scheduleRequestRoutes = require('./routes/scheduleRequest.routes');
 const userRoutes = require('./routes/user.routes');
 const roomRoutes = require('./routes/room.routes');
+const scheduleManagementRoutes = require('./routes/scheduleManagement.routes');
+
+// New routes for individual entities
+const departmentRoutes = require('./routes/department.routes');
+const teacherRoutes = require('./routes/teacher.routes');
+const classRoomTypeRoutes = require('./routes/classRoomType.routes');
+const requestTypeRoutes = require('./routes/requestType.routes');
+const classScheduleRoutes = require('./routes/classSchedule.routes');
+
 app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
 app.use('/api/schedules', scheduleRoutes);
 app.use('/api/schedule-requests', scheduleRequestRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/rooms', roomRoutes);
+app.use('/api/schedule-management', scheduleManagementRoutes);
+
+// New API routes
+app.use('/api/departments', departmentRoutes);
+app.use('/api/teachers', teacherRoutes);
+app.use('/api/classroom-types', classRoomTypeRoutes);
+app.use('/api/request-types', requestTypeRoutes);
+app.use('/api/class-schedules', classScheduleRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

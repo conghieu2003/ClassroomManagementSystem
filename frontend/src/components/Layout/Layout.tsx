@@ -86,7 +86,7 @@ const Layout: React.FC = () => {
         width: '100%'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          <img src="/logo.png" alt="Logo" style={{ height: '30px' }} />
+          <img src="/logo-iuh-ngang.jpg" alt="Logo" style={{ height: '50px' }} />
           <div style={{
             position: 'relative',
             display: 'flex',
@@ -142,7 +142,7 @@ const Layout: React.FC = () => {
             }}>
               <i className="fas fa-user"></i>
             </div>
-            <span style={{ color: '#333' }}>{currentUser?.fullName || 'Người dùng'}</span>
+            <span style={{ color: '#333' }}>{currentUser?.fullName || ''}</span>
             <i className="fas fa-chevron-down" style={{ fontSize: '12px', color: '#666' }}></i>
           </div>
 
