@@ -23,13 +23,19 @@ INSERT INTO ClassRoomType (name) VALUES
 (N'Online');
 
 -- =====================================================
--- 3. DỮ LIỆU LOẠI YÊU CẦU
+-- 3. DỮ LIỆU LOẠI YÊU CẦU (và trạng thái lịch học)
 -- =====================================================
 INSERT INTO RequestType (name) VALUES
+-- Trạng thái lịch học
+(N'Chờ phân phòng'),  -- pending
+(N'Đã phân phòng'),    -- assigned  
+(N'Đang hoạt động'),   -- active
+(N'Đã hủy'),          -- cancelled
+(N'Tạm ngưng'),       -- paused
+(N'Thi'),             -- exam
+-- Loại yêu cầu thay đổi
 (N'Đổi phòng'),
 (N'Đổi lịch'),
-(N'Tạm ngưng'),
-(N'Thi'),
 (N'Đổi giáo viên');
 
 -- =====================================================
@@ -782,61 +788,122 @@ VALUES
 ('BUS101', N'Kế toán tài chính', N'Kế toán tài chính', 'KTTN', 3, 5, (SELECT TOP 1 id FROM Department WHERE code = 'QTKD'), (SELECT TOP 1 id FROM Major WHERE code = 'KT'), N'Học kỳ 1', '2024-2025', 60, 15, '2024-09-01', '2024-12-15', 1, N'Môn học kế toán tài chính');
 
 -- =====================================================
--- 13. DỮ LIỆU LỊCH HỌC (chưa có phòng - status = pending)
+-- 13. DỮ LIỆU LỊCH HỌC (chưa có phòng - statusId = 1: Chờ phân phòng)
 -- =====================================================
-INSERT INTO ClassSchedule (classId, teacherId, classRoomId, dayOfWeek, timeSlotId, weekPattern, startWeek, endWeek, status, assignedBy, assignedAt, note)
+INSERT INTO ClassSchedule (classId, teacherId, classRoomId, dayOfWeek, timeSlotId, classRoomTypeId, practiceGroup, weekPattern, startWeek, endWeek, statusId, assignedBy, assignedAt, note)
 VALUES 
--- Lớp COMP101 (mixed): Thứ 3, tiết 1-3 và Thứ 5, tiết 7-9
+-- Lớp COMP101 (mixed): Thứ 3, tiết 1-3 (LT) và Thứ 5, tiết 7-9 (TH)
 -- TIẾT HỌC ĐÃ CỐ ĐỊNH - Admin chỉ cần gán phòng
-(1, 1, NULL, 3, 1, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch học lý thuyết COMP101 - Tiết 1-3 cố định, chờ phân phòng'),
-(1, 1, NULL, 5, 7, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch thực hành COMP101 - Tiết 7-9 cố định, chờ phân phòng'),
+(1, 1, NULL, 3, 1, 1, NULL, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch học lý thuyết COMP101 - Tiết 1-3 cố định, chờ phân phòng'),
+(1, 1, NULL, 5, 7, 2, 1, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành COMP101 - Nhóm 1 - Tiết 7-9 cố định, chờ phân phòng'),
+(1, 1, NULL, 5, 10, 2, 2, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành COMP101 - Nhóm 2 - Tiết 10-12 cố định, chờ phân phòng'),
+(1, 1, NULL, 5, 13, 2, 3, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành COMP101 - Nhóm 3 - Tiết 13-15 cố định, chờ phân phòng'),
 
--- Lớp COMP102 (mixed): Thứ 2, tiết 4-6 và Thứ 4, tiết 7-9
-(2, 2, NULL, 2, 4, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch học lý thuyết COMP102 - Chờ phân phòng'),
-(2, 2, NULL, 4, 7, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch thực hành COMP102 - Chờ phân phòng'),
+-- Lớp COMP102 (mixed): Thứ 2, tiết 4-6 (LT) và Thứ 4, tiết 7-9 (TH)
+(2, 2, NULL, 2, 4, 1, NULL, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch học lý thuyết COMP102 - Chờ phân phòng'),
+(2, 2, NULL, 4, 7, 2, 1, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành COMP102 - Nhóm 1 - Chờ phân phòng'),
+(2, 2, NULL, 4, 10, 2, 2, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành COMP102 - Nhóm 2 - Chờ phân phòng'),
 
--- Lớp COMP103 (theory): Thứ 6, tiết 4-6
-(3, 1, NULL, 6, 4, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch học lý thuyết COMP103 - Chờ phân phòng'),
+-- Lớp COMP103 (theory only): Thứ 6, tiết 4-6
+(3, 1, NULL, 6, 4, 1, NULL, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch học lý thuyết COMP103 - Chờ phân phòng'),
 
--- Lớp MECH101 (mixed): Thứ 2, tiết 1-3 và Thứ 4, tiết 7-9
-(4, 3, NULL, 2, 1, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch học lý thuyết MECH101 - Chờ phân phòng'),
-(4, 3, NULL, 4, 7, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch thực hành MECH101 - Chờ phân phòng'),
+-- Lớp MECH101 (mixed): Thứ 2, tiết 1-3 (LT) và Thứ 4, tiết 7-9 (TH)
+(4, 3, NULL, 2, 1, 1, NULL, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch học lý thuyết MECH101 - Chờ phân phòng'),
+(4, 3, NULL, 4, 7, 2, 1, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành MECH101 - Nhóm 1 - Chờ phân phòng'),
+(4, 3, NULL, 4, 10, 2, 2, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành MECH101 - Nhóm 2 - Chờ phân phòng'),
 
--- Lớp MECH102 (practice): Thứ 7, tiết 7-9
-(5, 3, NULL, 7, 7, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch thực hành MECH102 - Chờ phân phòng'),
+-- Lớp MECH102 (practice only): Thứ 7, tiết 7-9
+(5, 3, NULL, 7, 7, 2, 1, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành MECH102 - Nhóm 1 - Chờ phân phòng'),
+(5, 3, NULL, 7, 10, 2, 2, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành MECH102 - Nhóm 2 - Chờ phân phòng'),
 
--- Lớp ELEC101 (mixed): Thứ 3, tiết 4-6 và Thứ 5, tiết 7-9
-(6, 4, NULL, 3, 4, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch học lý thuyết ELEC101 - Chờ phân phòng'),
-(6, 4, NULL, 5, 7, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch thực hành ELEC101 - Chờ phân phòng'),
+-- Lớp ELEC101 (mixed): Thứ 3, tiết 4-6 (LT) và Thứ 5, tiết 7-9 (TH)
+(6, 4, NULL, 3, 4, 1, NULL, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch học lý thuyết ELEC101 - Chờ phân phòng'),
+(6, 4, NULL, 5, 7, 2, 1, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành ELEC101 - Nhóm 1 - Chờ phân phòng'),
+(6, 4, NULL, 5, 10, 2, 2, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch thực hành ELEC101 - Nhóm 2 - Chờ phân phòng'),
 
--- Lớp BUS101 (theory): Thứ 2, tiết 7-9
-(7, 5, NULL, 2, 7, 'weekly', 1, 15, 'pending', NULL, NULL, N'Lịch học lý thuyết BUS101 - Chờ phân phòng');
+-- Lớp BUS101 (theory only): Thứ 2, tiết 7-9
+(7, 5, NULL, 2, 7, 1, NULL, 'weekly', 1, 15, 1, NULL, NULL, N'Lịch học lý thuyết BUS101 - Chờ phân phòng');
 
 -- =====================================================
--- 14. DỮ LIỆU YÊU CẦU THAY ĐỔI LỊCH HỌC
+-- 14. DỮ LIỆU SINH VIÊN TRONG LỚP (VỚI NHÓM THỰC HÀNH)
+-- =====================================================
+INSERT INTO ClassStudent (classId, studentId, groupNumber, academicStatusId, joinedAt)
+VALUES 
+-- Lớp COMP101 (Nhập môn lập trình) - 10 sinh viên CNTT
+(1, 1, 1, 1, '2024-09-01'), -- Ao Công Hiếu - Nhóm 1
+(1, 2, 1, 1, '2024-09-01'), -- Nguyễn Thị Lan Anh - Nhóm 1
+(1, 3, 2, 1, '2024-09-01'), -- Trần Văn Minh - Nhóm 2
+(1, 4, 2, 1, '2024-09-01'), -- Lê Thị Hương - Nhóm 2
+(1, 5, 3, 1, '2024-09-01'), -- Phạm Văn Đức - Nhóm 3
+(1, 6, 3, 1, '2024-09-01'), -- Hoàng Thị Mai - Nhóm 3
+(1, 7, 1, 1, '2024-09-01'), -- Vũ Văn Hùng - Nhóm 1
+(1, 8, 2, 1, '2024-09-01'), -- Đặng Thị Linh - Nhóm 2
+(1, 9, 3, 1, '2024-09-01'), -- Bùi Văn Nam - Nhóm 3
+(1, 10, 1, 1, '2024-09-01'), -- Ngô Thị Thu - Nhóm 1
+
+-- Lớp COMP102 (Cơ sở dữ liệu) - 8 sinh viên CNTT
+(2, 1, 1, 1, '2024-09-01'), -- Ao Công Hiếu - Nhóm 1
+(2, 2, 1, 1, '2024-09-01'), -- Nguyễn Thị Lan Anh - Nhóm 1
+(2, 3, 2, 1, '2024-09-01'), -- Trần Văn Minh - Nhóm 2
+(2, 4, 2, 1, '2024-09-01'), -- Lê Thị Hương - Nhóm 2
+(2, 5, 1, 1, '2024-09-01'), -- Phạm Văn Đức - Nhóm 1
+(2, 6, 2, 1, '2024-09-01'), -- Hoàng Thị Mai - Nhóm 2
+(2, 7, 1, 1, '2024-09-01'), -- Vũ Văn Hùng - Nhóm 1
+(2, 8, 2, 1, '2024-09-01'), -- Đặng Thị Linh - Nhóm 2
+
+-- Lớp COMP103 (Lập trình Web) - 6 sinh viên CNTT (chỉ lý thuyết)
+(3, 1, NULL, 1, '2024-09-01'), -- Ao Công Hiếu - Không có nhóm (chỉ lý thuyết)
+(3, 2, NULL, 1, '2024-09-01'), -- Nguyễn Thị Lan Anh - Không có nhóm (chỉ lý thuyết)
+(3, 3, NULL, 1, '2024-09-01'), -- Trần Văn Minh - Không có nhóm (chỉ lý thuyết)
+(3, 4, NULL, 1, '2024-09-01'), -- Lê Thị Hương - Không có nhóm (chỉ lý thuyết)
+(3, 5, NULL, 1, '2024-09-01'), -- Phạm Văn Đức - Không có nhóm (chỉ lý thuyết)
+(3, 6, NULL, 1, '2024-09-01'), -- Hoàng Thị Mai - Không có nhóm (chỉ lý thuyết)
+
+-- Lớp MECH101 (Cơ học kỹ thuật) - 4 sinh viên Cơ khí
+(4, 11, 1, 1, '2024-09-01'), -- Đinh Văn Tài - Nhóm 1
+(4, 12, 1, 1, '2024-09-01'), -- Cao Thị Hoa - Nhóm 1
+(4, 13, 2, 1, '2024-09-01'), -- Lý Văn Quang - Nhóm 2
+(4, 14, 2, 1, '2024-09-01'), -- Trịnh Thị Nga - Nhóm 2
+
+-- Lớp MECH102 (Thực hành CNC) - 2 sinh viên Cơ khí
+(5, 11, 1, 1, '2024-09-01'), -- Đinh Văn Tài - Nhóm 1
+(5, 12, 2, 1, '2024-09-01'), -- Cao Thị Hoa - Nhóm 2
+
+-- Lớp ELEC101 (Điện tử cơ bản) - 4 sinh viên Điện tử
+(6, 15, 1, 1, '2024-09-01'), -- Võ Văn Sơn - Nhóm 1
+(6, 16, 1, 1, '2024-09-01'), -- Dương Thị Yến - Nhóm 1
+(6, 17, 2, 1, '2024-09-01'), -- Phan Văn Bình - Nhóm 2
+(6, 18, 2, 1, '2024-09-01'), -- Lưu Thị Hạnh - Nhóm 2
+
+-- Lớp BUS101 (Kế toán tài chính) - 2 sinh viên QTKD (chỉ lý thuyết)
+(7, 19, NULL, 1, '2024-09-01'), -- Nguyễn Văn Cường - Không có nhóm (chỉ lý thuyết)
+(7, 20, NULL, 1, '2024-09-01'); -- Trần Thị Phương - Không có nhóm (chỉ lý thuyết)
+
+-- =====================================================
+-- 15. DỮ LIỆU YÊU CẦU THAY ĐỔI LỊCH HỌC
 -- =====================================================
 INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
 VALUES 
--- Yêu cầu phòng độc lập (Đổi phòng = 1)
-(1, NULL, 1, 1, '2024-10-15', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, N'Yêu cầu phòng cho buổi thuyết trình', NULL, 1, NULL, NULL),
+-- Yêu cầu phòng độc lập (Đổi phòng = 7)
+(7, NULL, 1, 1, '2024-10-15', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, N'Yêu cầu phòng cho buổi thuyết trình', NULL, 1, NULL, NULL),
 
--- Yêu cầu thay đổi phòng học (Đổi phòng = 1)
-(1, 1, NULL, 1, '2024-10-15', 1, 'room_change', 1, 2, NULL, NULL, NULL, NULL, N'Phòng hiện tại quá nhỏ cho số lượng sinh viên', 1, 2, '2024-10-01 10:00:00', N'Admin đã phê duyệt thay đổi phòng'),
+-- Yêu cầu thay đổi phòng học (Đổi phòng = 7)
+(7, 1, NULL, 1, '2024-10-15', 1, 'room_change', 1, 2, NULL, NULL, NULL, NULL, N'Phòng hiện tại quá nhỏ cho số lượng sinh viên', 1, 2, '2024-10-01 10:00:00', N'Admin đã phê duyệt thay đổi phòng'),
 
--- Yêu cầu thay đổi tiết học (Đổi lịch = 2)
-(2, 2, NULL, 2, '2024-10-15', 7, 'time_change', NULL, NULL, 7, 10, NULL, NULL, N'Giảng viên có lịch trùng với tiết 7-9', 1, 1, NULL, N'Đang chờ admin xem xét'),
+-- Yêu cầu thay đổi tiết học (Đổi lịch = 8)
+(8, 2, NULL, 2, '2024-10-15', 7, 'time_change', NULL, NULL, 7, 10, NULL, NULL, N'Giảng viên có lịch trùng với tiết 7-9', 1, 1, NULL, N'Đang chờ admin xem xét'),
 
--- Yêu cầu thay đổi cả phòng và tiết (Đổi lịch = 2)
-(2, 3, NULL, 3, '2024-10-15', 4, 'both', 2, 3, 4, 5, NULL, NULL, N'Phòng và tiết hiện tại không phù hợp', NULL, 1, NULL, N'Chờ admin phê duyệt'),
+-- Yêu cầu thay đổi cả phòng và tiết (Đổi lịch = 8)
+(8, 3, NULL, 3, '2024-10-15', 4, 'both', 2, 3, 4, 5, NULL, NULL, N'Phòng và tiết hiện tại không phù hợp', NULL, 1, NULL, N'Chờ admin phê duyệt'),
 
--- Ngoại lệ: Chuyển sang thi (Thi = 4)
-(4, 1, NULL, 1, '2024-10-15', 1, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'exam', N'Chuyển từ học sang thi giữa kỳ', 1, 2, '2024-10-01 10:00:00', N'Admin đã phê duyệt chuyển sang thi'),
+-- Ngoại lệ: Chuyển sang thi (Thi = 6)
+(6, 1, NULL, 1, '2024-10-15', 1, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'exam', N'Chuyển từ học sang thi giữa kỳ', 1, 2, '2024-10-01 10:00:00', N'Admin đã phê duyệt chuyển sang thi'),
 
--- Ngoại lệ: Nghỉ học (Tạm ngưng = 3)
-(3, 2, NULL, 2, '2024-10-15', 7, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'cancelled', N'Nghỉ học do bão', NULL, 1, NULL, N'Chờ admin phê duyệt'),
+-- Ngoại lệ: Nghỉ học (Tạm ngưng = 5)
+(5, 2, NULL, 2, '2024-10-15', 7, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'cancelled', N'Nghỉ học do bão', NULL, 1, NULL, N'Chờ admin phê duyệt'),
 
--- Ngoại lệ: Chuyển sang ngày khác (Đổi lịch = 2)
-(2, 3, NULL, 3, '2024-10-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'moved', N'Chuyển lớp do nghỉ lễ', NULL, 1, NULL, N'Chờ admin phê duyệt');
+-- Ngoại lệ: Chuyển sang ngày khác (Đổi lịch = 8)
+(8, 3, NULL, 3, '2024-10-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-09-07', 'moved', N'Chuyển lớp do nghỉ lễ', NULL, 1, NULL, N'Chờ admin phê duyệt');
 
 -- =====================================================
 -- END OF SAMPLE DATA

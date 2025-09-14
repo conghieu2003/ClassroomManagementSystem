@@ -3,6 +3,7 @@ import authReducer from './slices/authSlice';
 import userReducer from './slices/userSlice';
 import roomReducer from './slices/roomSlice';
 import scheduleReducer from './slices/scheduleSlice';
+import roomSchedulingReducer from './slices/roomSchedulingSlice';
 
 const store = configureStore({
   reducer: {
@@ -10,6 +11,7 @@ const store = configureStore({
     user: userReducer,
     room: roomReducer,
     schedule: scheduleReducer,
+    roomScheduling: roomSchedulingReducer,
   },
 });
 

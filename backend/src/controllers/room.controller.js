@@ -1,16 +1,21 @@
 const roomService = require('../services/room.service');
 
 class RoomController {
-  // Helper method để xử lý response
-  sendResponse(res, statusCode, success, data = null, message = '') {
-    return res.status(statusCode).json({ success, data, message });
+  // Helper methods
+  sendResponse(res, statusCode, success, data, message = null) {
+    return res.status(statusCode).json({
+      success,
+      data,
+      message
+    });
   }
 
-  // Helper method để xử lý error
-  sendError(res, error, statusCode = 400) {
-    return res.status(statusCode).json({ 
-      success: false, 
-      message: error.message 
+  sendError(res, error) {
+    console.error('Room Controller Error:', error);
+    return res.status(500).json({
+      success: false,
+      message: error.message || 'Lỗi server',
+      error: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 
@@ -18,9 +23,36 @@ class RoomController {
   async getAllRooms(req, res) {
     try {
       const rooms = await roomService.getAllRooms();
-      return this.sendResponse(res, 200, true, rooms);
+      return res.status(200).json({
+        success: true,
+        data: rooms
+      });
     } catch (error) {
-      return this.sendError(res, error);
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
+
+  // API lấy phòng học theo khoa và loại phòng
+  async getRoomsByDepartmentAndType(req, res) {
+    try {
+      const { departmentId, classRoomTypeId } = req.query;
+      const rooms = await roomService.getRoomsByDepartmentAndType(departmentId, classRoomTypeId);
+      return res.status(200).json({
+        success: true,
+        data: rooms
+      });
+    } catch (error) {
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
@@ -29,29 +61,16 @@ class RoomController {
     try {
       const { roomId } = req.params;
       const room = await roomService.getRoomById(roomId);
-      return this.sendResponse(res, 200, true, room);
-    } catch (error) {
-      return this.sendError(res, error);
-    }
-  }
-
-  async createRoomRequest(req, res) {
-    try {
-      const requestData = {
-        ...req.body,
-        requesterId: req.user.id // Lấy từ middleware auth
-      };
-
-      const roomRequest = await roomService.createRoomRequest(requestData);
-      return res.status(201).json({
+      return res.status(200).json({
         success: true,
-        data: roomRequest,
-        message: 'Yêu cầu phòng đã được tạo thành công'
+        data: room
       });
     } catch (error) {
-      return res.status(400).json({
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }
@@ -60,9 +79,18 @@ class RoomController {
   async createRoom(req, res) {
     try {
       const room = await roomService.createRoom(req.body);
-      return this.sendResponse(res, 201, true, room, 'Phòng học đã được tạo thành công');
+      return res.status(201).json({
+        success: true,
+        data: room,
+        message: 'Tạo phòng học thành công'
+      });
     } catch (error) {
-      return this.sendError(res, error);
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
@@ -71,9 +99,18 @@ class RoomController {
     try {
       const { roomId } = req.params;
       const room = await roomService.updateRoom(roomId, req.body);
-      return this.sendResponse(res, 200, true, room, 'Phòng học đã được cập nhật thành công');
+      return res.status(200).json({
+        success: true,
+        data: room,
+        message: 'Cập nhật phòng học thành công'
+      });
     } catch (error) {
-      return this.sendError(res, error);
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
@@ -81,46 +118,18 @@ class RoomController {
   async deleteRoom(req, res) {
     try {
       const { roomId } = req.params;
-      await roomService.deleteRoom(roomId);
-      return this.sendResponse(res, 200, true, null, 'Phòng học đã được xóa thành công');
+      const result = await roomService.deleteRoom(roomId);
+      return res.status(200).json({
+        success: true,
+        data: result
+      });
     } catch (error) {
-      return this.sendError(res, error);
-    }
-  }
-
-  // API tạo yêu cầu phòng (ScheduleRequest)
-  async createScheduleRequest(req, res) {
-    try {
-      const requestData = {
-        ...req.body,
-        requesterId: req.user.id
-      };
-      const request = await roomService.createScheduleRequest(requestData);
-      return this.sendResponse(res, 201, true, request, 'Yêu cầu phòng đã được tạo thành công');
-    } catch (error) {
-      return this.sendError(res, error);
-    }
-  }
-
-  // API lấy danh sách yêu cầu phòng
-  async getScheduleRequests(req, res) {
-    try {
-      const requests = await roomService.getScheduleRequests();
-      return this.sendResponse(res, 200, true, requests);
-    } catch (error) {
-      return this.sendError(res, error);
-    }
-  }
-
-  // API cập nhật trạng thái yêu cầu phòng
-  async updateScheduleRequestStatus(req, res) {
-    try {
-      const { requestId } = req.params;
-      const { statusId } = req.body;
-      const request = await roomService.updateScheduleRequestStatus(requestId, statusId);
-      return this.sendResponse(res, 200, true, request, 'Trạng thái yêu cầu phòng đã được cập nhật');
-    } catch (error) {
-      return this.sendError(res, error);
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
@@ -128,24 +137,16 @@ class RoomController {
   async getClassRoomTypes(req, res) {
     try {
       const types = await roomService.getClassRoomTypes();
-      return this.sendResponse(res, 200, true, types);
-    } catch (error) {
-      return this.sendError(res, error);
-    }
-  }
-
-  // API lấy danh sách giảng viên với lớp học
-  async getTeachersWithClasses(req, res) {
-    try {
-      const teachers = await roomService.getTeachersWithClasses();
       return res.status(200).json({
         success: true,
-        data: teachers
+        data: types
       });
     } catch (error) {
-      return res.status(400).json({
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }
@@ -154,9 +155,17 @@ class RoomController {
   async getDepartments(req, res) {
     try {
       const departments = await roomService.getDepartments();
-      return this.sendResponse(res, 200, true, departments);
+      return res.status(200).json({
+        success: true,
+        data: departments
+      });
     } catch (error) {
-      return this.sendError(res, error);
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
@@ -164,9 +173,17 @@ class RoomController {
   async getRequestTypes(req, res) {
     try {
       const types = await roomService.getRequestTypes();
-      return this.sendResponse(res, 200, true, types);
+      return res.status(200).json({
+        success: true,
+        data: types
+      });
     } catch (error) {
-      return this.sendError(res, error);
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
@@ -174,9 +191,17 @@ class RoomController {
   async getRequestStatuses(req, res) {
     try {
       const statuses = await roomService.getRequestStatuses();
-      return this.sendResponse(res, 200, true, statuses);
+      return res.status(200).json({
+        success: true,
+        data: statuses
+      });
     } catch (error) {
-      return this.sendError(res, error);
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
@@ -184,24 +209,34 @@ class RoomController {
   async getTimeSlots(req, res) {
     try {
       const timeSlots = await roomService.getTimeSlots();
-      return this.sendResponse(res, 200, true, timeSlots);
+      return res.status(200).json({
+        success: true,
+        data: timeSlots
+      });
     } catch (error) {
-      return this.sendError(res, error);
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
     }
   }
 
-  async getTeacherSchedules(req, res) {
+  // API lấy danh sách giảng viên
+  async getTeachers(req, res) {
     try {
-      const { teacherId } = req.params;
-      const schedules = await roomService.getTeacherSchedules(teacherId);
+      const teachers = await roomService.getTeachers();
       return res.status(200).json({
         success: true,
-        data: schedules
+        data: teachers
       });
     } catch (error) {
-      return res.status(400).json({
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
         success: false,
-        message: error.message
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
       });
     }
   }

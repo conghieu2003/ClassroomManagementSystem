@@ -262,6 +262,11 @@ export const roomService = {
     return response.data;
   },
 
+  getTeachers: async (): Promise<any> => {
+    const response = await api.get('/rooms/teachers');
+    return response.data;
+  },
+
   getTimeSlots: async (): Promise<any> => {
     const response = await api.get('/rooms/time-slots');
     return response.data;
@@ -344,6 +349,245 @@ export const userService = {
       throw error;
     }
   },
+};
+
+// Schedule Management Service (Gộp tất cả logic sắp xếp phòng)
+export const scheduleManagementService = {
+  getClassesForScheduling: async (): Promise<any> => {
+    const response = await api.get('/schedule-management/classes');
+    return response.data;
+  },
+
+  getSchedulingStats: async (): Promise<any> => {
+    const response = await api.get('/schedule-management/stats');
+    return response.data;
+  },
+
+  getAvailableRoomsForSchedule: async (scheduleId: string): Promise<any> => {
+    const response = await api.get(`/schedule-management/available-rooms/${scheduleId}`);
+    return response.data;
+  },
+
+  assignRoomToSchedule: async (scheduleId: string, roomId: string): Promise<any> => {
+    const response = await api.post(`/schedule-management/assign-room/${scheduleId}`, { roomId });
+    return response.data;
+  },
+
+  unassignRoomFromSchedule: async (scheduleId: string): Promise<any> => {
+    const response = await api.delete(`/schedule-management/unassign-room/${scheduleId}`);
+    return response.data;
+  },
+
+  getDepartments: async (): Promise<any> => {
+    const response = await api.get('/schedule-management/departments');
+    return response.data;
+  },
+
+  getTeachers: async (): Promise<any> => {
+    const response = await api.get('/schedule-management/teachers');
+    return response.data;
+  },
+
+  getRequestTypes: async (): Promise<any> => {
+    const response = await api.get('/schedule-management/request-types');
+    return response.data;
+  },
+
+  getClassRoomTypes: async (): Promise<any> => {
+    const response = await api.get('/classroom-types');
+    return response.data;
+  },
+
+  getRoomsByDepartmentAndType: async (departmentId: string, classRoomTypeId: string): Promise<any> => {
+    const response = await api.get(`/rooms/filter?departmentId=${departmentId}&classRoomTypeId=${classRoomTypeId}`);
+    return response.data;
+  },
+};
+
+// Class Schedule Service
+export const classScheduleService = {
+  getAllSchedules: async (): Promise<any> => {
+    const response = await api.get('/class-schedules');
+    return response.data;
+  },
+
+  getSchedulesByClass: async (classId: string): Promise<any> => {
+    const response = await api.get(`/class-schedules/class/${classId}`);
+    return response.data;
+  },
+
+  getSchedulesByTeacher: async (teacherId: string): Promise<any> => {
+    const response = await api.get(`/class-schedules/teacher/${teacherId}`);
+    return response.data;
+  },
+
+  getSchedulesByRoom: async (roomId: string): Promise<any> => {
+    const response = await api.get(`/class-schedules/room/${roomId}`);
+    return response.data;
+  },
+
+  getSchedulesByWeek: async (week: string): Promise<any> => {
+    const response = await api.get(`/class-schedules/week/${week}`);
+    return response.data;
+  },
+
+  getSchedulesByDate: async (date: string): Promise<any> => {
+    const response = await api.get(`/class-schedules/date/${date}`);
+    return response.data;
+  },
+
+  createSchedule: async (scheduleData: any): Promise<any> => {
+    const response = await api.post('/class-schedules', scheduleData);
+    return response.data;
+  },
+
+  updateSchedule: async (scheduleId: string, scheduleData: any): Promise<any> => {
+    const response = await api.put(`/class-schedules/${scheduleId}`, scheduleData);
+    return response.data;
+  },
+
+  deleteSchedule: async (scheduleId: string): Promise<any> => {
+    const response = await api.delete(`/class-schedules/${scheduleId}`);
+    return response.data;
+  },
+
+  checkScheduleConflict: async (scheduleId: string, teacherId: string, dayOfWeek: string, timeSlotId: string): Promise<any> => {
+    const response = await api.get(`/class-schedules/conflict/${scheduleId}`, {
+      params: { teacherId, dayOfWeek, timeSlotId }
+    });
+    return response.data;
+  },
+};
+
+// Enhanced Schedule Service with additional methods
+export const enhancedScheduleService = {
+  // Lấy danh sách lịch học theo filter
+  getSchedules: async (filter: any = {}): Promise<any> => {
+    try {
+      const params = new URLSearchParams();
+      
+      if (filter.departmentId) params.append('departmentId', filter.departmentId.toString());
+      if (filter.classId) params.append('classId', filter.classId.toString());
+      if (filter.teacherId) params.append('teacherId', filter.teacherId.toString());
+      if (filter.scheduleType) params.append('scheduleType', filter.scheduleType);
+      if (filter.startDate) params.append('startDate', filter.startDate);
+      if (filter.endDate) params.append('endDate', filter.endDate);
+
+      const response = await api.get(`/schedules?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching schedules:', error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách khoa
+  getDepartments: async (): Promise<any> => {
+    try {
+      const response = await api.get('/departments');
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching departments:', error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách lớp học
+  getClasses: async (departmentId?: number): Promise<any> => {
+    try {
+      const params = departmentId ? `?departmentId=${departmentId}` : '';
+      const response = await api.get(`/classes${params}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching classes:', error);
+      throw error;
+    }
+  },
+
+  // Lấy danh sách giảng viên
+  getTeachers: async (departmentId?: number): Promise<any> => {
+    try {
+      const params = departmentId ? `?departmentId=${departmentId}` : '';
+      const response = await api.get(`/teachers${params}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching teachers:', error);
+      throw error;
+    }
+  },
+
+  // Lấy lịch học theo tuần
+  getWeeklySchedule: async (weekStartDate: string, filter: any = {}): Promise<any> => {
+    try {
+      const params = new URLSearchParams();
+      params.append('weekStartDate', weekStartDate);
+      
+      if (filter.departmentId) params.append('departmentId', filter.departmentId.toString());
+      if (filter.classId) params.append('classId', filter.classId.toString());
+      if (filter.teacherId) params.append('teacherId', filter.teacherId.toString());
+      if (filter.scheduleType) params.append('scheduleType', filter.scheduleType);
+
+      const response = await api.get(`/schedules/weekly?${params.toString()}`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching weekly schedule:', error);
+      throw error;
+    }
+  },
+
+  // Tạo lịch học mới
+  createSchedule: async (scheduleData: any): Promise<any> => {
+    try {
+      const response = await api.post('/schedules', scheduleData);
+      return response.data;
+    } catch (error) {
+      console.error('Error creating schedule:', error);
+      throw error;
+    }
+  },
+
+  // Cập nhật lịch học
+  updateSchedule: async (id: number, scheduleData: any): Promise<any> => {
+    try {
+      const response = await api.put(`/schedules/${id}`, scheduleData);
+      return response.data;
+    } catch (error) {
+      console.error('Error updating schedule:', error);
+      throw error;
+    }
+  },
+
+  // Xóa lịch học
+  deleteSchedule: async (id: number): Promise<void> => {
+    try {
+      await api.delete(`/schedules/${id}`);
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+      throw error;
+    }
+  },
+
+  // In lịch học
+  printSchedule: async (filter: any = {}): Promise<Blob> => {
+    try {
+      const params = new URLSearchParams();
+      
+      if (filter.departmentId) params.append('departmentId', filter.departmentId.toString());
+      if (filter.classId) params.append('classId', filter.classId.toString());
+      if (filter.teacherId) params.append('teacherId', filter.teacherId.toString());
+      if (filter.scheduleType) params.append('scheduleType', filter.scheduleType);
+      if (filter.startDate) params.append('startDate', filter.startDate);
+      if (filter.endDate) params.append('endDate', filter.endDate);
+
+      const response = await api.get(`/schedules/print?${params.toString()}`, {
+        responseType: 'blob'
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Error printing schedule:', error);
+      throw error;
+    }
+  }
 };
 
 export default api;
