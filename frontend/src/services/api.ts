@@ -49,7 +49,7 @@ export const authService = {
     try {
       console.log('Gọi API login với:', { identifier, password });
       const response = await api.post('/auth/login', { identifier, password });
-      
+
       if (response.data.success) {
         const { token, user } = response.data.data;
         const role = user.role;
@@ -57,13 +57,13 @@ export const authService = {
         localStorage.setItem('token', token);
         localStorage.setItem('user', JSON.stringify(user));
         localStorage.setItem('role', role);
-        
+
         return {
           success: true,
           data: response.data
         };
       }
-      
+
       return {
         success: false,
         message: response.data.message || 'Đăng nhập thất bại',
@@ -74,7 +74,7 @@ export const authService = {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       localStorage.removeItem('role');
-      
+
       // Trả về thông báo lỗi từ backend nếu có
       if (error.response && error.response.data) {
         return {
@@ -83,7 +83,7 @@ export const authService = {
           errorCode: error.response.data.errorCode || 'INVALID_CREDENTIALS'
         };
       }
-      
+
       // Nếu không có phản hồi từ server
       if (error.code === 'ECONNABORTED') {
         return {
@@ -100,7 +100,7 @@ export const authService = {
           errorCode: 'CONNECTION_ERROR'
         };
       }
-      
+
       return {
         success: false,
         message: 'Có lỗi xảy ra khi đăng nhập',
@@ -264,6 +264,27 @@ export const roomService = {
 
   getTimeSlots: async (): Promise<any> => {
     const response = await api.get('/rooms/time-slots');
+    return response.data;
+  },
+
+  // Schedule Request APIs
+  createScheduleRequest: async (requestData: any): Promise<any> => {
+    const response = await api.post('/schedule-requests', requestData);
+    return response.data;
+  },
+
+  getScheduleRequests: async (): Promise<any> => {
+    const response = await api.get('/schedule-requests');
+    return response.data;
+  },
+
+  getTeacherSchedules: async (teacherId: number): Promise<any> => {
+    const response = await api.get(`/rooms/teacher/${teacherId}/schedules`);
+    return response.data;
+  },
+
+  updateScheduleRequestStatus: async (requestId: number, status: string, note?: string): Promise<any> => {
+    const response = await api.put(`/schedule-requests/${requestId}/status`, { status, note });
     return response.data;
   },
 };

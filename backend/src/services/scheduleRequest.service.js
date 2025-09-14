@@ -1,0 +1,464 @@
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
+
+const createScheduleRequest = async (requestData) => {
+    try {
+        const {
+            requestType,
+            classScheduleId,
+            classRoomId,
+            requesterId,
+            requestDate,
+            timeSlotId,
+            changeType,
+            oldClassRoomId,
+            newClassRoomId,
+            oldTimeSlotId,
+            newTimeSlotId,
+            exceptionDate,
+            exceptionType,
+            movedToDate,
+            movedToTimeSlotId,
+            movedToClassRoomId,
+            substituteTeacherId,
+            reason
+        } = requestData;
+
+        const scheduleRequest = await prisma.scheduleRequest.create({
+            data: {
+                requestType,
+                classScheduleId: classScheduleId || null,
+                classRoomId: classRoomId || null,
+                requesterId,
+                requestDate: new Date(requestDate),
+                timeSlotId,
+                changeType: changeType || null,
+                oldClassRoomId: oldClassRoomId || null,
+                newClassRoomId: newClassRoomId || null,
+                oldTimeSlotId: oldTimeSlotId || null,
+                newTimeSlotId: newTimeSlotId || null,
+                exceptionDate: exceptionDate ? new Date(exceptionDate) : null,
+                exceptionType: exceptionType || null,
+                movedToDate: movedToDate ? new Date(movedToDate) : null,
+                movedToTimeSlotId: movedToTimeSlotId || null,
+                movedToClassRoomId: movedToClassRoomId || null,
+                substituteTeacherId: substituteTeacherId || null,
+                reason,
+                status: 'pending'
+            },
+            include: {
+                requester: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                },
+                classSchedule: {
+                    include: {
+                        class: {
+                            select: {
+                                id: true,
+                                code: true,
+                                className: true,
+                                subjectName: true,
+                                subjectCode: true,
+                                maxStudents: true
+                            }
+                        },
+                        classRoom: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                capacity: true,
+                                type: true
+                            }
+                        },
+                        timeSlot: {
+                            select: {
+                                id: true,
+                                slotName: true,
+                                startTime: true,
+                                endTime: true,
+                                shift: true
+                            }
+                        }
+                    }
+                },
+                timeSlot: {
+                    select: {
+                        id: true,
+                        slotName: true,
+                        startTime: true,
+                        endTime: true,
+                        shift: true
+                    }
+                },
+                oldClassRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                },
+                newClassRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                }
+            }
+        });
+
+        return scheduleRequest;
+    } catch (error) {
+        console.error('Error creating schedule request:', error);
+        throw error;
+    }
+};
+
+const getScheduleRequests = async (filters = {}) => {
+    try {
+        const { status, requesterId } = filters;
+
+        const where = {};
+        if (status) where.status = status;
+        if (requesterId) where.requesterId = parseInt(requesterId);
+
+        const scheduleRequests = await prisma.scheduleRequest.findMany({
+            where,
+            include: {
+                requester: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                },
+                classSchedule: {
+                    include: {
+                        class: {
+                            select: {
+                                id: true,
+                                code: true,
+                                className: true,
+                                subjectName: true,
+                                subjectCode: true,
+                                maxStudents: true
+                            }
+                        },
+                        classRoom: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                capacity: true,
+                                type: true
+                            }
+                        },
+                        timeSlot: {
+                            select: {
+                                id: true,
+                                slotName: true,
+                                startTime: true,
+                                endTime: true,
+                                shift: true
+                            }
+                        }
+                    }
+                },
+                timeSlot: {
+                    select: {
+                        id: true,
+                        slotName: true,
+                        startTime: true,
+                        endTime: true,
+                        shift: true
+                    }
+                },
+                oldClassRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                },
+                newClassRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                },
+                approver: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                }
+            },
+            orderBy: {
+                createdAt: 'desc'
+            }
+        });
+
+        return scheduleRequests;
+    } catch (error) {
+        console.error('Error getting schedule requests:', error);
+        throw error;
+    }
+};
+
+const getTeacherSchedules = async (teacherId) => {
+    try {
+        const classSchedules = await prisma.classSchedule.findMany({
+            where: {
+                teacherId: parseInt(teacherId)
+            },
+            include: {
+                class: {
+                    select: {
+                        id: true,
+                        code: true,
+                        className: true,
+                        subjectName: true,
+                        subjectCode: true,
+                        maxStudents: true
+                    }
+                },
+                classRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                },
+                timeSlot: {
+                    select: {
+                        id: true,
+                        slotName: true,
+                        startTime: true,
+                        endTime: true,
+                        shift: true
+                    }
+                }
+            },
+            orderBy: [
+                { dayOfWeek: 'asc' },
+                { timeSlotId: 'asc' }
+            ]
+        });
+
+        return classSchedules;
+    } catch (error) {
+        console.error('Error getting teacher schedules:', error);
+        throw error;
+    }
+};
+
+const updateScheduleRequestStatus = async (requestId, status, approverId, note) => {
+    try {
+        const scheduleRequest = await prisma.scheduleRequest.update({
+            where: {
+                id: parseInt(requestId)
+            },
+            data: {
+                status,
+                approvedBy: approverId,
+                approvedAt: new Date(),
+                note: note || null
+            },
+            include: {
+                requester: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                },
+                classSchedule: {
+                    include: {
+                        class: {
+                            select: {
+                                id: true,
+                                code: true,
+                                className: true,
+                                subjectName: true,
+                                subjectCode: true,
+                                maxStudents: true
+                            }
+                        },
+                        classRoom: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                capacity: true,
+                                type: true
+                            }
+                        },
+                        timeSlot: {
+                            select: {
+                                id: true,
+                                slotName: true,
+                                startTime: true,
+                                endTime: true,
+                                shift: true
+                            }
+                        }
+                    }
+                },
+                timeSlot: {
+                    select: {
+                        id: true,
+                        slotName: true,
+                        startTime: true,
+                        endTime: true,
+                        shift: true
+                    }
+                },
+                oldClassRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                },
+                newClassRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                },
+                approver: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                }
+            }
+        });
+
+        return scheduleRequest;
+    } catch (error) {
+        console.error('Error updating schedule request status:', error);
+        throw error;
+    }
+};
+
+const getScheduleRequestById = async (requestId) => {
+    try {
+        const scheduleRequest = await prisma.scheduleRequest.findUnique({
+            where: {
+                id: parseInt(requestId)
+            },
+            include: {
+                requester: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                },
+                classSchedule: {
+                    include: {
+                        class: {
+                            select: {
+                                id: true,
+                                code: true,
+                                className: true,
+                                subjectName: true,
+                                subjectCode: true,
+                                maxStudents: true
+                            }
+                        },
+                        classRoom: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                capacity: true,
+                                type: true
+                            }
+                        },
+                        timeSlot: {
+                            select: {
+                                id: true,
+                                slotName: true,
+                                startTime: true,
+                                endTime: true,
+                                shift: true
+                            }
+                        }
+                    }
+                },
+                timeSlot: {
+                    select: {
+                        id: true,
+                        slotName: true,
+                        startTime: true,
+                        endTime: true,
+                        shift: true
+                    }
+                },
+                oldClassRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                },
+                newClassRoom: {
+                    select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                        capacity: true,
+                        type: true
+                    }
+                },
+                approver: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                }
+            }
+        });
+
+        return scheduleRequest;
+    } catch (error) {
+        console.error('Error getting schedule request by id:', error);
+        throw error;
+    }
+};
+
+module.exports = {
+    createScheduleRequest,
+    getScheduleRequests,
+    getTeacherSchedules,
+    updateScheduleRequestStatus,
+    getScheduleRequestById
+};

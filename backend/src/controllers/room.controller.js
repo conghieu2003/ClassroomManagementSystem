@@ -35,6 +35,27 @@ class RoomController {
     }
   }
 
+  async createRoomRequest(req, res) {
+    try {
+      const requestData = {
+        ...req.body,
+        requesterId: req.user.id // Lấy từ middleware auth
+      };
+
+      const roomRequest = await roomService.createRoomRequest(requestData);
+      return res.status(201).json({
+        success: true,
+        data: roomRequest,
+        message: 'Yêu cầu phòng đã được tạo thành công'
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // API tạo phòng mới
   async createRoom(req, res) {
     try {
@@ -113,6 +134,22 @@ class RoomController {
     }
   }
 
+  // API lấy danh sách giảng viên với lớp học
+  async getTeachersWithClasses(req, res) {
+    try {
+      const teachers = await roomService.getTeachersWithClasses();
+      return res.status(200).json({
+        success: true,
+        data: teachers
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
+    }
+  }
+
   // API lấy danh sách khoa
   async getDepartments(req, res) {
     try {
@@ -150,6 +187,22 @@ class RoomController {
       return this.sendResponse(res, 200, true, timeSlots);
     } catch (error) {
       return this.sendError(res, error);
+    }
+  }
+
+  async getTeacherSchedules(req, res) {
+    try {
+      const { teacherId } = req.params;
+      const schedules = await roomService.getTeacherSchedules(teacherId);
+      return res.status(200).json({
+        success: true,
+        data: schedules
+      });
+    } catch (error) {
+      return res.status(400).json({
+        success: false,
+        message: error.message
+      });
     }
   }
 }

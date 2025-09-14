@@ -11,6 +11,8 @@ router.get('/request-types', roomController.getRequestTypes);
 router.get('/request-statuses', roomController.getRequestStatuses);
 router.get('/time-slots', roomController.getTimeSlots);
 router.get('/requests', roomController.getScheduleRequests);
+router.get('/teachers', roomController.getTeachersWithClasses);
+router.get('/teacher/:teacherId/schedules', roomController.getTeacherSchedules);
 
 // Routes yêu cầu xác thực
 router.use(verifyToken);
@@ -23,6 +25,7 @@ router.delete('/:roomId', authorize(['admin']), roomController.deleteRoom);
 
 // Quản lý yêu cầu phòng
 router.post('/requests', authorize(['admin', 'teacher']), roomController.createScheduleRequest);
+router.post('/room-requests', authorize(['admin', 'teacher']), roomController.createRoomRequest);
 router.put('/requests/:requestId/status', authorize(['admin']), roomController.updateScheduleRequestStatus);
 
 module.exports = router;

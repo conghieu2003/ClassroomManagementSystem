@@ -96,6 +96,28 @@ class RoomService {
     }
   }
 
+  async createRoomRequest(requestData) {
+    try {
+      const { roomId, requestTypeId, reason, requestedDate, timeSlotId } = requestData;
+
+      const roomRequest = await prisma.scheduleRequest.create({
+        data: {
+          requestTypeId: parseInt(requestTypeId),
+          classRoomId: parseInt(roomId),
+          requesterId: requestData.requesterId,
+          requestDate: new Date(requestedDate),
+          timeSlotId: parseInt(timeSlotId),
+          reason,
+          requestStatusId: 1 // pending
+        }
+      });
+
+      return roomRequest;
+    } catch (error) {
+      throw new Error(`Lỗi tạo yêu cầu phòng: ${error.message}`);
+    }
+  }
+
   async createScheduleRequest(requestData) {
     try {
       const { roomId, requestTypeId, reason, requestedDate, timeSlotId } = requestData;
@@ -238,6 +260,43 @@ class RoomService {
     }
   }
 
+  async getRoomRequests() {
+    try {
+      const requests = await prisma.scheduleRequest.findMany({
+        where: {
+          classRoomId: { not: null }
+        },
+        include: {
+          classRoom: true,
+          requester: { include: { account: true } },
+          timeSlot: true,
+          RequestStatus: true,
+          RequestType: true
+        },
+        orderBy: { createdAt: 'desc' }
+      });
+
+      return requests.map(request => ({
+        id: request.id.toString(),
+        roomId: request.classRoomId?.toString(),
+        roomCode: request.classRoom?.code,
+        roomName: request.classRoom?.name,
+        requesterId: request.requesterId.toString(),
+        requesterName: request.requester.fullName,
+        requesterEmail: request.requester.email,
+        reason: request.reason,
+        requestDate: request.requestDate,
+        timeSlot: request.timeSlot?.slotName,
+        status: request.RequestStatus?.name,
+        requestType: request.RequestType?.name,
+        createdAt: request.createdAt,
+        updatedAt: request.updatedAt
+      }));
+    } catch (error) {
+      throw new Error(`Lỗi lấy danh sách yêu cầu phòng: ${error.message}`);
+    }
+  }
+
   async getScheduleRequests() {
     try {
       const requests = await prisma.scheduleRequest.findMany({
@@ -272,6 +331,44 @@ class RoomService {
       }));
     } catch (error) {
       throw new Error(`Lỗi lấy danh sách yêu cầu phòng: ${error.message}`);
+    }
+  }
+
+  async updateRoomRequestStatus(requestId, status) {
+    try {
+      const request = await prisma.scheduleRequest.update({
+        where: { id: parseInt(requestId) },
+        data: { 
+          requestStatusId: parseInt(status),
+          approvedAt: new Date()
+        },
+        include: {
+          classRoom: true,
+          requester: { include: { account: true } },
+          timeSlot: true,
+          RequestStatus: true,
+          RequestType: true
+        }
+      });
+
+      return {
+        id: request.id.toString(),
+        roomId: request.classRoomId?.toString(),
+        roomCode: request.classRoom?.code,
+        roomName: request.classRoom?.name,
+        requesterId: request.requesterId.toString(),
+        requesterName: request.requester.fullName,
+        requesterEmail: request.requester.email,
+        reason: request.reason,
+        requestDate: request.requestDate,
+        timeSlot: request.timeSlot?.slotName,
+        status: request.RequestStatus?.name,
+        requestType: request.RequestType?.name,
+        createdAt: request.createdAt,
+        updatedAt: request.updatedAt
+      };
+    } catch (error) {
+      throw new Error(`Lỗi cập nhật trạng thái yêu cầu phòng: ${error.message}`);
     }
   }
 
@@ -369,6 +466,104 @@ class RoomService {
       }));
     } catch (error) {
       throw new Error(`Lỗi lấy danh sách tiết học: ${error.message}`);
+    }
+  }
+
+  async getTeachersWithClasses() {
+    try {
+      const teachers = await prisma.teacher.findMany({
+        include: {
+          user: true,
+          classes: {
+            include: {
+              classSchedules: {
+                include: {
+                  classRoom: true,
+                  timeSlot: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      return teachers.map(teacher => ({
+        id: teacher.id.toString(),
+        fullName: teacher.user.fullName,
+        email: teacher.user.email,
+        classes: teacher.classes.map(cls => ({
+          id: cls.id.toString(),
+          className: cls.className,
+          subjectName: cls.subjectName,
+          subjectCode: cls.subjectCode,
+          maxStudents: cls.maxStudents,
+          schedules: cls.classSchedules.map(schedule => ({
+            id: schedule.id.toString(),
+            dayOfWeek: schedule.dayOfWeek,
+            room: schedule.classRoom ? {
+              id: schedule.classRoom.id.toString(),
+              code: schedule.classRoom.code,
+              name: schedule.classRoom.name
+            } : null,
+            timeSlot: schedule.timeSlot ? {
+              id: schedule.timeSlot.id.toString(),
+              slotName: schedule.timeSlot.slotName,
+              startTime: schedule.timeSlot.startTime,
+              endTime: schedule.timeSlot.endTime
+            } : null
+          }))
+        }))
+      }));
+    } catch (error) {
+      throw new Error(`Lỗi lấy danh sách giảng viên: ${error.message}`);
+    }
+  }
+
+  async getTeacherSchedules(teacherId) {
+    try {
+      const classSchedules = await prisma.classSchedule.findMany({
+        where: {
+          teacherId: parseInt(teacherId)
+        },
+        include: {
+          class: {
+            select: {
+              id: true,
+              code: true,
+              className: true,
+              subjectName: true,
+              subjectCode: true,
+              maxStudents: true
+            }
+          },
+          classRoom: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              capacity: true,
+              type: true
+            }
+          },
+          timeSlot: {
+            select: {
+              id: true,
+              slotName: true,
+              startTime: true,
+              endTime: true,
+              shift: true
+            }
+          }
+        },
+        orderBy: [
+          { dayOfWeek: 'asc' },
+          { timeSlotId: 'asc' }
+        ]
+      });
+
+      return classSchedules;
+    } catch (error) {
+      throw new Error(`Lỗi lấy lịch giảng viên: ${error.message}`);
     }
   }
 
