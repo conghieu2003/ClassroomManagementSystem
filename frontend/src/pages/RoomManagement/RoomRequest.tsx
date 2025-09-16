@@ -18,7 +18,8 @@ import {
   DialogActions,
   FormControlLabel,
   Radio,
-  RadioGroup
+  RadioGroup,
+  Paper
 } from '@mui/material';
 import {
   Person as PersonIcon,
@@ -28,6 +29,9 @@ import {
   CheckCircle as CheckCircleIcon
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
+import { useSelector } from 'react-redux';
+import { RootState } from '../../redux/store';
+import { roomService } from '../../services/api';
 
 // Data mẫu cho testing
 const sampleTeachers: Teacher[] = [
@@ -386,6 +390,11 @@ interface Room {
   name: string;
   capacity: number;
   type: string; // 'lecture', 'lab', 'seminar', 'online'
+  ClassRoomType?: {
+    id: number;
+    name: string;
+  };
+  statusText?: string;
 }
 
 interface TimeSlot {
@@ -406,14 +415,48 @@ interface RoomRequestData {
   requestType: 'change' | 'request';
 }
 
+interface ScheduleRequest {
+  id: number;
+  requestType: string;
+  classScheduleId: number;
+  requesterId: number;
+  requestDate: string;
+  timeSlotId: number;
+  reason: string;
+  status: string;
+  createdAt: string;
+  classSchedule?: {
+    class: {
+      className: string;
+      subjectName: string;
+      maxStudents: number;
+    };
+    classRoom?: {
+      name: string;
+      id: number;
+    };
+    classRoomTypeId: number;
+  };
+  requester?: {
+    fullName: string;
+  };
+}
+
 // Không cần steps nữa vì sẽ hiển thị tất cả cùng lúc
 
 const RoomRequest: React.FC = () => {
+  const { user } = useSelector((state: RootState) => state.auth);
   const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [rooms, setRooms] = useState<Room[]>([]);
   const [loading, setLoading] = useState(false);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+
+  // State cho admin quản lý yêu cầu
+  const [scheduleRequests, setScheduleRequests] = useState<ScheduleRequest[]>([]);
+  const [selectedRequest, setSelectedRequest] = useState<ScheduleRequest | null>(null);
+  const [roomSelectionDialogOpen, setRoomSelectionDialogOpen] = useState(false);
+
 
   const [formData, setFormData] = useState<RoomRequestData>({
     teacherId: '',
@@ -431,8 +474,10 @@ const RoomRequest: React.FC = () => {
   const [availableRooms, setAvailableRooms] = useState<Room[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
+
   useEffect(() => {
     loadInitialData();
+    loadScheduleRequests();
   }, []);
 
   const loadInitialData = async () => {
@@ -447,6 +492,59 @@ const RoomRequest: React.FC = () => {
       console.error('Error loading data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Load schedule requests cho admin
+  const loadScheduleRequests = async () => {
+    try {
+      const response = await roomService.getScheduleRequests();
+      if (response.success) {
+        setScheduleRequests(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading schedule requests:', error);
+    }
+  };
+
+  // Load available rooms cho admin chọn phòng mới
+  const loadAvailableRooms = async (filters = {}) => {
+    try {
+      const response = await roomService.getAvailableRoomsForRequest(filters);
+      if (response.success) {
+        setAvailableRooms(response.data);
+      }
+    } catch (error) {
+      console.error('Error loading available rooms:', error);
+    }
+  };
+
+  // Admin chọn phòng mới cho yêu cầu
+  const handleSelectNewRoom = (request: ScheduleRequest) => {
+    setSelectedRequest(request);
+    const filters = {
+      classRoomTypeId: request.classSchedule?.classRoomTypeId,
+      minCapacity: request.classSchedule?.class?.maxStudents,
+      excludeRoomId: request.classSchedule?.classRoom?.id
+    };
+    loadAvailableRooms(filters);
+    setRoomSelectionDialogOpen(true);
+  };
+
+  // Admin cập nhật phòng mới
+  const handleUpdateRoom = async (newRoomId: number) => {
+    if (!selectedRequest) return;
+
+    try {
+      const response = await roomService.updateScheduleRequestRoom(selectedRequest.id, newRoomId);
+      if (response.success) {
+        toast.success('Phòng mới đã được cập nhật');
+        loadScheduleRequests();
+        setRoomSelectionDialogOpen(false);
+        setSelectedRequest(null);
+      }
+    } catch (error) {
+      toast.error('Có lỗi xảy ra khi cập nhật phòng');
     }
   };
 
@@ -492,12 +590,12 @@ const RoomRequest: React.FC = () => {
     const schedule = selectedClass?.schedules.find(s => s.id === scheduleId);
     setSelectedSchedule(schedule || null);
     setFormData(prev => ({ ...prev, currentRoomId: schedule?.room.id || '', timeSlotId: schedule?.timeSlot || '' }));
-    
+
     // Filter available rooms based on capacity and room type
     if (schedule && selectedClass) {
       const currentRoomType = schedule.room.type;
-      const available = rooms.filter(room => 
-        room.capacity >= selectedClass.maxStudents && 
+      const available = rooms.filter(room =>
+        room.capacity >= selectedClass.maxStudents &&
         room.type === currentRoomType
       );
       setAvailableRooms(available);
@@ -511,7 +609,7 @@ const RoomRequest: React.FC = () => {
     try {
       // Simulate API call với data mẫu
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate delay
-      
+
       // Tạo yêu cầu mẫu
       const requestData = {
         id: Date.now().toString(),
@@ -528,7 +626,7 @@ const RoomRequest: React.FC = () => {
 
       console.log('Yêu cầu đổi phòng:', requestData);
       toast.success('Yêu cầu đổi phòng đã được gửi thành công!');
-      
+
       // Reset form
       setFormData({
         teacherId: '',
@@ -564,8 +662,8 @@ const RoomRequest: React.FC = () => {
               <RadioGroup
                 value={formData.requestType}
                 onChange={(e) => {
-                  setFormData(prev => ({ 
-                    ...prev, 
+                  setFormData(prev => ({
+                    ...prev,
                     requestType: e.target.value as 'change' | 'request',
                     teacherId: '',
                     classId: '',
@@ -789,7 +887,7 @@ const RoomRequest: React.FC = () => {
                 <Box>
                   <Typography variant="body2" color="text.secondary">Phòng mới:</Typography>
                   <Typography variant="body1">
-                    {rooms.find(r => r.id === formData.requestedRoomId)?.name} 
+                    {rooms.find(r => r.id === formData.requestedRoomId)?.name}
                     ({rooms.find(r => r.id === formData.requestedRoomId)?.code})
                   </Typography>
                 </Box>
@@ -820,7 +918,64 @@ const RoomRequest: React.FC = () => {
       <Typography variant="h4" gutterBottom>
         Yêu cầu đổi/xin phòng
       </Typography>
-      
+
+      {/* Danh sách yêu cầu cho admin */}
+      {user?.role === 'admin' && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" gutterBottom>
+              Danh sách yêu cầu đổi phòng
+            </Typography>
+            {scheduleRequests.length > 0 ? (
+              <Box>
+                {scheduleRequests.map((request) => (
+                  <Paper key={request.id} sx={{ p: 2, mb: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Box sx={{ flex: 1 }}>
+                        <Typography variant="body1">
+                          <strong>Lớp học:</strong> {request.classSchedule?.class?.className}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Môn học:</strong> {request.classSchedule?.class?.subjectName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Giảng viên:</strong> {request.requester?.fullName}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Phòng hiện tại:</strong> {request.classSchedule?.classRoom?.name || 'Chưa có phòng'}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Lý do:</strong> {request.reason}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Trạng thái:</strong> {request.status}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          <strong>Ngày gửi:</strong> {new Date(request.createdAt).toLocaleDateString()}
+                        </Typography>
+                      </Box>
+                      <Box>
+                        <Button
+                          variant="outlined"
+                          onClick={() => handleSelectNewRoom(request)}
+                          disabled={request.status !== 'pending'}
+                        >
+                          Chọn phòng mới
+                        </Button>
+                      </Box>
+                    </Box>
+                  </Paper>
+                ))}
+              </Box>
+            ) : (
+              <Typography variant="body2" color="text.secondary">
+                Chưa có yêu cầu đổi phòng nào
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
+
       {validationErrors.length > 0 && (
         <Alert severity="error" sx={{ mb: 2 }}>
           <Box component="ul" sx={{ margin: 0, paddingLeft: 2.5 }}>
@@ -844,6 +999,51 @@ const RoomRequest: React.FC = () => {
           {loading ? <CircularProgress size={24} /> : 'Gửi yêu cầu'}
         </Button>
       </Box>
+
+      {/* Dialog để admin chọn phòng mới */}
+      <Dialog open={roomSelectionDialogOpen} onClose={() => setRoomSelectionDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Chọn phòng mới cho yêu cầu</DialogTitle>
+        <DialogContent>
+          {selectedRequest && (
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Yêu cầu: {selectedRequest.classSchedule?.class?.className}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Phòng hiện tại: {selectedRequest.classSchedule?.classRoom?.name || 'Chưa có phòng'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                Yêu cầu sức chứa tối thiểu: {selectedRequest.classSchedule?.class?.maxStudents} sinh viên
+              </Typography>
+
+              <Typography variant="h6" gutterBottom>
+                Danh sách phòng có thể chọn:
+              </Typography>
+              <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+                {availableRooms.map((room) => (
+                  <Paper key={room.id} sx={{ p: 2, mb: 1, cursor: 'pointer', '&:hover': { backgroundColor: 'action.hover' } }}
+                    onClick={() => handleUpdateRoom(parseInt(room.id))}>
+                    <Typography variant="body1">{room.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {room.code} - Sức chứa: {room.capacity} sinh viên -
+                      Loại: {room.ClassRoomType?.name || 'Chưa xác định'} -
+                      {room.statusText || 'Sẵn sàng'}
+                      {room.capacity >= (selectedRequest.classSchedule?.class?.maxStudents || 0) ? (
+                        <Chip label="Phù hợp" color="success" size="small" sx={{ ml: 1 }} />
+                      ) : (
+                        <Chip label="Không phù hợp" color="error" size="small" sx={{ ml: 1 }} />
+                      )}
+                    </Typography>
+                  </Paper>
+                ))}
+              </Box>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setRoomSelectionDialogOpen(false)}>Hủy</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
         <DialogTitle>Xác nhận gửi yêu cầu</DialogTitle>

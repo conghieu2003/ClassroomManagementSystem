@@ -182,6 +182,46 @@ class RoomController {
       });
     }
   }
+
+  // API lấy lịch dạy của giảng viên
+  async getTeacherSchedules(req, res) {
+    try {
+      const { teacherId } = req.params;
+      const schedules = await roomService.getTeacherSchedules(teacherId);
+      return res.status(200).json({
+        success: true,
+        data: schedules
+      });
+    } catch (error) {
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
+
+  // API lấy danh sách phòng học có thể chọn cho yêu cầu
+  async getAvailableRoomsForRequest(req, res) {
+    try {
+      const filters = req.query;
+      const rooms = await roomService.getAvailableRoomsForRequest(filters);
+
+      return res.status(200).json({
+        success: true,
+        data: rooms,
+        message: `Tìm thấy ${rooms.length} phòng học phù hợp`
+      });
+    } catch (error) {
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
 }
 
 module.exports = new RoomController();

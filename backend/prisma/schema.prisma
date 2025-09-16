@@ -8,42 +8,42 @@ datasource db {
 }
 
 model Account {
-  id        Int       @id @default(autoincrement())
-  username  String    @unique @db.NVarChar(255)
+  id        Int       @id(map: "PK__Account__3213E83F9BA445D6") @default(autoincrement())
+  username  String    @unique(map: "UQ__Account__F3DBC572C01B85FD") @db.NVarChar(255)
   password  String    @db.NVarChar(255)
   role      String    @db.NVarChar(50)
-  isActive  Boolean   @default(true)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now()) @updatedAt
+  isActive  Boolean?  @default(true, map: "DF__Account__isActiv__4BAC3F29")
+  createdAt DateTime? @default(now(), map: "DF__Account__created__4CA06362") @db.DateTime
+  updatedAt DateTime? @default(now(), map: "DF__Account__updated__4D94879B") @updatedAt @db.DateTime
   user      User?
 }
 
 model User {
-  id              Int              @id @default(autoincrement())
-  accountId       Int              @unique
-  fullName        String           @db.NVarChar(255)
-  email           String           @unique @db.NVarChar(255)
-  phone           String?          @db.NVarChar(20)
-  address         String?          @db.NVarChar(255)
-  avatar          String?          @db.NVarChar(500)
-  gender          String?          @db.NVarChar(10)
-  dateOfBirth     DateTime?        @db.Date
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @default(now()) @updatedAt
-  academicProfile AcademicProfile?
-  familyInfo      FamilyInfo?
-  personalProfile PersonalProfile?
-  assignedSchedules ClassSchedule[] @relation("ClassScheduleAssignedBy")
-  scheduleRequests ScheduleRequest[] @relation("ScheduleRequestRequester")
+  id                Int               @id(map: "PK__User__3213E83F721AA716") @default(autoincrement())
+  accountId         Int               @unique(map: "UQ__User__F267251F3F303ADD")
+  fullName          String            @db.NVarChar(255)
+  email             String            @unique(map: "UQ__User__AB6E61648BA31A74") @db.NVarChar(255)
+  phone             String?           @db.NVarChar(20)
+  address           String?           @db.NVarChar(255)
+  avatar            String?           @db.NVarChar(500)
+  gender            String?           @db.NVarChar(10)
+  dateOfBirth       DateTime?         @db.Date
+  createdAt         DateTime?         @default(now(), map: "DF__User__createdAt__52593CB8") @db.DateTime
+  updatedAt         DateTime?         @default(now(), map: "DF__User__updatedAt__534D60F1") @updatedAt @db.DateTime
+  academicProfile   AcademicProfile?
+  assignedSchedules ClassSchedule[]   @relation("ClassScheduleAssignedBy")
+  familyInfo        FamilyInfo?
+  personalProfile   PersonalProfile?
   scheduleApprovals ScheduleRequest[] @relation("ScheduleRequestApprover")
-  student         Student?
-  teacher         Teacher?
-  account         Account          @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  scheduleRequests  ScheduleRequest[] @relation("ScheduleRequestRequester")
+  student           Student?
+  teacher           Teacher?
+  account           Account           @relation(fields: [accountId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__User__accountId__5441852A")
 }
 
 model PersonalProfile {
-  id                Int       @id @default(autoincrement())
-  userId            Int       @unique
+  id                Int       @id(map: "PK__Personal__3213E83F0236740F") @default(autoincrement())
+  userId            Int       @unique(map: "UQ__Personal__CB9A1CFE638B2B94")
   idCardNumber      String?   @db.NVarChar(50)
   idCardIssueDate   DateTime? @db.Date
   idCardIssuePlace  String?   @db.NVarChar(255)
@@ -53,28 +53,28 @@ model PersonalProfile {
   bankName          String?   @db.NVarChar(255)
   bankBranch        String?   @db.NVarChar(255)
   bankAccountNumber String?   @db.NVarChar(50)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @default(now()) @updatedAt
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime? @default(now(), map: "DF__PersonalP__creat__5812160E") @db.DateTime
+  updatedAt         DateTime? @default(now(), map: "DF__PersonalP__updat__59063A47") @updatedAt @db.DateTime
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__PersonalP__userI__59FA5E80")
 }
 
 model FamilyInfo {
-  id                Int       @id @default(autoincrement())
-  userId            Int       @unique
+  id                Int       @id(map: "PK__FamilyIn__3213E83F96471710") @default(autoincrement())
+  userId            Int       @unique(map: "UQ__FamilyIn__CB9A1CFEAE9D3FF9")
   fatherFullName    String?   @db.NVarChar(255)
   fatherYearOfBirth Int?
   fatherPhone       String?   @db.NVarChar(50)
   motherFullName    String?   @db.NVarChar(255)
   motherYearOfBirth Int?
   motherPhone       String?   @db.NVarChar(50)
-  createdAt         DateTime  @default(now())
-  updatedAt         DateTime  @default(now()) @updatedAt
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt         DateTime? @default(now(), map: "DF__FamilyInf__creat__5DCAEF64") @db.DateTime
+  updatedAt         DateTime? @default(now(), map: "DF__FamilyInf__updat__5EBF139D") @updatedAt @db.DateTime
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__FamilyInf__userI__5FB337D6")
 }
 
 model AcademicProfile {
-  id             Int       @id @default(autoincrement())
-  userId         Int       @unique
+  id             Int       @id(map: "PK__Academic__3213E83F14DD16E1") @default(autoincrement())
+  userId         Int       @unique(map: "UQ__Academic__CB9A1CFE70F5642C")
   role           String    @db.NVarChar(20)
   campus         String?   @db.NVarChar(255)
   trainingType   String?   @db.NVarChar(255)
@@ -83,211 +83,241 @@ model AcademicProfile {
   enrollmentDate DateTime? @db.Date
   classCode      String?   @db.NVarChar(50)
   title          String?   @db.NVarChar(255)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @default(now()) @updatedAt
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime? @default(now(), map: "DF__AcademicP__creat__6383C8BA") @db.DateTime
+  updatedAt      DateTime? @default(now(), map: "DF__AcademicP__updat__6477ECF3") @updatedAt @db.DateTime
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__AcademicP__userI__656C112C")
 }
 
 model Department {
-  id        Int       @id @default(autoincrement())
-  code      String    @unique @db.NVarChar(50)
-  name      String    @unique @db.NVarChar(255)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @default(now()) @updatedAt
-  majors    Major[]
-  students  Student[] @relation("StudentDepartment")
-  teachers  Teacher[] @relation("TeacherDepartment")
-  classes   Class[]   @relation("ClassDepartment")
+  id         Int         @id(map: "PK__Departme__3213E83F20436CD2") @default(autoincrement())
+  code       String      @unique(map: "UQ__Departme__357D4CF9973D2A31") @db.NVarChar(50)
+  name       String      @unique(map: "UQ__Departme__72E12F1B4FEC04D4") @db.NVarChar(255)
+  createdAt  DateTime?   @default(now(), map: "DF__Departmen__creat__412EB0B6") @db.DateTime
+  updatedAt  DateTime?   @default(now(), map: "DF__Departmen__updat__4222D4EF") @updatedAt @db.DateTime
+  classes    Class[]     @relation("ClassDepartment")
   classRooms ClassRoom[] @relation("ClassRoomDepartment")
+  majors     Major[]
+  students   Student[]   @relation("StudentDepartment")
+  teachers   Teacher[]   @relation("TeacherDepartment")
 }
 
 model Major {
-  id           Int        @id @default(autoincrement())
-  code         String     @unique @db.NVarChar(50)
+  id           Int        @id(map: "PK__Major__3213E83FE7EB881F") @default(autoincrement())
+  code         String     @unique(map: "UQ__Major__357D4CF960C3B968") @db.NVarChar(50)
   name         String     @db.NVarChar(255)
   departmentId Int
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @default(now()) @updatedAt
-  department   Department @relation(fields: [departmentId], references: [id])
+  createdAt    DateTime?  @default(now(), map: "DF__Major__createdAt__45F365D3") @db.DateTime
+  updatedAt    DateTime?  @default(now(), map: "DF__Major__updatedAt__46E78A0C") @updatedAt @db.DateTime
+  classes      Class[]    @relation("ClassMajor")
+  department   Department @relation(fields: [departmentId], references: [id], onUpdate: NoAction, map: "FK__Major__departmen__47DBAE45")
   students     Student[]  @relation("StudentMajor")
   teachers     Teacher[]  @relation("TeacherMajor")
-  classes      Class[]    @relation("ClassMajor")
 }
 
 model Teacher {
-  id             Int             @id @default(autoincrement())
-  userId         Int             @unique
-  teacherCode    String          @unique @db.NVarChar(50)
-  departmentId   Int?
-  majorId        Int?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @default(now()) @updatedAt
-  classes        Class[]         @relation("ClassTeacher")
-  classSchedules ClassSchedule[] @relation("ClassScheduleTeacher")
-
-  department     Department?     @relation("TeacherDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  major          Major?          @relation("TeacherMajor", fields: [majorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user           User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id                         Int               @id(map: "PK__Teacher__3213E83FA59A39B4") @default(autoincrement())
+  userId                     Int               @unique(map: "UQ__Teacher__CB9A1CFEC5CA0643")
+  teacherCode                String            @unique(map: "UQ__Teacher__3644755C39E164F6") @db.NVarChar(50)
+  departmentId               Int?
+  majorId                    Int?
+  createdAt                  DateTime?         @default(now(), map: "DF__Teacher__created__6A30C649") @db.DateTime
+  updatedAt                  DateTime?         @default(now(), map: "DF__Teacher__updated__6B24EA82") @updatedAt @db.DateTime
+  classes                    Class[]           @relation("ClassTeacher")
+  classSchedules             ClassSchedule[]   @relation("ClassScheduleTeacher")
   scheduleRequestSubstitutes ScheduleRequest[] @relation("ScheduleRequestSubstitute")
+  department                 Department?       @relation("TeacherDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__Teacher__departm__6D0D32F4")
+  major                      Major?            @relation("TeacherMajor", fields: [majorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__Teacher__majorId__6E01572D")
+  user                       User              @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__Teacher__userId__6C190EBB")
 }
 
 model Student {
-  id            Int            @id @default(autoincrement())
-  userId        Int            @unique
-  studentCode   String         @unique @db.NVarChar(50)
+  id            Int            @id(map: "PK__Student__3213E83F824E18E7") @default(autoincrement())
+  userId        Int            @unique(map: "UQ__Student__CB9A1CFE1A928B6C")
+  studentCode   String         @unique(map: "UQ__Student__48F7EF36D0345813") @db.NVarChar(50)
   departmentId  Int?
   majorId       Int?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @default(now()) @updatedAt
+  createdAt     DateTime?      @default(now(), map: "DF__Student__created__72C60C4A") @db.DateTime
+  updatedAt     DateTime?      @default(now(), map: "DF__Student__updated__73BA3083") @updatedAt @db.DateTime
   classStudents ClassStudent[]
-  department    Department?    @relation("StudentDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  major         Major?         @relation("StudentMajor", fields: [majorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  department    Department?    @relation("StudentDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__Student__departm__75A278F5")
+  major         Major?         @relation("StudentMajor", fields: [majorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__Student__majorId__76969D2E")
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__Student__userId__74AE54BC")
 }
 
 model Class {
-  id           Int             @id @default(autoincrement())
-  code         String          @unique @db.NVarChar(50)
-  className    String          @db.NVarChar(255)
-  subjectName  String          @db.NVarChar(255)
-  subjectCode  String          @db.NVarChar(50)
-  credits      Int
-  teacherId    Int
-  departmentId Int
-  majorId      Int?
-  semester     String          @db.NVarChar(50)
-  academicYear String          @db.NVarChar(50)
-  maxStudents  Int
-  totalWeeks   Int
-  startDate    DateTime        @db.Date
-  endDate      DateTime        @db.Date
-  classType    String          @db.NVarChar(50) @default("theory")
-  description  String?         @db.NVarChar(Max)
-  createdAt    DateTime        @default(now())
-  updatedAt    DateTime        @default(now()) @updatedAt
-  teacher      Teacher         @relation("ClassTeacher", fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  department   Department      @relation("ClassDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  major        Major?          @relation("ClassMajor", fields: [majorId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  classSchedules ClassSchedule[]
-  classStudents  ClassStudent[]
+  id              Int             @id(map: "PK__Class__3213E83FA33CF9B5") @default(autoincrement())
+  code            String          @unique(map: "UQ__Class__357D4CF932295FF9") @db.NVarChar(50)
+  className       String          @db.NVarChar(255)
+  subjectName     String          @db.NVarChar(255)
+  subjectCode     String          @db.NVarChar(50)
+  credits         Int
+  teacherId       Int
+  departmentId    Int
+  majorId         Int?
+  semester        String          @db.NVarChar(50)
+  academicYear    String          @db.NVarChar(50)
+  maxStudents     Int
+  totalWeeks      Int
+  startDate       DateTime        @db.Date
+  endDate         DateTime        @db.Date
+  classRoomTypeId Int
+  description     String?         @db.NVarChar(Max)
+  createdAt       DateTime?       @default(now(), map: "DF__Class__createdAt__7A672E12") @db.DateTime
+  updatedAt       DateTime?       @default(now(), map: "DF__Class__updatedAt__7B5B524B") @updatedAt @db.DateTime
+  ClassRoomType   ClassRoomType   @relation(fields: [classRoomTypeId], references: [id], onUpdate: NoAction, map: "FK__Class__classRoom__7F2BE32F")
+  department      Department      @relation("ClassDepartment", fields: [departmentId], references: [id], onUpdate: NoAction, map: "FK__Class__departmen__7D439ABD")
+  major           Major?          @relation("ClassMajor", fields: [majorId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__Class__majorId__7E37BEF6")
+  teacher         Teacher         @relation("ClassTeacher", fields: [teacherId], references: [id], onUpdate: NoAction, map: "FK__Class__teacherId__7C4F7684")
+  classSchedules  ClassSchedule[]
+  classStudents   ClassStudent[]
 
   @@map("Class")
 }
 
 model ClassStudent {
-  id          Int       @id @default(autoincrement())
-  classId     Int
-  studentId   Int
-  groupNumber Int?
-  status      String    @default("active") @db.NVarChar(50)
-  joinedAt    DateTime  @default(now())
-  class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  student     Student   @relation(fields: [studentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id               Int            @id(map: "PK__ClassStu__3213E83F0E6FE2E0") @default(autoincrement())
+  classId          Int
+  studentId        Int
+  groupNumber      Int?
+  academicStatusId Int            @default(1, map: "DF__ClassStud__acade__02FC7413")
+  joinedAt         DateTime?      @default(now(), map: "DF__ClassStud__joine__03F0984C") @db.DateTime
+  AcademicStatus   AcademicStatus @relation(fields: [academicStatusId], references: [id], onUpdate: NoAction, map: "FK__ClassStud__acade__06CD04F7")
+  class            Class          @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__ClassStud__class__04E4BC85")
+  student          Student        @relation(fields: [studentId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__ClassStud__stude__05D8E0BE")
 
-  @@unique([classId, studentId])
+  @@unique([classId, studentId], map: "UQ__ClassStu__A1A6291CBB1A4E19")
   @@map("ClassStudent")
 }
 
 model ClassRoom {
-  id             Int             @id @default(autoincrement())
-  code           String          @unique @db.NVarChar(50)
-  name           String          @db.NVarChar(255)
-  capacity       Int
-  building       String          @db.NVarChar(255)
-  floor          Int
-  campus         String?         @db.NVarChar(255)
-  type           String          @db.NVarChar(50)
-  departmentId   Int?
-  isAvailable    Boolean         @default(true)
-  description    String?         @db.NVarChar(Max)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @default(now()) @updatedAt
-  department     Department?     @relation("ClassRoomDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  classSchedules ClassSchedule[]
-  scheduleRequestRooms ScheduleRequest[] @relation("ScheduleRequestRoom")
-  scheduleRequestOldRooms ScheduleRequest[] @relation("ScheduleRequestOldRoom")
-  scheduleRequestNewRooms ScheduleRequest[] @relation("ScheduleRequestNewRoom")
+  id                        Int               @id(map: "PK__ClassRoo__3213E83FEBAC2120") @default(autoincrement())
+  code                      String            @unique(map: "UQ__ClassRoo__357D4CF93C182089") @db.NVarChar(50)
+  name                      String            @db.NVarChar(255)
+  capacity                  Int
+  building                  String            @db.NVarChar(255)
+  floor                     Int
+  campus                    String?           @db.NVarChar(255)
+  classRoomTypeId           Int
+  departmentId              Int?
+  isAvailable               Boolean           @default(true, map: "DF__ClassRoom__isAva__0A9D95DB")
+  description               String?           @db.NVarChar(Max)
+  createdAt                 DateTime?         @default(now(), map: "DF__ClassRoom__creat__0B91BA14") @db.DateTime
+  updatedAt                 DateTime?         @default(now(), map: "DF__ClassRoom__updat__0C85DE4D") @updatedAt @db.DateTime
+  ClassRoomType             ClassRoomType     @relation(fields: [classRoomTypeId], references: [id], onUpdate: NoAction, map: "FK__ClassRoom__class__0E6E26BF")
+  department                Department?       @relation("ClassRoomDepartment", fields: [departmentId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ClassRoom__depar__0D7A0286")
+  classSchedules            ClassSchedule[]
+  scheduleRequestRooms      ScheduleRequest[] @relation("ScheduleRequestRoom")
   scheduleRequestMovedRooms ScheduleRequest[] @relation("ScheduleRequestMovedRoom")
+  scheduleRequestNewRooms   ScheduleRequest[] @relation("ScheduleRequestNewRoom")
+  scheduleRequestOldRooms   ScheduleRequest[] @relation("ScheduleRequestOldRoom")
 }
 
 model TimeSlot {
-  id             Int             @id @default(autoincrement())
-  slotName       String          @db.NVarChar(50)
-  startTime      DateTime        @db.Time
-  endTime        DateTime        @db.Time
-  shift          String          @db.NVarChar(50)
-  classSchedules ClassSchedule[]
-  scheduleRequestTimes ScheduleRequest[] @relation("ScheduleRequestTime")
-  scheduleRequestOldTimes ScheduleRequest[] @relation("ScheduleRequestOldTime")
-  scheduleRequestNewTimes ScheduleRequest[] @relation("ScheduleRequestNewTime")
+  id                        Int               @id(map: "PK__TimeSlot__3213E83F1B094BD9") @default(autoincrement())
+  slotName                  String            @db.NVarChar(50)
+  startTime                 DateTime          @db.Time
+  endTime                   DateTime          @db.Time
+  shift                     Int
+  classSchedules            ClassSchedule[]
   scheduleRequestMovedTimes ScheduleRequest[] @relation("ScheduleRequestMovedTime")
+  scheduleRequestNewTimes   ScheduleRequest[] @relation("ScheduleRequestNewTime")
+  scheduleRequestOldTimes   ScheduleRequest[] @relation("ScheduleRequestOldTime")
 }
 
 model ClassSchedule {
-  id          Int       @id @default(autoincrement())
-  classId     Int
-  teacherId   Int
-  classRoomId Int?
-  dayOfWeek   Int
-  timeSlotId  Int
-  weekPattern String    @default("weekly") @db.NVarChar(50)
-  startWeek   Int
-  endWeek     Int
-  status      String    @default("pending") @db.NVarChar(50)
-  assignedBy  Int?
-  assignedAt  DateTime?
-  note        String?   @db.NVarChar(Max)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @default(now()) @updatedAt
-  class       Class     @relation(fields: [classId], references: [id], onDelete: Cascade)
-  classRoom   ClassRoom? @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  teacher     Teacher   @relation("ClassScheduleTeacher", fields: [teacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  timeSlot    TimeSlot  @relation(fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  assignedByUser User?  @relation("ClassScheduleAssignedBy", fields: [assignedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id               Int               @id(map: "PK__ClassSch__3213E83F386A9409") @default(autoincrement())
+  classId          Int
+  teacherId        Int
+  classRoomId      Int?
+  dayOfWeek        Int
+  timeSlotId       Int
+  classRoomTypeId  Int
+  practiceGroup    Int?
+  weekPattern      String            @default("weekly", map: "DF__ClassSche__weekP__1332DBDC") @db.NVarChar(50)
+  startWeek        Int
+  endWeek          Int
+  statusId         Int               @default(1, map: "DF__ClassSche__statu__14270015")
+  assignedBy       Int?
+  assignedAt       DateTime?         @db.DateTime
+  note             String?           @db.NVarChar(Max)
+  createdAt        DateTime?         @default(now(), map: "DF__ClassSche__creat__151B244E") @db.DateTime
+  updatedAt        DateTime?         @default(now(), map: "DF__ClassSche__updat__160F4887") @updatedAt @db.DateTime
+  assignedByUser   User?             @relation("ClassScheduleAssignedBy", fields: [assignedBy], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ClassSche__assig__1AD3FDA4")
+  class            Class             @relation(fields: [classId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__ClassSche__class__17036CC0")
+  classRoom        ClassRoom?        @relation(fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ClassSche__class__18EBB532")
+  ClassRoomType    ClassRoomType     @relation(fields: [classRoomTypeId], references: [id], onUpdate: NoAction, map: "FK__ClassSche__class__1AD3FDA4")
+  RequestType      RequestType       @relation(fields: [statusId], references: [id], onUpdate: NoAction, map: "FK__ClassSche__statu__1BC821DD")
+  teacher          Teacher           @relation("ClassScheduleTeacher", fields: [teacherId], references: [id], onUpdate: NoAction, map: "FK__ClassSche__teach__17F790F9")
+  timeSlot         TimeSlot          @relation(fields: [timeSlotId], references: [id], onUpdate: NoAction, map: "FK__ClassSche__timeS__19DFD96B")
   scheduleRequests ScheduleRequest[]
 
-  @@unique([dayOfWeek, timeSlotId, classRoomId])
-  @@unique([dayOfWeek, timeSlotId, teacherId])
+  @@unique([dayOfWeek, timeSlotId, teacherId], map: "UQ_ClassSchedule_Teacher_Time")
 }
 
 model ScheduleRequest {
-  id                Int         @id @default(autoincrement())
-  requestType       String      @db.NVarChar(50) // 'room_request', 'schedule_change', 'exception'
-  classScheduleId   Int?
-  classRoomId       Int?
-  requesterId       Int
-  requestDate       DateTime    @db.Date
-  timeSlotId        Int
-  changeType        String?     @db.NVarChar(50) // 'room_change', 'time_change', 'both', 'exception'
-  oldClassRoomId    Int?
-  newClassRoomId    Int?
-  oldTimeSlotId     Int?
-  newTimeSlotId     Int?
-  exceptionDate     DateTime?   @db.Date
-  exceptionType     String?     @db.NVarChar(50) // 'cancelled', 'exam', 'moved', 'substitute'
-  movedToDate       DateTime?   @db.Date
-  movedToTimeSlotId Int?
-  movedToClassRoomId Int?
+  id                  Int            @id(map: "PK__Schedule__3213E83FBC5ABAD6") @default(autoincrement())
+  requestTypeId       Int
+  classScheduleId     Int?
+  classRoomId         Int?
+  requesterId         Int
+  requestDate         DateTime       @db.Date
+  timeSlotId          Int
+  changeType          String?        @db.NVarChar(50)
+  oldClassRoomId      Int?
+  newClassRoomId      Int?
+  oldTimeSlotId       Int?
+  newTimeSlotId       Int?
+  exceptionDate       DateTime?      @db.Date
+  exceptionType       String?        @db.NVarChar(50)
+  movedToDate         DateTime?      @db.Date
+  movedToTimeSlotId   Int?
+  movedToClassRoomId  Int?
   substituteTeacherId Int?
-  reason            String      @db.NVarChar(Max)
-  approvedBy        Int?
-  status            String      @default("pending") @db.NVarChar(50) // 'pending', 'approved', 'rejected'
-  approvedAt        DateTime?
-  note              String?     @db.NVarChar(Max)
-  createdAt         DateTime    @default(now())
-  updatedAt         DateTime    @default(now()) @updatedAt
-  
-  // Relations
-  classSchedule     ClassSchedule? @relation(fields: [classScheduleId], references: [id], onDelete: Cascade)
-  classRoom         ClassRoom?  @relation("ScheduleRequestRoom", fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  oldClassRoom      ClassRoom?  @relation("ScheduleRequestOldRoom", fields: [oldClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  newClassRoom      ClassRoom?  @relation("ScheduleRequestNewRoom", fields: [newClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  movedToClassRoom  ClassRoom?  @relation("ScheduleRequestMovedRoom", fields: [movedToClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  timeSlot          TimeSlot    @relation("ScheduleRequestTime", fields: [timeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  oldTimeSlot       TimeSlot?   @relation("ScheduleRequestOldTime", fields: [oldTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  newTimeSlot       TimeSlot?   @relation("ScheduleRequestNewTime", fields: [newTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  movedToTimeSlot   TimeSlot?   @relation("ScheduleRequestMovedTime", fields: [movedToTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  substituteTeacher Teacher?    @relation("ScheduleRequestSubstitute", fields: [substituteTeacherId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  requester         User        @relation("ScheduleRequestRequester", fields: [requesterId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  approver          User?       @relation("ScheduleRequestApprover", fields: [approvedBy], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reason              String         @db.NVarChar(Max)
+  approvedBy          Int?
+  requestStatusId     Int            @default(1, map: "DF__ScheduleR__reque__1F98B2C1")
+  approvedAt          DateTime?      @db.DateTime
+  note                String?        @db.NVarChar(Max)
+  createdAt           DateTime?      @default(now(), map: "DF__ScheduleR__creat__208CD6FA") @db.DateTime
+  updatedAt           DateTime?      @default(now(), map: "DF__ScheduleR__updat__2180FB33") @updatedAt @db.DateTime
+  approver            User?          @relation("ScheduleRequestApprover", fields: [approvedBy], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__appro__2A164134")
+  classSchedule       ClassSchedule? @relation(fields: [classScheduleId], references: [id], onDelete: Cascade, onUpdate: NoAction, map: "FK__ScheduleR__class__208CD6FA")
+  classRoom           ClassRoom?     @relation("ScheduleRequestRoom", fields: [classRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__class__2180FB33")
+  movedToTimeSlot     TimeSlot?      @relation("ScheduleRequestMovedTime", fields: [movedToTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__moved__2645B050")
+  movedToClassRoom    ClassRoom?     @relation("ScheduleRequestMovedRoom", fields: [movedToClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__moved__2739D489")
+  newClassRoom        ClassRoom?     @relation("ScheduleRequestNewRoom", fields: [newClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__newCl__236943A5")
+  newTimeSlot         TimeSlot?      @relation("ScheduleRequestNewTime", fields: [newTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__newTi__25518C17")
+  oldClassRoom        ClassRoom?     @relation("ScheduleRequestOldRoom", fields: [oldClassRoomId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__oldCl__22751F6C")
+  oldTimeSlot         TimeSlot?      @relation("ScheduleRequestOldTime", fields: [oldTimeSlotId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__oldTi__245D67DE")
+  requester           User           @relation("ScheduleRequestRequester", fields: [requesterId], references: [id], onUpdate: NoAction, map: "FK__ScheduleR__reque__29221CFB")
+  RequestType         RequestType    @relation(fields: [requestTypeId], references: [id], onUpdate: NoAction, map: "FK__ScheduleR__reque__2B0A656D")
+  RequestStatus       RequestStatus  @relation(fields: [requestStatusId], references: [id], onUpdate: NoAction, map: "FK__ScheduleR__reque__2BFE89A6")
+  substituteTeacher   Teacher?       @relation("ScheduleRequestSubstitute", fields: [substituteTeacherId], references: [id], onDelete: NoAction, onUpdate: NoAction, map: "FK__ScheduleR__subst__282DF8C2")
+}
+
+model AcademicStatus {
+  id           Int            @id(map: "PK__Academic__3213E83FFA8314C4") @default(autoincrement())
+  name         String         @db.NVarChar(255)
+  ClassStudent ClassStudent[]
+}
+
+model ClassRoomType {
+  id            Int             @id(map: "PK__ClassRoo__3213E83F24C7ACFC") @default(autoincrement())
+  name          String          @db.NVarChar(255)
+  Class         Class[]
+  ClassRoom     ClassRoom[]
+  ClassSchedule ClassSchedule[]
+}
+
+model RequestStatus {
+  id              Int               @id(map: "PK__RequestS__3213E83FEFF42F6F") @default(autoincrement())
+  name            String            @db.NVarChar(255)
+  ScheduleRequest ScheduleRequest[]
+}
+
+model RequestType {
+  id              Int               @id(map: "PK__RequestT__3213E83F2C6FE9FE") @default(autoincrement())
+  name            String            @db.NVarChar(255)
+  ClassSchedule   ClassSchedule[]
+  ScheduleRequest ScheduleRequest[]
 }

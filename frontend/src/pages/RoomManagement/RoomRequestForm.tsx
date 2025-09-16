@@ -10,7 +10,6 @@ import {
     Select,
     MenuItem,
     Alert,
-    Chip,
     CircularProgress,
     Dialog,
     DialogTitle,
@@ -27,8 +26,6 @@ import {
     Class as ClassIcon,
     Room as RoomIcon,
     Schedule as ScheduleIcon,
-    CheckCircle as CheckCircleIcon,
-    Add as AddIcon,
     Send as SendIcon
 } from '@mui/icons-material';
 import { toast } from 'react-toastify';
@@ -36,39 +33,25 @@ import { useSelector } from 'react-redux';
 import { RootState } from '../../redux/store';
 import { roomService } from '../../services/api';
 
-// Interface cho ScheduleRequest dựa trên database schema
+// Interface cho ScheduleRequest
 interface ScheduleRequestForm {
     requestType: 'room_request' | 'schedule_change' | 'exception';
     classScheduleId?: number;
-    classRoomId?: number;
     requesterId: number;
     requestDate: string;
     timeSlotId: number;
-    changeType?: 'room_change' | 'time_change' | 'both' | 'exception';
-    oldClassRoomId?: number;
-    newClassRoomId?: number;
-    oldTimeSlotId?: number;
-    newTimeSlotId?: number;
-    exceptionDate?: string;
-    exceptionType?: 'cancelled' | 'exam' | 'moved' | 'substitute';
-    movedToDate?: string;
-    movedToTimeSlotId?: number;
-    movedToClassRoomId?: number;
-    substituteTeacherId?: number;
     reason: string;
+    note?: string;
 }
 
 interface ClassSchedule {
     id: number;
     classId: number;
     teacherId: number;
-    classRoomId?: number;
+    classRoomId: number | null;
     dayOfWeek: number;
     timeSlotId: number;
-    weekPattern: string;
-    startWeek: number;
-    endWeek: number;
-    status: string;
+    classRoomTypeId: number;
     class: {
         id: number;
         code: string;
@@ -77,13 +60,20 @@ interface ClassSchedule {
         subjectCode: string;
         maxStudents: number;
     };
-    classRoom?: {
+    classRoom: {
         id: number;
         code: string;
         name: string;
         capacity: number;
-        type: string;
-    };
+        building: string;
+        floor: number;
+        campus: string | null;
+        classRoomTypeId: number;
+        ClassRoomType: {
+            id: number;
+            name: string;
+        };
+    } | null;
     timeSlot: {
         id: number;
         slotName: string;
@@ -101,25 +91,12 @@ interface TimeSlot {
     shift: string;
 }
 
-interface ClassRoom {
-    id: number;
-    code: string;
-    name: string;
-    capacity: number;
-    building: string;
-    floor: number;
-    type: string;
-    isAvailable: boolean;
-}
-
 const RoomRequestForm: React.FC = () => {
     const { user } = useSelector((state: RootState) => state.auth);
     const [loading, setLoading] = useState(false);
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [classSchedules, setClassSchedules] = useState<ClassSchedule[]>([]);
     const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-    const [rooms, setRooms] = useState<ClassRoom[]>([]);
-    const [availableRooms, setAvailableRooms] = useState<ClassRoom[]>([]);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
     const [formData, setFormData] = useState<ScheduleRequestForm>({
@@ -145,12 +122,6 @@ const RoomRequestForm: React.FC = () => {
                 setTimeSlots(timeSlotsResponse.data);
             }
 
-            // Load rooms
-            const roomsResponse = await roomService.getAllRooms();
-            if (roomsResponse.success) {
-                setRooms(roomsResponse.data);
-            }
-
             // Load teacher's class schedules
             if (user?.id) {
                 const schedulesResponse = await roomService.getTeacherSchedules(user.id);
@@ -166,6 +137,29 @@ const RoomRequestForm: React.FC = () => {
         }
     };
 
+    const getDayName = (dayOfWeek: number) => {
+        const days: { [key: number]: string } = {
+            1: 'Chủ nhật',
+            2: 'Thứ 2',
+            3: 'Thứ 3',
+            4: 'Thứ 4',
+            5: 'Thứ 5',
+            6: 'Thứ 6',
+            7: 'Thứ 7'
+        };
+        return days[dayOfWeek] || 'Không xác định';
+    };
+
+    const handleScheduleChange = (scheduleId: string) => {
+        const schedule = classSchedules.find(s => s.id === parseInt(scheduleId));
+        setSelectedSchedule(schedule || null);
+        setFormData(prev => ({
+            ...prev,
+            classScheduleId: schedule?.id || 0,
+            timeSlotId: schedule?.timeSlotId || 0
+        }));
+    };
+
     const validateForm = (): boolean => {
         const errors: string[] = [];
 
@@ -178,9 +172,6 @@ const RoomRequestForm: React.FC = () => {
         if (!formData.timeSlotId) {
             errors.push('Vui lòng chọn tiết học');
         }
-        if (formData.requestType === 'room_request' && !formData.newClassRoomId) {
-            errors.push('Vui lòng chọn phòng mới');
-        }
         if (!formData.reason.trim()) {
             errors.push('Vui lòng nhập lý do');
         }
@@ -189,44 +180,20 @@ const RoomRequestForm: React.FC = () => {
         return errors.length === 0;
     };
 
-    const handleScheduleChange = (scheduleId: string) => {
-        const schedule = classSchedules.find(s => s.id === parseInt(scheduleId));
-        setSelectedSchedule(schedule || null);
-        setFormData(prev => ({
-            ...prev,
-            classScheduleId: schedule?.id || 0,
-            oldClassRoomId: schedule?.classRoomId,
-            oldTimeSlotId: schedule?.timeSlotId
-        }));
-
-        // Filter available rooms based on capacity and room type
-        if (schedule && schedule.class) {
-            const currentRoomType = schedule.classRoom?.type || 'lecture';
-            const available = rooms.filter(room =>
-                room.capacity >= schedule.class.maxStudents &&
-                room.type === currentRoomType &&
-                room.isAvailable &&
-                room.id !== schedule.classRoomId
-            );
-            setAvailableRooms(available);
+    const handleSubmit = async () => {
+        if (!validateForm()) {
+            return;
         }
+
+        setConfirmDialogOpen(true);
     };
 
-    const handleSubmit = async () => {
-        if (!validateForm()) return;
-
+    const confirmSubmit = async () => {
         setLoading(true);
         try {
-            const requestData = {
-                ...formData,
-                requesterId: user?.id || 0
-            };
-
-            const response = await roomService.createScheduleRequest(requestData);
-
+            const response = await roomService.createScheduleRequest(formData);
             if (response.success) {
                 toast.success('Yêu cầu đã được gửi thành công!');
-
                 // Reset form
                 setFormData({
                     requestType: 'room_request',
@@ -236,7 +203,6 @@ const RoomRequestForm: React.FC = () => {
                     reason: ''
                 });
                 setSelectedSchedule(null);
-                setAvailableRooms([]);
             } else {
                 toast.error(response.message || 'Có lỗi xảy ra khi gửi yêu cầu');
             }
@@ -249,46 +215,75 @@ const RoomRequestForm: React.FC = () => {
         }
     };
 
-    const getDayName = (dayOfWeek: number): string => {
-        const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-        return days[dayOfWeek] || '';
-    };
-
     const renderFormContent = () => {
+        if (loading) {
+            return (
+                <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+                    <CircularProgress />
+                </Box>
+            );
+        }
+
         return (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                {/* Chọn loại yêu cầu */}
-                <Card>
+            <Box sx={{ maxWidth: 800, mx: 'auto', p: 2 }}>
+                {/* Header */}
+                <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Typography variant="h4" gutterBottom>
+                            <SendIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                            Gửi yêu cầu đổi phòng/xin phòng
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary">
+                            Điền thông tin yêu cầu để gửi đến quản trị viên xem xét
+                        </Typography>
+                    </CardContent>
+                </Card>
+
+                {/* Validation Errors */}
+                {validationErrors.length > 0 && (
+                    <Alert severity="error" sx={{ mb: 2 }}>
+                        <ul style={{ margin: 0, paddingLeft: 20 }}>
+                            {validationErrors.map((error, index) => (
+                                <li key={index}>{error}</li>
+                            ))}
+                        </ul>
+                    </Alert>
+                )}
+
+                {/* Loại yêu cầu */}
+                <Card sx={{ mb: 3 }}>
                     <CardContent>
                         <Typography variant="h6" gutterBottom>
+                            <PersonIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                             Loại yêu cầu
                         </Typography>
                         <FormControl component="fieldset">
                             <RadioGroup
                                 value={formData.requestType}
-                                onChange={(e) => {
-                                    setFormData(prev => ({
-                                        ...prev,
-                                        requestType: e.target.value as 'room_request' | 'schedule_change' | 'exception',
-                                        classScheduleId: undefined,
-                                        newClassRoomId: undefined,
-                                        newTimeSlotId: undefined
-                                    }));
-                                    setSelectedSchedule(null);
-                                    setAvailableRooms([]);
-                                }}
-                                row
+                                onChange={(e) => setFormData(prev => ({ ...prev, requestType: e.target.value as any }))}
                             >
-                                <FormControlLabel value="room_request" control={<Radio />} label="Xin phòng mới" />
-                                <FormControlLabel value="schedule_change" control={<Radio />} label="Đổi phòng" />
-                                <FormControlLabel value="exception" control={<Radio />} label="Ngoại lệ" />
+                                <FormControlLabel
+                                    value="room_request"
+                                    control={<Radio />}
+                                    label="Yêu cầu đổi phòng"
+                                />
+                                <FormControlLabel
+                                    value="schedule_change"
+                                    control={<Radio />}
+                                    label="Yêu cầu thay đổi lịch học"
+                                />
+                                <FormControlLabel
+                                    value="exception"
+                                    control={<Radio />}
+                                    label="Yêu cầu ngoại lệ"
+                                />
                             </RadioGroup>
                         </FormControl>
                     </CardContent>
                 </Card>
 
                 {/* Chọn lớp học */}
-                <Card>
+                <Card sx={{ mb: 3 }}>
                     <CardContent>
                         <Typography variant="h6" gutterBottom>
                             <ClassIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
@@ -320,7 +315,7 @@ const RoomRequestForm: React.FC = () => {
 
                 {/* Chọn tiết học */}
                 {selectedSchedule && (
-                    <Card>
+                    <Card sx={{ mb: 3 }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
                                 <ScheduleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
@@ -353,81 +348,12 @@ const RoomRequestForm: React.FC = () => {
                     </Card>
                 )}
 
-                {/* Chọn phòng mới (cho room_request và schedule_change) */}
-                {(formData.requestType === 'room_request' || formData.requestType === 'schedule_change') && selectedSchedule && (
-                    <Card>
+                {/* Thông tin yêu cầu */}
+                {selectedSchedule && (
+                    <Card sx={{ mb: 3 }}>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
-                                <RoomIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-                                Chọn phòng mới
-                            </Typography>
-                            <Alert severity="info" sx={{ mb: 2 }}>
-                                Phòng được đề xuất phải có sức chứa tối thiểu {selectedSchedule.class.maxStudents} sinh viên
-                                {selectedSchedule.classRoom && (
-                                    <Typography variant="body2" sx={{ mt: 1 }}>
-                                        Loại phòng hiện tại: <strong>
-                                            {selectedSchedule.classRoom.type === 'lecture' ? 'Lý thuyết' :
-                                                selectedSchedule.classRoom.type === 'lab' ? 'Thực hành' :
-                                                    selectedSchedule.classRoom.type === 'seminar' ? 'Seminar' : 'Trực tuyến'}
-                                        </strong>
-                                    </Typography>
-                                )}
-                            </Alert>
-                            <FormControl fullWidth>
-                                <InputLabel>Phòng mới</InputLabel>
-                                <Select
-                                    value={formData.newClassRoomId || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, newClassRoomId: e.target.value as number }))}
-                                    label="Phòng mới"
-                                >
-                                    {availableRooms.map((room) => (
-                                        <MenuItem key={room.id} value={room.id}>
-                                            <Box>
-                                                <Typography variant="body1">{room.name}</Typography>
-                                                <Typography variant="caption" color="text.secondary">
-                                                    {room.code} - Sức chứa: {room.capacity} sinh viên -
-                                                    Loại: {room.type === 'lecture' ? 'Lý thuyết' :
-                                                        room.type === 'lab' ? 'Thực hành' :
-                                                            room.type === 'seminar' ? 'Seminar' : 'Trực tuyến'}
-                                                    {room.capacity >= selectedSchedule.class.maxStudents ? (
-                                                        <Chip label="Phù hợp" color="success" size="small" sx={{ ml: 1 }} />
-                                                    ) : (
-                                                        <Chip label="Không phù hợp" color="error" size="small" sx={{ ml: 1 }} />
-                                                    )}
-                                                </Typography>
-                                            </Box>
-                                        </MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
-                        </CardContent>
-                    </Card>
-                )}
-
-                {/* Lý do yêu cầu */}
-                <Card>
-                    <CardContent>
-                        <Typography variant="h6" gutterBottom>
-                            Lý do yêu cầu
-                        </Typography>
-                        <TextField
-                            fullWidth
-                            multiline
-                            rows={4}
-                            value={formData.reason}
-                            onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
-                            placeholder="Nhập lý do yêu cầu đổi phòng/xin phòng mới..."
-                            variant="outlined"
-                        />
-                    </CardContent>
-                </Card>
-
-                {/* Thông tin tóm tắt */}
-                {selectedSchedule && formData.timeSlotId && formData.reason && (
-                    <Card>
-                        <CardContent>
-                            <Typography variant="h6" gutterBottom>
-                                <CheckCircleIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                                <PersonIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                                 Thông tin yêu cầu
                             </Typography>
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
@@ -456,99 +382,86 @@ const RoomRequestForm: React.FC = () => {
                                         </Paper>
                                     </Box>
                                 </Box>
-                                {(formData.requestType === 'room_request' || formData.requestType === 'schedule_change') && formData.newClassRoomId && (
-                                    <Box>
-                                        <Paper sx={{ p: 2 }}>
-                                            <Typography variant="subtitle2" color="text.secondary">Phòng yêu cầu:</Typography>
-                                            <Typography variant="body1">
-                                                {rooms.find(r => r.id === formData.newClassRoomId)?.name}
-                                            </Typography>
-                                            <Typography variant="body2" color="text.secondary">
-                                                {rooms.find(r => r.id === formData.newClassRoomId)?.code} -
-                                                Sức chứa: {rooms.find(r => r.id === formData.newClassRoomId)?.capacity} sinh viên
-                                            </Typography>
-                                        </Paper>
-                                    </Box>
-                                )}
                             </Box>
                         </CardContent>
                     </Card>
                 )}
+
+                {/* Lý do yêu cầu */}
+                <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom>
+                            <PersonIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                            Lý do yêu cầu
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            multiline
+                            rows={4}
+                            value={formData.reason}
+                            onChange={(e) => setFormData(prev => ({ ...prev, reason: e.target.value }))}
+                            placeholder="Nhập lý do yêu cầu đổi phòng/xin phòng..."
+                            variant="outlined"
+                        />
+                    </CardContent>
+                </Card>
+
+                {/* Ghi chú thêm */}
+                <Card sx={{ mb: 3 }}>
+                    <CardContent>
+                        <Typography variant="h6" gutterBottom>
+                            <PersonIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                            Ghi chú thêm (tùy chọn)
+                        </Typography>
+                        <TextField
+                            fullWidth
+                            multiline
+                            rows={3}
+                            value={formData.note || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, note: e.target.value }))}
+                            placeholder="Nhập ghi chú thêm nếu có..."
+                            variant="outlined"
+                        />
+                    </CardContent>
+                </Card>
+
+                {/* Submit Button */}
+                <Box sx={{ display: 'flex', justifyContent: 'center', gap: 2 }}>
+                    <Button
+                        variant="contained"
+                        size="large"
+                        startIcon={<SendIcon />}
+                        onClick={handleSubmit}
+                        disabled={loading}
+                        sx={{ minWidth: 200 }}
+                    >
+                        {loading ? <CircularProgress size={24} /> : 'Gửi yêu cầu'}
+                    </Button>
+                </Box>
             </Box>
         );
     };
 
-    if (loading && !classSchedules.length) {
-        return (
-            <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-                <CircularProgress />
-            </Box>
-        );
-    }
-
     return (
-        <Box sx={{ maxWidth: 1200, margin: '0 auto', p: 3 }}>
-            <Typography variant="h4" gutterBottom>
-                Tạo yêu cầu phòng
-            </Typography>
-
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 3 }}>
-                Tạo yêu cầu đổi phòng, xin phòng mới hoặc xử lý ngoại lệ cho lớp học của bạn.
-            </Typography>
-
-            {validationErrors.length > 0 && (
-                <Alert severity="error" sx={{ mb: 2 }}>
-                    <Box component="ul" sx={{ margin: 0, paddingLeft: 2.5 }}>
-                        {validationErrors.map((error, index) => (
-                            <Box component="li" key={index}>{error}</Box>
-                        ))}
-                    </Box>
-                </Alert>
-            )}
-
+        <>
             {renderFormContent()}
 
-            <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
-                <Button
-                    variant="contained"
-                    size="large"
-                    startIcon={<SendIcon />}
-                    onClick={() => setConfirmDialogOpen(true)}
-                    disabled={loading || !selectedSchedule || !formData.timeSlotId || !formData.reason.trim()}
-                    sx={{ minWidth: 200 }}
-                >
-                    {loading ? <CircularProgress size={24} /> : 'Gửi yêu cầu'}
-                </Button>
-            </Box>
-
-            <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)} maxWidth="sm" fullWidth>
+            {/* Confirmation Dialog */}
+            <Dialog open={confirmDialogOpen} onClose={() => setConfirmDialogOpen(false)}>
                 <DialogTitle>Xác nhận gửi yêu cầu</DialogTitle>
                 <DialogContent>
                     <Typography>
-                        Bạn có chắc chắn muốn gửi yêu cầu này không?
+                        Bạn có chắc chắn muốn gửi yêu cầu này không? Yêu cầu sẽ được gửi đến quản trị viên để xem xét.
                     </Typography>
-                    {selectedSchedule && (
-                        <Box sx={{ mt: 2 }}>
-                            <Typography variant="body2" color="text.secondary">
-                                <strong>Lớp học:</strong> {selectedSchedule.class.className}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
-                                <strong>Loại yêu cầu:</strong> {
-                                    formData.requestType === 'room_request' ? 'Xin phòng mới' :
-                                        formData.requestType === 'schedule_change' ? 'Đổi phòng' : 'Ngoại lệ'
-                                }
-                            </Typography>
-                        </Box>
-                    )}
                 </DialogContent>
                 <DialogActions>
                     <Button onClick={() => setConfirmDialogOpen(false)}>Hủy</Button>
-                    <Button onClick={handleSubmit} variant="contained" disabled={loading}>
-                        {loading ? <CircularProgress size={24} /> : 'Xác nhận'}
+                    <Button onClick={confirmSubmit} variant="contained" disabled={loading}>
+                        {loading ? <CircularProgress size={20} /> : 'Xác nhận gửi'}
                     </Button>
                 </DialogActions>
             </Dialog>
-        </Box>
+        </>
     );
 };
 

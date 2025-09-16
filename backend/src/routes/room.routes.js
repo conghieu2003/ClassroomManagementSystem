@@ -8,7 +8,9 @@ router.get('/', roomController.getAllRooms);
 router.get('/requests/all', roomController.getRoomRequests);
 router.get('/teachers-with-classes', roomController.getTeachersWithClasses);
 router.get('/time-slots', roomController.getTimeSlots);
+router.get('/teachers', roomController.getTeachers);
 router.get('/teacher/:teacherId/schedules', roomController.getTeacherSchedules);
+router.get('/available-for-request', roomController.getAvailableRoomsForRequest);
 
 // Routes yêu cầu xác thực
 router.use(verifyToken);

@@ -21,12 +21,21 @@ const createScheduleRequest = async (requestData) => {
             movedToTimeSlotId,
             movedToClassRoomId,
             substituteTeacherId,
-            reason
+            reason,
+            note
         } = requestData;
+
+        // Map requestType to requestTypeId
+        let requestTypeId = 1; // Default to room_request
+        if (requestType === 'schedule_change') {
+            requestTypeId = 2;
+        } else if (requestType === 'exception') {
+            requestTypeId = 3;
+        }
 
         const scheduleRequest = await prisma.scheduleRequest.create({
             data: {
-                requestType,
+                requestTypeId,
                 classScheduleId: classScheduleId || null,
                 classRoomId: classRoomId || null,
                 requesterId,
@@ -44,7 +53,8 @@ const createScheduleRequest = async (requestData) => {
                 movedToClassRoomId: movedToClassRoomId || null,
                 substituteTeacherId: substituteTeacherId || null,
                 reason,
-                status: 'pending'
+                note: note || null,
+                requestStatusId: 1 // 1 = pending
             },
             include: {
                 requester: {
@@ -72,7 +82,12 @@ const createScheduleRequest = async (requestData) => {
                                 code: true,
                                 name: true,
                                 capacity: true,
-                                type: true
+                                ClassRoomType: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
                             }
                         },
                         timeSlot: {
@@ -86,22 +101,18 @@ const createScheduleRequest = async (requestData) => {
                         }
                     }
                 },
-                timeSlot: {
-                    select: {
-                        id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
-                    }
-                },
                 oldClassRoom: {
                     select: {
                         id: true,
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 },
                 newClassRoom: {
@@ -110,7 +121,24 @@ const createScheduleRequest = async (requestData) => {
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
+                    }
+                },
+                RequestType: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                },
+                RequestStatus: {
+                    select: {
+                        id: true,
+                        name: true
                     }
                 }
             }
@@ -128,7 +156,16 @@ const getScheduleRequests = async (filters = {}) => {
         const { status, requesterId } = filters;
 
         const where = {};
-        if (status) where.status = status;
+        if (status) {
+            // Map status string to requestStatusId
+            if (status === 'pending') {
+                where.requestStatusId = 1;
+            } else if (status === 'approved') {
+                where.requestStatusId = 2;
+            } else if (status === 'rejected') {
+                where.requestStatusId = 3;
+            }
+        }
         if (requesterId) where.requesterId = parseInt(requesterId);
 
         const scheduleRequests = await prisma.scheduleRequest.findMany({
@@ -159,7 +196,12 @@ const getScheduleRequests = async (filters = {}) => {
                                 code: true,
                                 name: true,
                                 capacity: true,
-                                type: true
+                                ClassRoomType: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
                             }
                         },
                         timeSlot: {
@@ -173,22 +215,18 @@ const getScheduleRequests = async (filters = {}) => {
                         }
                     }
                 },
-                timeSlot: {
-                    select: {
-                        id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
-                    }
-                },
                 oldClassRoom: {
                     select: {
                         id: true,
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 },
                 newClassRoom: {
@@ -197,14 +235,24 @@ const getScheduleRequests = async (filters = {}) => {
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 },
-                approver: {
+                RequestType: {
                     select: {
                         id: true,
-                        fullName: true,
-                        email: true
+                        name: true
+                    }
+                },
+                RequestStatus: {
+                    select: {
+                        id: true,
+                        name: true
                     }
                 }
             },
@@ -243,7 +291,16 @@ const getTeacherSchedules = async (teacherId) => {
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        building: true,
+                        floor: true,
+                        campus: true,
+                        classRoomTypeId: true,
+                        ClassRoomType: {
+                            select: {
+                                id: true,
+                                name: true
+                            }
+                        }
                     }
                 },
                 timeSlot: {
@@ -261,25 +318,174 @@ const getTeacherSchedules = async (teacherId) => {
                 { timeSlotId: 'asc' }
             ]
         });
-
         return classSchedules;
     } catch (error) {
-        console.error('Error getting teacher schedules:', error);
+        throw new Error(`Lỗi lấy lịch giảng viên: ${error.message}`);
+    }
+};
+
+const updateScheduleRequestStatus = async (requestId, status, note) => {
+    try {
+        // Map status string to requestStatusId
+        let requestStatusId = 1; // Default to pending
+        if (status === 'approved') {
+            requestStatusId = 2;
+        } else if (status === 'rejected') {
+            requestStatusId = 3;
+        }
+
+        const request = await prisma.scheduleRequest.update({
+            where: { id: parseInt(requestId) },
+            data: {
+                requestStatusId,
+                note,
+                approvedAt: new Date()
+            },
+            include: {
+                requester: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                },
+                classSchedule: {
+                    include: {
+                        class: {
+                            select: {
+                                id: true,
+                                code: true,
+                                className: true,
+                                subjectName: true,
+                                subjectCode: true,
+                                maxStudents: true
+                            }
+                        },
+                        classRoom: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                capacity: true,
+                                ClassRoomType: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        },
+                        timeSlot: {
+                            select: {
+                                id: true,
+                                slotName: true,
+                                startTime: true,
+                                endTime: true,
+                                shift: true
+                            }
+                        }
+                    }
+                },
+                RequestType: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                },
+                RequestStatus: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
+            }
+        });
+
+        return request;
+    } catch (error) {
+        throw new Error(`Lỗi cập nhật trạng thái yêu cầu: ${error.message}`);
+    }
+};
+
+const getScheduleRequestById = async (requestId) => {
+    try {
+        const request = await prisma.scheduleRequest.findUnique({
+            where: { id: parseInt(requestId) },
+            include: {
+                requester: {
+                    select: {
+                        id: true,
+                        fullName: true,
+                        email: true
+                    }
+                },
+                classSchedule: {
+                    include: {
+                        class: {
+                            select: {
+                                id: true,
+                                code: true,
+                                className: true,
+                                subjectName: true,
+                                subjectCode: true,
+                                maxStudents: true
+                            }
+                        },
+                        classRoom: {
+                            select: {
+                                id: true,
+                                code: true,
+                                name: true,
+                                capacity: true,
+                                ClassRoomType: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
+                            }
+                        },
+                        timeSlot: {
+                            select: {
+                                id: true,
+                                slotName: true,
+                                startTime: true,
+                                endTime: true,
+                                shift: true
+                            }
+                        }
+                    }
+                },
+                RequestType: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                },
+                RequestStatus: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                }
+            }
+        });
+
+        return request;
+    } catch (error) {
+        console.error('Error getting schedule request by id:', error);
         throw error;
     }
 };
 
-const updateScheduleRequestStatus = async (requestId, status, approverId, note) => {
+const updateScheduleRequestRoom = async (requestId, newRoomId) => {
     try {
         const scheduleRequest = await prisma.scheduleRequest.update({
             where: {
                 id: parseInt(requestId)
             },
             data: {
-                status,
-                approvedBy: approverId,
-                approvedAt: new Date(),
-                note: note || null
+                newClassRoomId: parseInt(newRoomId)
             },
             include: {
                 requester: {
@@ -307,7 +513,12 @@ const updateScheduleRequestStatus = async (requestId, status, approverId, note) 
                                 code: true,
                                 name: true,
                                 capacity: true,
-                                type: true
+                                ClassRoomType: {
+                                    select: {
+                                        id: true,
+                                        name: true
+                                    }
+                                }
                             }
                         },
                         timeSlot: {
@@ -321,128 +532,30 @@ const updateScheduleRequestStatus = async (requestId, status, approverId, note) 
                         }
                     }
                 },
-                timeSlot: {
-                    select: {
-                        id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
-                    }
-                },
-                oldClassRoom: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        capacity: true,
-                        type: true
-                    }
-                },
                 newClassRoom: {
                     select: {
                         id: true,
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
-                    }
-                },
-                approver: {
-                    select: {
-                        id: true,
-                        fullName: true,
-                        email: true
-                    }
-                }
-            }
-        });
-
-        return scheduleRequest;
-    } catch (error) {
-        console.error('Error updating schedule request status:', error);
-        throw error;
-    }
-};
-
-const getScheduleRequestById = async (requestId) => {
-    try {
-        const scheduleRequest = await prisma.scheduleRequest.findUnique({
-            where: {
-                id: parseInt(requestId)
-            },
-            include: {
-                requester: {
-                    select: {
-                        id: true,
-                        fullName: true,
-                        email: true
-                    }
-                },
-                classSchedule: {
-                    include: {
-                        class: {
+                        ClassRoomType: {
                             select: {
                                 id: true,
-                                code: true,
-                                className: true,
-                                subjectName: true,
-                                subjectCode: true,
-                                maxStudents: true
-                            }
-                        },
-                        classRoom: {
-                            select: {
-                                id: true,
-                                code: true,
-                                name: true,
-                                capacity: true,
-                                type: true
-                            }
-                        },
-                        timeSlot: {
-                            select: {
-                                id: true,
-                                slotName: true,
-                                startTime: true,
-                                endTime: true,
-                                shift: true
+                                name: true
                             }
                         }
                     }
                 },
-                timeSlot: {
+                RequestType: {
                     select: {
                         id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
+                        name: true
                     }
                 },
-                oldClassRoom: {
+                RequestStatus: {
                     select: {
                         id: true,
-                        code: true,
-                        name: true,
-                        capacity: true,
-                        type: true
-                    }
-                },
-                newClassRoom: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        capacity: true,
-                        type: true
-                    }
-                },
-                approver: {
-                    select: {
-                        id: true,
-                        fullName: true,
-                        email: true
+                        name: true
                     }
                 }
             }
@@ -450,7 +563,7 @@ const getScheduleRequestById = async (requestId) => {
 
         return scheduleRequest;
     } catch (error) {
-        console.error('Error getting schedule request by id:', error);
+        console.error('Error updating schedule request room:', error);
         throw error;
     }
 };
@@ -460,5 +573,6 @@ module.exports = {
     getScheduleRequests,
     getTeacherSchedules,
     updateScheduleRequestStatus,
-    getScheduleRequestById
+    getScheduleRequestById,
+    updateScheduleRequestRoom
 };
