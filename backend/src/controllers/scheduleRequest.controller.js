@@ -22,13 +22,29 @@ const createScheduleRequest = async (req, res) => {
 
 const getScheduleRequests = async (req, res) => {
     try {
-        const { status, requesterId } = req.query;
-        const result = await scheduleRequestService.getScheduleRequests({ status, requesterId });
+        const {
+            status,
+            requestType,
+            requesterId,
+            page = 1,
+            limit = 10
+        } = req.query;
 
-        res.status(200).json({
-            success: true,
-            data: result
-        });
+        const filters = {
+            status,
+            requestType,
+            requesterId,
+            page: parseInt(page),
+            limit: parseInt(limit)
+        };
+
+        const result = await scheduleRequestService.getScheduleRequests(filters);
+
+        if (result.success) {
+            res.status(200).json(result);
+        } else {
+            res.status(500).json(result);
+        }
     } catch (error) {
         console.error('Error getting schedule requests:', error);
         res.status(500).json({

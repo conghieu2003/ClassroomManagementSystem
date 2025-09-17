@@ -278,8 +278,21 @@ export const roomService = {
     return response.data;
   },
 
-  getScheduleRequests: async (): Promise<any> => {
-    const response = await api.get('/schedule-requests');
+  getScheduleRequests: async (filters?: {
+    status?: number;
+    requestType?: number;
+    requesterId?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<any> => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status.toString());
+    if (filters?.requestType) params.append('requestType', filters.requestType.toString());
+    if (filters?.requesterId) params.append('requesterId', filters.requesterId.toString());
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get(`/schedule-requests?${params.toString()}`);
     return response.data;
   },
 

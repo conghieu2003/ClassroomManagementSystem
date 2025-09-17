@@ -133,91 +133,126 @@ const createScheduleRequest = async (requestData) => {
 
 const getScheduleRequests = async (filters = {}) => {
     try {
-        const { status, requesterId } = filters;
+        const {
+            status,
+            requestType,
+            requesterId,
+            page = 1,
+            limit = 10
+        } = filters;
 
         const where = {};
-        if (status) where.status = status;
+        if (status) where.requestStatusId = parseInt(status);
+        if (requestType) where.requestTypeId = parseInt(requestType);
         if (requesterId) where.requesterId = parseInt(requesterId);
 
-        const scheduleRequests = await prisma.scheduleRequest.findMany({
-            where,
-            include: {
-                requester: {
-                    select: {
-                        id: true,
-                        fullName: true,
-                        email: true
-                    }
-                },
-                classSchedule: {
-                    include: {
-                        class: {
-                            select: {
-                                id: true,
-                                code: true,
-                                className: true,
-                                subjectName: true,
-                                subjectCode: true,
-                                maxStudents: true
-                            }
-                        },
-                        classRoom: {
-                            select: {
-                                id: true,
-                                code: true,
-                                name: true,
-                                capacity: true,
-                                ClassRoomType: {
-                                    select: {
-                                        name: true
+        const skip = (page - 1) * limit;
+
+        const [scheduleRequests, total] = await Promise.all([
+            prisma.scheduleRequest.findMany({
+                where,
+                skip,
+                take: parseInt(limit),
+                include: {
+                    requester: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            email: true
+                        }
+                    },
+                    RequestType: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    },
+                    RequestStatus: {
+                        select: {
+                            id: true,
+                            name: true
+                        }
+                    },
+                    classSchedule: {
+                        include: {
+                            class: {
+                                select: {
+                                    id: true,
+                                    code: true,
+                                    className: true,
+                                    subjectName: true,
+                                    subjectCode: true,
+                                    maxStudents: true
+                                }
+                            },
+                            classRoom: {
+                                select: {
+                                    id: true,
+                                    code: true,
+                                    name: true,
+                                    capacity: true,
+                                    ClassRoomType: {
+                                        select: {
+                                            name: true
+                                        }
                                     }
                                 }
+                            },
+                            // Bỏ timeSlot vì không có relation trực tiếp
+                        }
+                    },
+                    // Bỏ timeSlot vì không có relation trực tiếp
+                    oldClassRoom: {
+                        select: {
+                            id: true,
+                            code: true,
+                            name: true,
+                            capacity: true,
+                            ClassRoomType: {
+                                select: {
+                                    name: true
+                                }
                             }
-                        },
-                        // Bỏ timeSlot vì không có relation trực tiếp
-                    }
-                },
-                // Bỏ timeSlot vì không có relation trực tiếp
-                oldClassRoom: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        capacity: true,
-                        ClassRoomType: {
-                            select: {
-                                name: true
+                        }
+                    },
+                    newClassRoom: {
+                        select: {
+                            id: true,
+                            code: true,
+                            name: true,
+                            capacity: true,
+                            ClassRoomType: {
+                                select: {
+                                    name: true
+                                }
                             }
+                        }
+                    },
+                    approver: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            email: true
                         }
                     }
                 },
-                newClassRoom: {
-                    select: {
-                        id: true,
-                        code: true,
-                        name: true,
-                        capacity: true,
-                        ClassRoomType: {
-                            select: {
-                                name: true
-                            }
-                        }
-                    }
-                },
-                approver: {
-                    select: {
-                        id: true,
-                        fullName: true,
-                        email: true
-                    }
+                orderBy: {
+                    createdAt: 'desc'
                 }
-            },
-            orderBy: {
-                createdAt: 'desc'
-            }
-        });
+            }),
+            prisma.scheduleRequest.count({ where })
+        ]);
 
-        return scheduleRequests;
+        return {
+            success: true,
+            data: scheduleRequests,
+            pagination: {
+                page: parseInt(page),
+                limit: parseInt(limit),
+                total,
+                totalPages: Math.ceil(total / limit)
+            }
+        };
     } catch (error) {
         console.error('Error getting schedule requests:', error);
         throw error;
