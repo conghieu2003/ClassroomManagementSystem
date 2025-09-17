@@ -240,6 +240,44 @@ class RoomController {
       });
     }
   }
+
+  // API lấy danh sách lớp học của giảng viên
+  async getTeacherSchedules(req, res) {
+    try {
+      const { teacherId } = req.params;
+      const schedules = await roomService.getTeacherSchedules(teacherId);
+      return res.status(200).json({
+        success: true,
+        data: schedules
+      });
+    } catch (error) {
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
+
+  // API lấy thông tin chi tiết của một lớp học
+  async getClassScheduleById(req, res) {
+    try {
+      const { scheduleId } = req.params;
+      const schedule = await roomService.getClassScheduleById(scheduleId);
+      return res.status(200).json({
+        success: true,
+        data: schedule
+      });
+    } catch (error) {
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
 }
 
 module.exports = new RoomController();

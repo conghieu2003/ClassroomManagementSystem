@@ -288,6 +288,11 @@ export const roomService = {
     return response.data;
   },
 
+  getClassScheduleById: async (scheduleId: number): Promise<any> => {
+    const response = await api.get(`/rooms/schedule/${scheduleId}`);
+    return response.data;
+  },
+
   updateScheduleRequestStatus: async (requestId: number, status: string, note?: string): Promise<any> => {
     const response = await api.put(`/schedule-requests/${requestId}/status`, { status, note });
     return response.data;
@@ -465,7 +470,7 @@ export const enhancedScheduleService = {
   getSchedules: async (filter: any = {}): Promise<any> => {
     try {
       const params = new URLSearchParams();
-      
+
       if (filter.departmentId) params.append('departmentId', filter.departmentId.toString());
       if (filter.classId) params.append('classId', filter.classId.toString());
       if (filter.teacherId) params.append('teacherId', filter.teacherId.toString());
@@ -521,7 +526,7 @@ export const enhancedScheduleService = {
     try {
       const params = new URLSearchParams();
       params.append('weekStartDate', weekStartDate);
-      
+
       if (filter.departmentId) params.append('departmentId', filter.departmentId.toString());
       if (filter.classId) params.append('classId', filter.classId.toString());
       if (filter.teacherId) params.append('teacherId', filter.teacherId.toString());
@@ -571,7 +576,7 @@ export const enhancedScheduleService = {
   printSchedule: async (filter: any = {}): Promise<Blob> => {
     try {
       const params = new URLSearchParams();
-      
+
       if (filter.departmentId) params.append('departmentId', filter.departmentId.toString());
       if (filter.classId) params.append('classId', filter.classId.toString());
       if (filter.teacherId) params.append('teacherId', filter.teacherId.toString());
