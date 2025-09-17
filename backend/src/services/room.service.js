@@ -256,6 +256,206 @@ class RoomService {
       throw new Error(`Lỗi lấy danh sách giảng viên: ${error.message}`);
     }
   }
+
+  // Lấy danh sách lớp học của giảng viên
+  async getTeacherSchedules(teacherId) {
+    try {
+      const classSchedules = await prisma.classSchedule.findMany({
+        where: {
+          teacherId: parseInt(teacherId)
+        },
+        include: {
+          class: {
+            select: {
+              id: true,
+              code: true,
+              className: true,
+              subjectName: true,
+              subjectCode: true,
+              maxStudents: true
+            }
+          },
+          classRoom: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              capacity: true,
+              ClassRoomType: {
+                select: {
+                  name: true
+                }
+              }
+            }
+          },
+          timeSlot: {
+            select: {
+              id: true,
+              slotName: true,
+              startTime: true,
+              endTime: true,
+              shift: true
+            }
+          }
+        },
+        orderBy: [
+          { dayOfWeek: 'asc' },
+          { timeSlotId: 'asc' }
+        ]
+      });
+
+      return classSchedules.map(schedule => ({
+        id: schedule.id,
+        classId: schedule.classId,
+        teacherId: schedule.teacherId,
+        classRoomId: schedule.classRoomId,
+        dayOfWeek: schedule.dayOfWeek,
+        timeSlotId: schedule.timeSlotId,
+        weekPattern: schedule.weekPattern,
+        startWeek: schedule.startWeek,
+        endWeek: schedule.endWeek,
+        status: schedule.statusId,
+        class: {
+          id: schedule.class.id,
+          code: schedule.class.code,
+          className: schedule.class.className,
+          subjectName: schedule.class.subjectName,
+          subjectCode: schedule.class.subjectCode,
+          maxStudents: schedule.class.maxStudents
+        },
+        classRoom: schedule.classRoom ? {
+          id: schedule.classRoom.id,
+          code: schedule.classRoom.code,
+          name: schedule.classRoom.name,
+          capacity: schedule.classRoom.capacity,
+          type: schedule.classRoom.ClassRoomType?.name || ''
+        } : null,
+        timeSlot: {
+          id: schedule.timeSlot.id,
+          slotName: schedule.timeSlot.slotName,
+          startTime: schedule.timeSlot.startTime.toTimeString().slice(0, 8),
+          endTime: schedule.timeSlot.endTime.toTimeString().slice(0, 8),
+          shift: schedule.timeSlot.shift
+        }
+      }));
+    } catch (error) {
+      throw new Error(`Lỗi lấy danh sách lớp học của giảng viên: ${error.message}`);
+    }
+  }
+
+  // Lấy thông tin chi tiết của một lớp học
+  async getClassScheduleById(scheduleId) {
+    try {
+      const schedule = await prisma.classSchedule.findUnique({
+        where: {
+          id: parseInt(scheduleId)
+        },
+        include: {
+          class: {
+            select: {
+              id: true,
+              code: true,
+              className: true,
+              subjectName: true,
+              subjectCode: true,
+              maxStudents: true,
+              credits: true,
+              semester: true,
+              academicYear: true
+            }
+          },
+          classRoom: {
+            select: {
+              id: true,
+              code: true,
+              name: true,
+              capacity: true,
+              building: true,
+              floor: true,
+              ClassRoomType: {
+                select: {
+                  name: true
+                }
+              }
+            }
+          },
+          timeSlot: {
+            select: {
+              id: true,
+              slotName: true,
+              startTime: true,
+              endTime: true,
+              shift: true
+            }
+          },
+          teacher: {
+            select: {
+              id: true,
+              teacherCode: true,
+              user: {
+                select: {
+                  fullName: true,
+                  email: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      if (!schedule) {
+        throw new Error('Không tìm thấy lớp học');
+      }
+
+      return {
+        id: schedule.id,
+        classId: schedule.classId,
+        teacherId: schedule.teacherId,
+        classRoomId: schedule.classRoomId,
+        dayOfWeek: schedule.dayOfWeek,
+        timeSlotId: schedule.timeSlotId,
+        weekPattern: schedule.weekPattern,
+        startWeek: schedule.startWeek,
+        endWeek: schedule.endWeek,
+        status: schedule.statusId,
+        class: {
+          id: schedule.class.id,
+          code: schedule.class.code,
+          className: schedule.class.className,
+          subjectName: schedule.class.subjectName,
+          subjectCode: schedule.class.subjectCode,
+          maxStudents: schedule.class.maxStudents,
+          credits: schedule.class.credits,
+          semester: schedule.class.semester,
+          academicYear: schedule.class.academicYear
+        },
+        classRoom: schedule.classRoom ? {
+          id: schedule.classRoom.id,
+          code: schedule.classRoom.code,
+          name: schedule.classRoom.name,
+          capacity: schedule.classRoom.capacity,
+          type: schedule.classRoom.ClassRoomType?.name || '',
+          building: schedule.classRoom.building,
+          floor: schedule.classRoom.floor
+        } : null,
+        timeSlot: {
+          id: schedule.timeSlot.id,
+          slotName: schedule.timeSlot.slotName,
+          startTime: schedule.timeSlot.startTime.toTimeString().slice(0, 8),
+          endTime: schedule.timeSlot.endTime.toTimeString().slice(0, 8),
+          shift: schedule.timeSlot.shift
+        },
+        teacher: {
+          id: schedule.teacher.id,
+          teacherCode: schedule.teacher.teacherCode,
+          fullName: schedule.teacher.user.fullName,
+          email: schedule.teacher.user.email
+        }
+      };
+    } catch (error) {
+      throw new Error(`Lỗi lấy thông tin lớp học: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new RoomService();

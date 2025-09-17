@@ -4,7 +4,7 @@ const prisma = new PrismaClient();
 const createScheduleRequest = async (requestData) => {
     try {
         const {
-            requestType,
+            requestTypeId,
             classScheduleId,
             classRoomId,
             requesterId,
@@ -26,10 +26,11 @@ const createScheduleRequest = async (requestData) => {
 
         const scheduleRequest = await prisma.scheduleRequest.create({
             data: {
-                requestType,
+                requestTypeId,
                 classScheduleId: classScheduleId || null,
                 classRoomId: classRoomId || null,
                 requesterId,
+                requestStatusId: 1, // pending status
                 requestDate: new Date(requestDate),
                 timeSlotId,
                 changeType: changeType || null,
@@ -43,8 +44,7 @@ const createScheduleRequest = async (requestData) => {
                 movedToTimeSlotId: movedToTimeSlotId || null,
                 movedToClassRoomId: movedToClassRoomId || null,
                 substituteTeacherId: substituteTeacherId || null,
-                reason,
-                status: 'pending'
+                reason
             },
             include: {
                 requester: {
@@ -52,6 +52,18 @@ const createScheduleRequest = async (requestData) => {
                         id: true,
                         fullName: true,
                         email: true
+                    }
+                },
+                RequestType: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                },
+                RequestStatus: {
+                    select: {
+                        id: true,
+                        name: true
                     }
                 },
                 classSchedule: {
@@ -72,36 +84,28 @@ const createScheduleRequest = async (requestData) => {
                                 code: true,
                                 name: true,
                                 capacity: true,
-                                type: true
+                                ClassRoomType: {
+                                    select: {
+                                        name: true
+                                    }
+                                }
                             }
                         },
-                        timeSlot: {
-                            select: {
-                                id: true,
-                                slotName: true,
-                                startTime: true,
-                                endTime: true,
-                                shift: true
-                            }
-                        }
+                        // Bỏ timeSlot vì không có relation trực tiếp
                     }
                 },
-                timeSlot: {
-                    select: {
-                        id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
-                    }
-                },
+                // Bỏ timeSlot vì không có relation trực tiếp
                 oldClassRoom: {
                     select: {
                         id: true,
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 },
                 newClassRoom: {
@@ -110,7 +114,11 @@ const createScheduleRequest = async (requestData) => {
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 }
             }
@@ -159,36 +167,28 @@ const getScheduleRequests = async (filters = {}) => {
                                 code: true,
                                 name: true,
                                 capacity: true,
-                                type: true
+                                ClassRoomType: {
+                                    select: {
+                                        name: true
+                                    }
+                                }
                             }
                         },
-                        timeSlot: {
-                            select: {
-                                id: true,
-                                slotName: true,
-                                startTime: true,
-                                endTime: true,
-                                shift: true
-                            }
-                        }
+                        // Bỏ timeSlot vì không có relation trực tiếp
                     }
                 },
-                timeSlot: {
-                    select: {
-                        id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
-                    }
-                },
+                // Bỏ timeSlot vì không có relation trực tiếp
                 oldClassRoom: {
                     select: {
                         id: true,
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 },
                 newClassRoom: {
@@ -197,7 +197,11 @@ const getScheduleRequests = async (filters = {}) => {
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 },
                 approver: {
@@ -243,18 +247,14 @@ const getTeacherSchedules = async (teacherId) => {
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
-                    }
-                },
-                timeSlot: {
-                    select: {
-                        id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 }
+                // Bỏ timeSlot vì không có relation trực tiếp
             },
             orderBy: [
                 { dayOfWeek: 'asc' },
@@ -307,36 +307,28 @@ const updateScheduleRequestStatus = async (requestId, status, approverId, note) 
                                 code: true,
                                 name: true,
                                 capacity: true,
-                                type: true
+                                ClassRoomType: {
+                                    select: {
+                                        name: true
+                                    }
+                                }
                             }
                         },
-                        timeSlot: {
-                            select: {
-                                id: true,
-                                slotName: true,
-                                startTime: true,
-                                endTime: true,
-                                shift: true
-                            }
-                        }
+                        // Bỏ timeSlot vì không có relation trực tiếp
                     }
                 },
-                timeSlot: {
-                    select: {
-                        id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
-                    }
-                },
+                // Bỏ timeSlot vì không có relation trực tiếp
                 oldClassRoom: {
                     select: {
                         id: true,
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 },
                 newClassRoom: {
@@ -345,7 +337,11 @@ const updateScheduleRequestStatus = async (requestId, status, approverId, note) 
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 },
                 approver: {
@@ -397,36 +393,28 @@ const getScheduleRequestById = async (requestId) => {
                                 code: true,
                                 name: true,
                                 capacity: true,
-                                type: true
+                                ClassRoomType: {
+                                    select: {
+                                        name: true
+                                    }
+                                }
                             }
                         },
-                        timeSlot: {
-                            select: {
-                                id: true,
-                                slotName: true,
-                                startTime: true,
-                                endTime: true,
-                                shift: true
-                            }
-                        }
+                        // Bỏ timeSlot vì không có relation trực tiếp
                     }
                 },
-                timeSlot: {
-                    select: {
-                        id: true,
-                        slotName: true,
-                        startTime: true,
-                        endTime: true,
-                        shift: true
-                    }
-                },
+                // Bỏ timeSlot vì không có relation trực tiếp
                 oldClassRoom: {
                     select: {
                         id: true,
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 },
                 newClassRoom: {
@@ -435,7 +423,11 @@ const getScheduleRequestById = async (requestId) => {
                         code: true,
                         name: true,
                         capacity: true,
-                        type: true
+                        ClassRoomType: {
+                            select: {
+                                name: true
+                            }
+                        }
                     }
                 },
                 approver: {
