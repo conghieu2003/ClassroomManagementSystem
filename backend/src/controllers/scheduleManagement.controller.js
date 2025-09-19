@@ -170,7 +170,11 @@ class ScheduleManagementController {
         });
       }
 
-      const schedules = await scheduleManagementService.getWeeklySchedule(weekStartDate, filters);
+      // Lấy thông tin user từ token (nếu có)
+      const userRole = req.user?.role || 'admin';
+      const userId = req.user?.id || null;
+
+      const schedules = await scheduleManagementService.getWeeklySchedule(weekStartDate, filters, userRole, userId);
       return res.status(200).json({
         success: true,
         data: schedules
