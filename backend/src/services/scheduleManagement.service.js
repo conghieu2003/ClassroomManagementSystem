@@ -31,12 +31,12 @@ class ScheduleManagementService {
         orderBy: { createdAt: 'desc' }
       });
 
-      return classes.map(cls => {
-        // Xác định trạng thái lớp dựa trên statusId của lịch học
-        const hasAssignedSchedule = cls.classSchedules.some(schedule => schedule.statusId === 2);
-        const classStatusId = hasAssignedSchedule ? 2 : 1; 
-        
-        return {
+       return classes.map(cls => {
+         // Xác định trạng thái lớp: chỉ khi TẤT CẢ lịch học đều có phòng mới coi là "Đã phân phòng"
+         const allSchedulesAssigned = cls.classSchedules.length > 0 && cls.classSchedules.every(schedule => schedule.statusId === 2);
+         const classStatusId = allSchedulesAssigned ? 2 : 1;
+         
+         return {
           id: cls.id.toString(),
           classId: cls.id,
           className: cls.className,
@@ -91,14 +91,15 @@ class ScheduleManagementService {
       let assignedClasses = 0;
       let pendingClasses = 0;
 
-      allClasses.forEach(cls => {
-        const hasAssignedSchedule = cls.classSchedules.some(schedule => schedule.statusId === 2);
-        if (hasAssignedSchedule) {
-          assignedClasses++;
-        } else {
-          pendingClasses++;
-        }
-      });
+       allClasses.forEach(cls => {
+         // Chỉ coi là "đã phân phòng" khi TẤT CẢ lịch học đều có phòng
+         const allSchedulesAssigned = cls.classSchedules.length > 0 && cls.classSchedules.every(schedule => schedule.statusId === 2);
+         if (allSchedulesAssigned) {
+           assignedClasses++;
+         } else {
+           pendingClasses++;
+         }
+       });
 
       return {
         totalClasses: allClasses.length,
@@ -125,13 +126,16 @@ class ScheduleManagementService {
               ClassRoomType: true,
               department: true
             }
-          }
+          },
+          timeSlot: true // Lấy thông tin timeSlot để kiểm tra khung giờ
         }
       });
 
       if (!schedule) {
         throw new Error('Không tìm thấy lịch học');
       }
+
+      console.log(`[GET_AVAILABLE_ROOMS] Lịch học: ${schedule.class.className} - ${schedule.timeSlot.slotName} (${schedule.timeSlot.startTime}-${schedule.timeSlot.endTime})`);
 
       // Lấy phòng phù hợp với loại phòng và khoa
       const availableRooms = await prisma.classRoom.findMany({
@@ -154,31 +158,55 @@ class ScheduleManagementService {
         ]
       });
 
-      // Kiểm tra xung đột thời gian
+      // Kiểm tra xung đột thời gian - phòng chỉ bận trong khung giờ cụ thể
       const conflictingSchedules = await prisma.classSchedule.findMany({
         where: {
           dayOfWeek: schedule.dayOfWeek,
-          timeSlotId: schedule.timeSlotId,
+          timeSlotId: schedule.timeSlotId, // Cùng tiết học = cùng khung giờ
           classRoomId: { not: null },
-          statusId: { in: [2, 3] } // Đã phân phòng hoặc đang hoạt động
+          statusId: { in: [2, 3] }, // Đã phân phòng hoặc đang hoạt động
+          id: { not: parseInt(scheduleId) } // Loại trừ lịch hiện tại
+        },
+        include: {
+          timeSlot: true,
+          class: {
+            include: {
+              teacher: {
+                include: { user: true }
+              }
+            }
+          }
         }
       });
 
       const conflictingRoomIds = conflictingSchedules.map(s => s.classRoomId);
       
+      console.log(`[GET_AVAILABLE_ROOMS] Tìm thấy ${conflictingSchedules.length} lịch xung đột trong khung giờ ${schedule.timeSlot.startTime}-${schedule.timeSlot.endTime}`);
+      
       return availableRooms
         .filter(room => !conflictingRoomIds.includes(room.id))
-        .map(room => ({
-          id: room.id,
-          code: room.code,
-          name: room.name,
-          capacity: room.capacity,
-          building: room.building,
-          floor: room.floor,
-          type: room.ClassRoomType.name,
-          department: room.department?.name || 'Phòng chung',
-          isSameDepartment: room.departmentId === schedule.class.departmentId
-        }));
+        .map(room => {
+          // Tìm thông tin conflict nếu có
+          const conflictInfo = conflictingSchedules.find(s => s.classRoomId === room.id);
+          
+          return {
+            id: room.id,
+            code: room.code,
+            name: room.name,
+            capacity: room.capacity,
+            building: room.building,
+            floor: room.floor,
+            type: room.ClassRoomType.name,
+            department: room.department?.name || 'Phòng chung',
+            isSameDepartment: room.departmentId === schedule.class.departmentId,
+            isAvailable: !conflictingRoomIds.includes(room.id),
+            conflictInfo: conflictInfo ? {
+              time: `${conflictInfo.timeSlot.startTime}-${conflictInfo.timeSlot.endTime}`,
+              className: conflictInfo.class.className,
+              teacherName: conflictInfo.class.teacher.user.fullName
+            } : null
+          };
+        });
     } catch (error) {
       throw new Error(`Lỗi lấy phòng khả dụng: ${error.message}`);
     }
@@ -227,19 +255,33 @@ class ScheduleManagementService {
         throw new Error('Phòng học không khả dụng');
       }
 
-      // Kiểm tra xung đột
-      const conflict = await prisma.classSchedule.findFirst({
-        where: {
-          dayOfWeek: schedule.dayOfWeek,
-          timeSlotId: schedule.timeSlotId,
-          classRoomId: parseInt(roomId),
-          statusId: { in: [2, 3] }
-        }
-      });
+       // Kiểm tra xung đột - phòng chỉ bận trong khung giờ cụ thể
+       const conflict = await prisma.classSchedule.findFirst({
+         where: {
+           dayOfWeek: schedule.dayOfWeek,
+           timeSlotId: schedule.timeSlotId,
+           classRoomId: parseInt(roomId),
+           statusId: { in: [2, 3] }, // Chỉ kiểm tra lịch đã phân phòng và đang hoạt động
+           id: { not: parseInt(scheduleId) } // Loại trừ lịch hiện tại
+         },
+         include: {
+           timeSlot: true,
+           class: {
+             include: {
+               teacher: {
+                 include: { user: true }
+               }
+             }
+           }
+         }
+       });
 
-      if (conflict) {
-        throw new Error('Phòng học đã được sử dụng trong khung giờ này');
-      }
+       if (conflict) {
+         const conflictTime = `${conflict.timeSlot.startTime}-${conflict.timeSlot.endTime}`;
+         const conflictClass = conflict.class.className;
+         const conflictTeacher = conflict.class.teacher.user.fullName;
+         throw new Error(`Phòng học đã được sử dụng trong khung giờ ${conflictTime} bởi lớp ${conflictClass} (${conflictTeacher})`);
+       }
 
       // Cập nhật lịch học với statusId = 2 (Đã phân phòng)
       const updatedSchedule = await prisma.classSchedule.update({
@@ -274,8 +316,9 @@ class ScheduleManagementService {
         include: { classSchedules: true }
       });
 
-      const hasAssignedSchedule = classInfo?.classSchedules.some(schedule => schedule.statusId === 2) || false;
-      const classStatusId = hasAssignedSchedule ? 2 : 1; // Trả về trực tiếp RequestType ID
+       // Kiểm tra xem TẤT CẢ lịch học của lớp đã được phân phòng chưa
+       const allSchedulesAssigned = classInfo?.classSchedules.every(schedule => schedule.statusId === 2) || false;
+       const classStatusId = allSchedulesAssigned ? 2 : 1; // Chỉ khi TẤT CẢ lịch đều có phòng mới coi là "Đã phân phòng"
 
       const result = {
         // Thông tin lịch học
@@ -399,7 +442,139 @@ class ScheduleManagementService {
   }
 
   // =====================================================
-  // 4. HELPER METHODS
+  // 4. LỊCH HỌC THEO TUẦN
+  // =====================================================
+  
+  // Lấy lịch học theo tuần - chỉ hiển thị lịch đã có phòng đầy đủ
+  async getWeeklySchedule(weekStartDate, filters = {}) {
+    try {
+      console.log(`[GET_WEEKLY_SCHEDULE] Week start: ${weekStartDate}, Filters:`, filters);
+      
+      // Tính toán ngày bắt đầu và kết thúc tuần
+      const startDate = new Date(weekStartDate);
+      const endDate = new Date(startDate);
+      endDate.setDate(startDate.getDate() + 6);
+      
+      // Tính tuần học hiện tại (dựa trên ngày bắt đầu học kỳ)
+      // Lấy ngày bắt đầu học kỳ từ lớp học đầu tiên hoặc sử dụng ngày mặc định
+      const earliestClass = await prisma.class.findFirst({
+        orderBy: { startDate: 'asc' },
+        select: { startDate: true }
+      });
+      
+      const semesterStartDate = earliestClass?.startDate ? new Date(earliestClass.startDate) : new Date('2025-09-01');
+      const currentWeek = Math.floor((startDate - semesterStartDate) / (7 * 24 * 60 * 60 * 1000)) + 1;
+      
+      console.log(`[GET_WEEKLY_SCHEDULE] Current week: ${currentWeek}, Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      
+      // Lấy tất cả lịch học đã được phân phòng (statusId = 2 hoặc 3)
+      const schedules = await prisma.classSchedule.findMany({
+        where: {
+          statusId: { in: [2, 3] }, // Chỉ lấy lịch đã phân phòng và đang hoạt động
+          classRoomId: { not: null }, // Phải có phòng
+          // Filter theo tuần học: chỉ lấy lịch trong khoảng startWeek và endWeek
+          startWeek: { lte: currentWeek }, // Lịch học bắt đầu trước hoặc trong tuần này
+          endWeek: { gte: currentWeek }, // Lịch học kết thúc sau hoặc trong tuần này
+          // Filter theo thời gian: chỉ lấy lịch trong khoảng startDate và endDate của lớp
+          class: {
+            startDate: { lte: endDate }, // Lớp học bắt đầu trước hoặc trong tuần này
+            endDate: { gte: startDate }, // Lớp học kết thúc sau hoặc trong tuần này
+            ...(filters.departmentId && {
+              departmentId: parseInt(filters.departmentId)
+            })
+          },
+          ...(filters.classId && {
+            classId: parseInt(filters.classId)
+          }),
+          ...(filters.teacherId && {
+            teacherId: parseInt(filters.teacherId)
+          })
+        },
+        include: {
+          class: {
+            include: {
+              teacher: {
+                include: {
+                  user: true,
+                  department: true
+                }
+              },
+              department: true,
+              major: true,
+              ClassRoomType: true
+            }
+          },
+          classRoom: {
+            include: {
+              ClassRoomType: true,
+              department: true
+            }
+          },
+          timeSlot: true,
+          ClassRoomType: true
+        },
+        orderBy: [
+          { dayOfWeek: 'asc' },
+          { timeSlotId: 'asc' }
+        ]
+      });
+
+      console.log(`[GET_WEEKLY_SCHEDULE] Found ${schedules.length} assigned schedules`);
+
+      // Chuyển đổi dữ liệu để phù hợp với frontend
+      const weeklySchedules = schedules.map(schedule => {
+        const timeSlot = schedule.timeSlot;
+        const shift = this.getShiftFromTimeSlot(timeSlot.shift);
+        
+        return {
+          id: schedule.id,
+          classId: schedule.classId,
+          className: schedule.class.className,
+          classCode: schedule.class.code,
+          subjectCode: schedule.class.subjectCode,
+          subjectName: schedule.class.subjectName,
+          teacherId: schedule.teacherId,
+          teacherName: schedule.class.teacher.user.fullName,
+          teacherCode: schedule.class.teacher.teacherCode,
+          roomId: schedule.classRoomId,
+          roomName: schedule.classRoom.name,
+          roomCode: schedule.classRoom.code,
+          roomType: schedule.classRoom.ClassRoomType.name,
+          dayOfWeek: schedule.dayOfWeek,
+          dayName: this.getDayName(schedule.dayOfWeek),
+          timeSlot: timeSlot.slotName,
+          timeRange: `${timeSlot.startTime}-${timeSlot.endTime}`,
+          startTime: timeSlot.startTime,
+          endTime: timeSlot.endTime,
+          shift: shift.key,
+          shiftName: shift.name,
+          type: this.getScheduleType(schedule.classRoomTypeId),
+          status: this.getStatusName(schedule.statusId),
+          statusId: schedule.statusId,
+          weekPattern: schedule.weekPattern,
+          startWeek: schedule.startWeek,
+          endWeek: schedule.endWeek,
+          practiceGroup: schedule.practiceGroup,
+          maxStudents: schedule.class.maxStudents,
+          departmentId: schedule.class.departmentId,
+          departmentName: schedule.class.department.name,
+          majorId: schedule.class.majorId,
+          majorName: schedule.class.major?.name || 'Chưa xác định',
+          timeSlotOrder: this.getTimeSlotOrder(timeSlot.id),
+          assignedAt: schedule.assignedAt,
+          note: schedule.note
+        };
+      });
+
+      return weeklySchedules;
+    } catch (error) {
+      console.error('Error getting weekly schedule:', error);
+      throw new Error(`Lỗi lấy lịch học theo tuần: ${error.message}`);
+    }
+  }
+
+  // =====================================================
+  // 5. HELPER METHODS
   // =====================================================
   
   getDayName(dayOfWeek) {
@@ -425,6 +600,32 @@ class ScheduleManagementService {
       6: 'Thi'
     };
     return statuses[statusId] || 'Không xác định';
+  }
+
+  getShiftFromTimeSlot(shiftId) {
+    const shifts = {
+      1: { key: 'morning', name: 'Sáng' },
+      2: { key: 'afternoon', name: 'Chiều' },
+      3: { key: 'evening', name: 'Tối' }
+    };
+    return shifts[shiftId] || { key: 'morning', name: 'Sáng' };
+  }
+
+  getScheduleType(classRoomTypeId) {
+    const types = {
+      1: 'theory',
+      2: 'practice',
+      3: 'online'
+    };
+    return types[classRoomTypeId] || 'theory';
+  }
+
+  getTimeSlotOrder(timeSlotId) {
+    // Dựa trên sample_data.sql, timeSlotId từ 1-16
+    // Sắp xếp theo thứ tự: 1-6 (sáng), 7-12 (chiều), 13-16 (tối)
+    if (timeSlotId <= 6) return 1; // Tiết 1-3, 4-6
+    if (timeSlotId <= 12) return 2; // Tiết 7-9, 10-12
+    return 3; // Tiết 13-15, 16
   }
 }
 

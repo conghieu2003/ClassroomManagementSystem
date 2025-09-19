@@ -398,6 +398,19 @@ export const scheduleManagementService = {
     return response.data;
   },
 
+  // Lấy lịch học theo tuần
+  getWeeklySchedule: async (weekStartDate: string, filters: any = {}): Promise<any> => {
+    const params = new URLSearchParams();
+    params.append('weekStartDate', weekStartDate);
+    
+    if (filters.departmentId) params.append('departmentId', filters.departmentId.toString());
+    if (filters.classId) params.append('classId', filters.classId.toString());
+    if (filters.teacherId) params.append('teacherId', filters.teacherId.toString());
+
+    const response = await api.get(`/schedule-management/weekly-schedule?${params.toString()}`);
+    return response.data;
+  },
+
   getClassRoomTypes: async (): Promise<any> => {
     const response = await api.get('/classroom-types');
     return response.data;

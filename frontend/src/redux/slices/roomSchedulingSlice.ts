@@ -80,6 +80,12 @@ export interface Room {
   type: string;
   department: string;
   isSameDepartment: boolean;
+  isAvailable: boolean;
+  conflictInfo?: {
+    time: string;
+    className: string;
+    teacherName: string;
+  };
 }
 
 // State interface

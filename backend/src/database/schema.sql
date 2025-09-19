@@ -392,10 +392,12 @@ ADD CONSTRAINT CK_ClassSchedule_PracticeGroup CHECK (
 );
 
 -- Tránh trùng lịch: phòng học không thể bị double-book trong cùng ngày/ca
-CREATE UNIQUE INDEX UQ_ClassSchedule_Room_Time ON ClassSchedule (dayOfWeek, timeSlotId, classRoomId) WHERE classRoomId IS NOT NULL;
+CREATE UNIQUE INDEX UQ_ClassSchedule_Room_Time ON ClassSchedule (dayOfWeek, timeSlotId, classRoomId) 
+WHERE classRoomId IS NOT NULL AND statusId IN (2, 3); -- Chỉ áp dụng cho lịch đã phân phòng và đang hoạt động
 
 -- Tránh trùng lịch: giảng viên không thể dạy 2 nơi cùng ca/ngày
-CREATE UNIQUE INDEX UQ_ClassSchedule_Teacher_Time ON ClassSchedule (dayOfWeek, timeSlotId, teacherId);
+CREATE UNIQUE INDEX UQ_ClassSchedule_Teacher_Time ON ClassSchedule (dayOfWeek, timeSlotId, teacherId)
+WHERE statusId IN (2, 3); -- Chỉ áp dụng cho lịch đã phân phòng và đang hoạt động
 
 -- ScheduleRequest
 ALTER TABLE ScheduleRequest
