@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { scheduleService, enhancedScheduleService } from '../../services/api';
+import { enhancedScheduleService, scheduleManagementService } from '../../services/api';
 
 // Types for schedule-related data
 export interface ScheduleItem {
@@ -43,6 +43,7 @@ export interface Department {
 export interface Class {
   id: number;
   name: string;
+  className?: string;
   code?: string;
   departmentId?: number;
   maxStudents?: number;
@@ -59,6 +60,7 @@ export interface Teacher {
 // Interface cho state
 interface ScheduleState {
   schedules: ScheduleItem[];
+  weeklySchedules: any[]; // Weekly schedule items from API
   departments: Department[];
   classes: Class[];
   teachers: Teacher[];
@@ -70,6 +72,7 @@ interface ScheduleState {
 // Initial state
 const initialState: ScheduleState = {
   schedules: [],
+  weeklySchedules: [],
   departments: [],
   classes: [],
   teachers: [],
@@ -90,7 +93,7 @@ export const fetchSchedules = createAsyncThunk(
 export const fetchWeeklySchedule = createAsyncThunk(
   'schedule/fetchWeeklySchedule',
   async ({ weekStartDate, filters }: { weekStartDate: string; filters: ScheduleFilter }) => {
-    const response = await enhancedScheduleService.getWeeklySchedule(weekStartDate, filters);
+    const response = await scheduleManagementService.getWeeklySchedule(weekStartDate, filters);
     return response.data || response;
   }
 );
@@ -174,21 +177,6 @@ const scheduleSlice = createSlice({
         state.error = action.error.message || 'Failed to fetch schedules';
       });
 
-    // Fetch weekly schedule
-    builder
-      .addCase(fetchWeeklySchedule.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchWeeklySchedule.fulfilled, (state, action) => {
-        state.loading = false;
-        state.schedules = action.payload;
-      })
-      .addCase(fetchWeeklySchedule.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.error.message || 'Failed to fetch weekly schedule';
-      });
-
     // Fetch departments
     builder
       .addCase(fetchDepartments.pending, (state) => {
@@ -197,7 +185,7 @@ const scheduleSlice = createSlice({
       })
       .addCase(fetchDepartments.fulfilled, (state, action) => {
         state.loading = false;
-        state.departments = action.payload;
+        state.departments = action.payload.data || action.payload;
       })
       .addCase(fetchDepartments.rejected, (state, action) => {
         state.loading = false;
@@ -212,7 +200,7 @@ const scheduleSlice = createSlice({
       })
       .addCase(fetchClasses.fulfilled, (state, action) => {
         state.loading = false;
-        state.classes = action.payload;
+        state.classes = action.payload.data || action.payload;
       })
       .addCase(fetchClasses.rejected, (state, action) => {
         state.loading = false;
@@ -227,11 +215,26 @@ const scheduleSlice = createSlice({
       })
       .addCase(fetchTeachers.fulfilled, (state, action) => {
         state.loading = false;
-        state.teachers = action.payload;
+        state.teachers = action.payload.data || action.payload;
       })
       .addCase(fetchTeachers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.error.message || 'Failed to fetch teachers';
+      });
+
+    // Fetch weekly schedule
+    builder
+      .addCase(fetchWeeklySchedule.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchWeeklySchedule.fulfilled, (state, action) => {
+        state.loading = false;
+        state.weeklySchedules = action.payload.data || action.payload;
+      })
+      .addCase(fetchWeeklySchedule.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.error.message || 'Failed to fetch weekly schedule';
       });
 
     // Create schedule
