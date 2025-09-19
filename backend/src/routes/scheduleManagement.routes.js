@@ -10,10 +10,12 @@ router.get('/available-rooms/:scheduleId', scheduleManagementController.getAvail
 router.get('/departments', scheduleManagementController.getDepartments);
 router.get('/teachers', scheduleManagementController.getTeachers);
 router.get('/request-types', scheduleManagementController.getRequestTypes);
-router.get('/weekly-schedule', scheduleManagementController.getWeeklySchedule);
 
 // Routes yêu cầu xác thực
 router.use(verifyToken);
+
+// Lịch học theo tuần - cần xác thực để biết role
+router.get('/weekly-schedule', scheduleManagementController.getWeeklySchedule);
 
 // Gán phòng cho lịch học
 router.post('/assign-room/:scheduleId', authorize(['admin']), scheduleManagementController.assignRoomToSchedule);

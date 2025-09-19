@@ -31,12 +31,12 @@ class ScheduleManagementService {
         orderBy: { createdAt: 'desc' }
       });
 
-       return classes.map(cls => {
+      return classes.map(cls => {
          // Xác định trạng thái lớp: chỉ khi TẤT CẢ lịch học đều có phòng mới coi là "Đã phân phòng"
          const allSchedulesAssigned = cls.classSchedules.length > 0 && cls.classSchedules.every(schedule => schedule.statusId === 2);
          const classStatusId = allSchedulesAssigned ? 2 : 1;
-         
-         return {
+        
+        return {
           id: cls.id.toString(),
           classId: cls.id,
           className: cls.className,
@@ -91,15 +91,15 @@ class ScheduleManagementService {
       let assignedClasses = 0;
       let pendingClasses = 0;
 
-       allClasses.forEach(cls => {
+      allClasses.forEach(cls => {
          // Chỉ coi là "đã phân phòng" khi TẤT CẢ lịch học đều có phòng
          const allSchedulesAssigned = cls.classSchedules.length > 0 && cls.classSchedules.every(schedule => schedule.statusId === 2);
          if (allSchedulesAssigned) {
-           assignedClasses++;
-         } else {
-           pendingClasses++;
-         }
-       });
+          assignedClasses++;
+        } else {
+          pendingClasses++;
+        }
+      });
 
       return {
         totalClasses: allClasses.length,
@@ -190,14 +190,14 @@ class ScheduleManagementService {
           const conflictInfo = conflictingSchedules.find(s => s.classRoomId === room.id);
           
           return {
-            id: room.id,
-            code: room.code,
-            name: room.name,
-            capacity: room.capacity,
-            building: room.building,
-            floor: room.floor,
-            type: room.ClassRoomType.name,
-            department: room.department?.name || 'Phòng chung',
+          id: room.id,
+          code: room.code,
+          name: room.name,
+          capacity: room.capacity,
+          building: room.building,
+          floor: room.floor,
+          type: room.ClassRoomType.name,
+          department: room.department?.name || 'Phòng chung',
             isSameDepartment: room.departmentId === schedule.class.departmentId,
             isAvailable: !conflictingRoomIds.includes(room.id),
             conflictInfo: conflictInfo ? {
@@ -256,11 +256,11 @@ class ScheduleManagementService {
       }
 
        // Kiểm tra xung đột - phòng chỉ bận trong khung giờ cụ thể
-       const conflict = await prisma.classSchedule.findFirst({
-         where: {
-           dayOfWeek: schedule.dayOfWeek,
-           timeSlotId: schedule.timeSlotId,
-           classRoomId: parseInt(roomId),
+      const conflict = await prisma.classSchedule.findFirst({
+        where: {
+          dayOfWeek: schedule.dayOfWeek,
+          timeSlotId: schedule.timeSlotId,
+          classRoomId: parseInt(roomId),
            statusId: { in: [2, 3] }, // Chỉ kiểm tra lịch đã phân phòng và đang hoạt động
            id: { not: parseInt(scheduleId) } // Loại trừ lịch hiện tại
          },
@@ -273,15 +273,15 @@ class ScheduleManagementService {
                }
              }
            }
-         }
-       });
+        }
+      });
 
-       if (conflict) {
+      if (conflict) {
          const conflictTime = `${conflict.timeSlot.startTime}-${conflict.timeSlot.endTime}`;
          const conflictClass = conflict.class.className;
          const conflictTeacher = conflict.class.teacher.user.fullName;
          throw new Error(`Phòng học đã được sử dụng trong khung giờ ${conflictTime} bởi lớp ${conflictClass} (${conflictTeacher})`);
-       }
+      }
 
       // Cập nhật lịch học với statusId = 2 (Đã phân phòng)
       const updatedSchedule = await prisma.classSchedule.update({
@@ -445,8 +445,8 @@ class ScheduleManagementService {
   // 4. LỊCH HỌC THEO TUẦN
   // =====================================================
   
-  // Lấy lịch học theo tuần - chỉ hiển thị lịch đã có phòng đầy đủ
-  async getWeeklySchedule(weekStartDate, filters = {}) {
+  // Lấy lịch học theo tuần - hỗ trợ role-based access
+  async getWeeklySchedule(weekStartDate, filters = {}, userRole = 'admin', userId = null) {
     try {
       console.log(`[GET_WEEKLY_SCHEDULE] Week start: ${weekStartDate}, Filters:`, filters);
       
@@ -466,30 +466,58 @@ class ScheduleManagementService {
       const currentWeek = Math.floor((startDate - semesterStartDate) / (7 * 24 * 60 * 60 * 1000)) + 1;
       
       console.log(`[GET_WEEKLY_SCHEDULE] Current week: ${currentWeek}, Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
+      console.log(`[GET_WEEKLY_SCHEDULE] User role: ${userRole}, User ID: ${userId}`);
       
-      // Lấy tất cả lịch học đã được phân phòng (statusId = 2 hoặc 3)
-      const schedules = await prisma.classSchedule.findMany({
-        where: {
-          statusId: { in: [2, 3] }, // Chỉ lấy lịch đã phân phòng và đang hoạt động
-          classRoomId: { not: null }, // Phải có phòng
-          // Filter theo tuần học: chỉ lấy lịch trong khoảng startWeek và endWeek
-          startWeek: { lte: currentWeek }, // Lịch học bắt đầu trước hoặc trong tuần này
-          endWeek: { gte: currentWeek }, // Lịch học kết thúc sau hoặc trong tuần này
-          // Filter theo thời gian: chỉ lấy lịch trong khoảng startDate và endDate của lớp
-          class: {
-            startDate: { lte: endDate }, // Lớp học bắt đầu trước hoặc trong tuần này
-            endDate: { gte: startDate }, // Lớp học kết thúc sau hoặc trong tuần này
-            ...(filters.departmentId && {
-              departmentId: parseInt(filters.departmentId)
-            })
-          },
-          ...(filters.classId && {
-            classId: parseInt(filters.classId)
-          }),
-          ...(filters.teacherId && {
-            teacherId: parseInt(filters.teacherId)
+      // Xây dựng điều kiện where dựa trên role
+      let whereCondition = {
+        // Filter theo tuần học: chỉ lấy lịch trong khoảng startWeek và endWeek
+        startWeek: { lte: currentWeek }, // Lịch học bắt đầu trước hoặc trong tuần này
+        endWeek: { gte: currentWeek }, // Lịch học kết thúc sau hoặc trong tuần này
+        // Filter theo thời gian: chỉ lấy lịch trong khoảng startDate và endDate của lớp
+        class: {
+          startDate: { lte: endDate }, // Lớp học bắt đầu trước hoặc trong tuần này
+          endDate: { gte: startDate }, // Lớp học kết thúc sau hoặc trong tuần này
+          ...(filters.departmentId && {
+            departmentId: parseInt(filters.departmentId)
           })
         },
+        ...(filters.classId && {
+          classId: parseInt(filters.classId)
+        }),
+        ...(filters.teacherId && {
+          teacherId: parseInt(filters.teacherId)
+        })
+      };
+
+      // Role-based filtering
+      if (userRole === 'teacher' && userId) {
+        // Giáo viên chỉ xem lịch học của lớp họ dạy
+        whereCondition.teacherId = parseInt(userId);
+        // Giáo viên có thể xem lịch chưa có phòng (để biết lịch dạy)
+        whereCondition.statusId = { in: [1, 2, 3] }; // Pending, Assigned, Active
+      } else if (userRole === 'student' && userId) {
+        // Sinh viên chỉ xem lịch học của lớp họ học
+        // Cần join với bảng ClassStudent để lấy lớp của sinh viên
+        whereCondition.class = {
+          ...whereCondition.class,
+          classStudents: {
+            some: {
+              studentId: parseInt(userId)
+            }
+          }
+        };
+        // Sinh viên chỉ xem lịch đã có phòng
+        whereCondition.statusId = { in: [2, 3] }; // Assigned, Active
+        whereCondition.classRoomId = { not: null };
+      } else {
+        // Admin/Manager xem tất cả lịch đã có phòng
+        whereCondition.statusId = { in: [2, 3] }; // Chỉ lấy lịch đã phân phòng và đang hoạt động
+        whereCondition.classRoomId = { not: null }; // Phải có phòng
+      }
+
+      // Lấy lịch học theo điều kiện đã xây dựng
+      const schedules = await prisma.classSchedule.findMany({
+        where: whereCondition,
         include: {
           class: {
             include: {
