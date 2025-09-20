@@ -40,7 +40,7 @@ import { roomService } from '../../services/api';
 
 // Interface cho ScheduleRequest dựa trên database schema
 interface ScheduleRequestForm {
-    requestType: 'room_request' | 'schedule_change' | 'exception';
+    requestType: 'room_request' | 'schedule_change' | 'exception' | 'time_change';
     classScheduleId?: number;
     requesterId: number;
     requestDate: string;
@@ -178,9 +178,12 @@ const RoomRequestForm: React.FC = () => {
         if (!selectedSchedule) {
             errors.push('Vui lòng chọn lớp học');
         }
-        // Không cần validation dayOfWeek cho room_request vì nó không được sử dụng
-        if (formData.requestType === 'room_request' && !formData.timeSlotId) {
+        // Validation cho room_request và time_change
+        if ((formData.requestType === 'room_request' || formData.requestType === 'time_change') && !formData.timeSlotId) {
             errors.push('Vui lòng chọn tiết học');
+        }
+        if ((formData.requestType === 'room_request' || formData.requestType === 'time_change') && !formData.dayOfWeek) {
+            errors.push('Vui lòng chọn thứ trong tuần');
         }
         // Bỏ validation phòng mới vì admin sẽ chọn
         if (!formData.reason.trim()) {
@@ -229,6 +232,11 @@ const RoomRequestForm: React.FC = () => {
                 // Các trường khác tùy theo loại yêu cầu
                 ...(formData.requestType === 'room_request' && {
                     timeSlotId: formData.timeSlotId
+                }),
+                ...(formData.requestType === 'time_change' && {
+                    timeSlotId: formData.timeSlotId,
+                    changeType: 'time_change',
+                    oldTimeSlotId: selectedSchedule?.timeSlotId
                 }),
                 ...(formData.requestType === 'schedule_change' && {
                     timeSlotId: selectedSchedule?.timeSlotId,
@@ -282,6 +290,8 @@ const RoomRequestForm: React.FC = () => {
                 return 7; // Đổi phòng
             case 'schedule_change':
                 return 7; // Đổi phòng
+            case 'time_change':
+                return 8; // Đổi lịch
             case 'exception':
                 return 8; // Đổi lịch
             default:
@@ -304,7 +314,7 @@ const RoomRequestForm: React.FC = () => {
                                 onChange={(e) => {
                                     setFormData(prev => ({
                                         ...prev,
-                                        requestType: e.target.value as 'room_request' | 'schedule_change' | 'exception',
+                                        requestType: e.target.value as 'room_request' | 'schedule_change' | 'exception' | 'time_change',
                                         classScheduleId: undefined,
                                         // Bỏ newClassRoomId
                                         newTimeSlotId: undefined,
@@ -317,6 +327,7 @@ const RoomRequestForm: React.FC = () => {
                             >
                                 <FormControlLabel value="room_request" control={<Radio />} label="Xin phòng mới" />
                                 <FormControlLabel value="schedule_change" control={<Radio />} label="Đổi phòng" />
+                                <FormControlLabel value="time_change" control={<Radio />} label="Đổi lịch học" />
                                 <FormControlLabel value="exception" control={<Radio />} label="Ngoại lệ" />
                             </RadioGroup>
                         </FormControl>
@@ -400,8 +411,8 @@ const RoomRequestForm: React.FC = () => {
                     </Card>
                 )}
 
-                {/* Chọn thứ trong tuần và tiết học cho xin phòng mới */}
-                {formData.requestType === 'room_request' && selectedSchedule && (
+                {/* Chọn thứ trong tuần và tiết học cho xin phòng mới và đổi lịch học */}
+                {(formData.requestType === 'room_request' || formData.requestType === 'time_change') && selectedSchedule && (
                     <Card>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
@@ -526,7 +537,8 @@ const RoomRequestForm: React.FC = () => {
                             placeholder={
                                 formData.requestType === 'room_request' ? 'Nhập lý do xin phòng mới...' :
                                     formData.requestType === 'schedule_change' ? 'Nhập lý do đổi phòng...' :
-                                        'Nhập lý do xử lý ngoại lệ...'
+                                        formData.requestType === 'time_change' ? 'Nhập lý do đổi lịch học...' :
+                                            'Nhập lý do xử lý ngoại lệ...'
                             }
                             variant="outlined"
                         />
