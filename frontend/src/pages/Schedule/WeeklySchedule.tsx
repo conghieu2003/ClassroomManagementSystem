@@ -1,4 +1,5 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { useDispatch, useSelector } from 'react-redux';
 import {
   Box,
   Paper,
@@ -19,7 +20,9 @@ import {
   TableCell,
   TableContainer,
   TableHead,
-  TableRow
+  TableRow,
+  CircularProgress,
+  Alert
 } from '@mui/material';
 import {
   Print as PrintIcon,
@@ -32,648 +35,95 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs, { Dayjs } from 'dayjs';
 import 'dayjs/locale/vi';
+import { RootState, AppDispatch } from '../../redux/store';
+import { 
+  fetchWeeklySchedule, 
+  fetchDepartments, 
+  fetchClasses, 
+  fetchTeachers 
+} from '../../redux/slices/scheduleSlice';
 
-// Mock data dựa trên sample_data.sql
-const mockDepartments = [
-  { id: 1, code: 'CNTT', name: 'Khoa Công nghệ Thông tin' },
-  { id: 2, code: 'CK', name: 'Khoa Công nghệ Cơ khí' },
-  { id: 3, code: 'CD', name: 'Khoa Công nghệ Điện' },
-  { id: 4, code: 'CDT', name: 'Khoa Công nghệ Điện tử' },
-  { id: 5, code: 'QTKD', name: 'Khoa Quản trị Kinh doanh' },
-  { id: 6, code: 'NN', name: 'Khoa Ngoại ngữ' }
-];
-
-const mockClasses = [
-  { id: 1, code: 'COMP101', className: 'Lập trình cơ bản', departmentId: 1 },
-  { id: 2, code: 'COMP102', className: 'Cơ sở dữ liệu', departmentId: 1 },
-  { id: 3, code: 'COMP103', className: 'Lập trình Web', departmentId: 1 },
-  { id: 4, code: 'MECH101', className: 'Cơ học kỹ thuật', departmentId: 2 },
-  { id: 5, code: 'MECH102', className: 'Thực hành CNC', departmentId: 2 },
-  { id: 6, code: 'ELEC101', className: 'Điện tử cơ bản', departmentId: 4 },
-  { id: 7, code: 'BUS101', className: 'Kế toán tài chính', departmentId: 5 }
-];
-
-const mockTeachers = [
-  { id: 1, name: 'Nguyễn Văn Minh', code: 'GV001', departmentId: 1 },
-  { id: 2, name: 'Trần Thị Lan', code: 'GV002', departmentId: 1 },
-  { id: 3, name: 'Lê Văn Hùng', code: 'GV003', departmentId: 2 },
-  { id: 4, name: 'Phạm Thị Mai', code: 'GV004', departmentId: 4 },
-  { id: 5, name: 'Hoàng Văn Đức', code: 'GV005', departmentId: 5 }
-];
-
-
-// Mock schedule data dựa trên sample_data.sql - Sắp xếp theo thứ tự tiết học logic
-const mockSchedules = [
-  // THỨ 2 - CA SÁNG (1-6)
-  {
-    id: 1,
-    classId: 1,
-    className: 'Lập trình cơ bản',
-    classCode: 'COMP101',
-    subjectCode: 'NMLT',
-    teacherId: 1,
-    teacherName: 'Nguyễn Văn Minh',
-    roomId: 1,
-    roomName: 'H1.1 - Phòng lý thuyết H1.1',
-    dayOfWeek: 2, // Thứ 2
-    timeSlot: 'Tiết 1-3',
-    timeRange: '06:30-09:00',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 1
-  },
-  {
-    id: 2,
-    classId: 2,
-    className: 'Cơ sở dữ liệu',
-    classCode: 'COMP102',
-    subjectCode: 'CSDL',
-    teacherId: 2,
-    teacherName: 'Trần Thị Lan',
-    roomId: 2,
-    roomName: 'H1.2 - Phòng lý thuyết H1.2',
-    dayOfWeek: 2, // Thứ 2
-    timeSlot: 'Tiết 4-6',
-    timeRange: '09:10-11:40',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 2
-  },
-  // THỨ 2 - CA CHIỀU (7-12)
-  {
-    id: 3,
-    classId: 4,
-    className: 'Cơ học kỹ thuật',
-    classCode: 'MECH101',
-    subjectCode: 'CHKT',
-    teacherId: 3,
-    teacherName: 'Lê Văn Hùng',
-    roomId: 3,
-    roomName: 'H2.1 - Phòng lý thuyết H2.1',
-    dayOfWeek: 2, // Thứ 2
-    timeSlot: 'Tiết 7-9',
-    timeRange: '12:30-15:00',
-    shift: 'afternoon',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 3
-  },
-  {
-    id: 4,
-    classId: 5,
-    className: 'Thực hành CNC',
-    classCode: 'MECH102',
-    subjectCode: 'THCNC',
-    teacherId: 3,
-    teacherName: 'Lê Văn Hùng',
-    roomId: 4,
-    roomName: 'H3.1 - Phòng thực hành H3.1',
-    dayOfWeek: 2, // Thứ 2
-    timeSlot: 'Tiết 10-12',
-    timeRange: '15:10-17:40',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 4
-  },
-  // THỨ 3 - CA SÁNG (1-6)
-  {
-    id: 5,
-    classId: 6,
-    className: 'Điện tử cơ bản',
-    classCode: 'ELEC101',
-    subjectCode: 'DTCB',
-    teacherId: 4,
-    teacherName: 'Phạm Thị Mai',
-    roomId: 5,
-    roomName: 'A1.1 - Phòng lý thuyết A1.1',
-    dayOfWeek: 3, // Thứ 3
-    timeSlot: 'Tiết 1-3',
-    timeRange: '06:30-09:00',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 1
-  },
-  {
-    id: 6,
-    classId: 7,
-    className: 'Kế toán tài chính',
-    classCode: 'BUS101',
-    subjectCode: 'KTTN',
-    teacherId: 5,
-    teacherName: 'Hoàng Văn Đức',
-    roomId: 6,
-    roomName: 'A2.1 - Phòng lý thuyết A2.1',
-    dayOfWeek: 3, // Thứ 3
-    timeSlot: 'Tiết 4-6',
-    timeRange: '09:10-11:40',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 2
-  },
-  // THỨ 3 - CA CHIỀU (7-12)
-  {
-    id: 7,
-    classId: 1,
-    className: 'Lập trình cơ bản',
-    classCode: 'COMP101',
-    subjectCode: 'NMLT',
-    teacherId: 1,
-    teacherName: 'Nguyễn Văn Minh',
-    roomId: 1,
-    roomName: 'H1.1 - Phòng lý thuyết H1.1',
-    dayOfWeek: 3, // Thứ 3
-    timeSlot: 'Tiết 7-9',
-    timeRange: '12:30-15:00',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 3
-  },
-  {
-    id: 8,
-    classId: 2,
-    className: 'Cơ sở dữ liệu',
-    classCode: 'COMP102',
-    subjectCode: 'CSDL',
-    teacherId: 2,
-    teacherName: 'Trần Thị Lan',
-    roomId: 2,
-    roomName: 'H1.2 - Phòng lý thuyết H1.2',
-    dayOfWeek: 3, // Thứ 3
-    timeSlot: 'Tiết 10-12',
-    timeRange: '15:10-17:40',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 4
-  },
-  // THỨ 4 - CA SÁNG (1-6)
-  {
-    id: 9,
-    classId: 3,
-    className: 'Lập trình Web',
-    classCode: 'COMP103',
-    subjectCode: 'LTW',
-    teacherId: 1,
-    teacherName: 'Nguyễn Văn Minh',
-    roomId: 3,
-    roomName: 'H2.1 - Phòng lý thuyết H2.1',
-    dayOfWeek: 4, // Thứ 4
-    timeSlot: 'Tiết 1-3',
-    timeRange: '06:30-09:00',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 1
-  },
-  {
-    id: 10,
-    classId: 4,
-    className: 'Cơ học kỹ thuật',
-    classCode: 'MECH101',
-    subjectCode: 'CHKT',
-    teacherId: 3,
-    teacherName: 'Lê Văn Hùng',
-    roomId: 4,
-    roomName: 'H3.1 - Phòng thực hành H3.1',
-    dayOfWeek: 4, // Thứ 4
-    timeSlot: 'Tiết 4-6',
-    timeRange: '09:10-11:40',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 2
-  },
-  // THỨ 4 - CA CHIỀU (7-12)
-  {
-    id: 11,
-    classId: 5,
-    className: 'Thực hành CNC',
-    classCode: 'MECH102',
-    subjectCode: 'THCNC',
-    teacherId: 3,
-    teacherName: 'Lê Văn Hùng',
-    roomId: 5,
-    roomName: 'A1.1 - Phòng lý thuyết A1.1',
-    dayOfWeek: 4, // Thứ 4
-    timeSlot: 'Tiết 7-9',
-    timeRange: '12:30-15:00',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 3
-  },
-  {
-    id: 12,
-    classId: 6,
-    className: 'Điện tử cơ bản',
-    classCode: 'ELEC101',
-    subjectCode: 'DTCB',
-    teacherId: 4,
-    teacherName: 'Phạm Thị Mai',
-    roomId: 6,
-    roomName: 'A2.1 - Phòng lý thuyết A2.1',
-    dayOfWeek: 4, // Thứ 4
-    timeSlot: 'Tiết 10-12',
-    timeRange: '15:10-17:40',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 4
-  },
-  // THỨ 5 - CA SÁNG (1-6)
-  {
-    id: 13,
-    classId: 7,
-    className: 'Kế toán tài chính',
-    classCode: 'BUS101',
-    subjectCode: 'KTTN',
-    teacherId: 5,
-    teacherName: 'Hoàng Văn Đức',
-    roomId: 1,
-    roomName: 'H1.1 - Phòng lý thuyết H1.1',
-    dayOfWeek: 5, // Thứ 5
-    timeSlot: 'Tiết 1-3',
-    timeRange: '06:30-09:00',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 1
-  },
-  {
-    id: 14,
-    classId: 1,
-    className: 'Lập trình cơ bản',
-    classCode: 'COMP101',
-    subjectCode: 'NMLT',
-    teacherId: 1,
-    teacherName: 'Nguyễn Văn Minh',
-    roomId: 2,
-    roomName: 'H1.2 - Phòng lý thuyết H1.2',
-    dayOfWeek: 5, // Thứ 5
-    timeSlot: 'Tiết 4-6',
-    timeRange: '09:10-11:40',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 2
-  },
-  // THỨ 5 - CA CHIỀU (7-12)
-  {
-    id: 15,
-    classId: 2,
-    className: 'Cơ sở dữ liệu',
-    classCode: 'COMP102',
-    subjectCode: 'CSDL',
-    teacherId: 2,
-    teacherName: 'Trần Thị Lan',
-    roomId: 3,
-    roomName: 'H2.1 - Phòng lý thuyết H2.1',
-    dayOfWeek: 5, // Thứ 5
-    timeSlot: 'Tiết 7-9',
-    timeRange: '12:30-15:00',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 3
-  },
-  {
-    id: 16,
-    classId: 3,
-    className: 'Lập trình Web',
-    classCode: 'COMP103',
-    subjectCode: 'LTW',
-    teacherId: 1,
-    teacherName: 'Nguyễn Văn Minh',
-    roomId: 4,
-    roomName: 'H3.1 - Phòng thực hành H3.1',
-    dayOfWeek: 5, // Thứ 5
-    timeSlot: 'Tiết 10-12',
-    timeRange: '15:10-17:40',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 4
-  },
-  // THỨ 6 - CA SÁNG (1-6)
-  {
-    id: 17,
-    classId: 4,
-    className: 'Cơ học kỹ thuật',
-    classCode: 'MECH101',
-    subjectCode: 'CHKT',
-    teacherId: 3,
-    teacherName: 'Lê Văn Hùng',
-    roomId: 5,
-    roomName: 'A1.1 - Phòng lý thuyết A1.1',
-    dayOfWeek: 6, // Thứ 6
-    timeSlot: 'Tiết 1-3',
-    timeRange: '06:30-09:00',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 1
-  },
-  {
-    id: 18,
-    classId: 5,
-    className: 'Thực hành CNC',
-    classCode: 'MECH102',
-    subjectCode: 'THCNC',
-    teacherId: 3,
-    teacherName: 'Lê Văn Hùng',
-    roomId: 6,
-    roomName: 'A2.1 - Phòng lý thuyết A2.1',
-    dayOfWeek: 6, // Thứ 6
-    timeSlot: 'Tiết 4-6',
-    timeRange: '09:10-11:40',
-    shift: 'morning',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 2
-  },
-  // THỨ 6 - CA CHIỀU (7-12)
-  {
-    id: 19,
-    classId: 6,
-    className: 'Điện tử cơ bản',
-    classCode: 'ELEC101',
-    subjectCode: 'DTCB',
-    teacherId: 4,
-    teacherName: 'Phạm Thị Mai',
-    roomId: 1,
-    roomName: 'H1.1 - Phòng lý thuyết H1.1',
-    dayOfWeek: 6, // Thứ 6
-    timeSlot: 'Tiết 7-9',
-    timeRange: '12:30-15:00',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 3
-  },
-  {
-    id: 20,
-    classId: 7,
-    className: 'Kế toán tài chính',
-    classCode: 'BUS101',
-    subjectCode: 'KTTN',
-    teacherId: 5,
-    teacherName: 'Hoàng Văn Đức',
-    roomId: 2,
-    roomName: 'H1.2 - Phòng lý thuyết H1.2',
-    dayOfWeek: 6, // Thứ 6
-    timeSlot: 'Tiết 10-12',
-    timeRange: '15:10-17:40',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 4
-  },
-  // THỨ 7 - CA SÁNG (1-6)
-  {
-    id: 21,
-    classId: 1,
-    className: 'Lập trình cơ bản',
-    classCode: 'COMP101',
-    subjectCode: 'NMLT',
-    teacherId: 1,
-    teacherName: 'Nguyễn Văn Minh',
-    roomId: 3,
-    roomName: 'H2.1 - Phòng lý thuyết H2.1',
-    dayOfWeek: 7, // Thứ 7
-    timeSlot: 'Tiết 1-3',
-    timeRange: '06:30-09:00',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 1
-  },
-  {
-    id: 22,
-    classId: 2,
-    className: 'Cơ sở dữ liệu',
-    classCode: 'COMP102',
-    subjectCode: 'CSDL',
-    teacherId: 2,
-    teacherName: 'Trần Thị Lan',
-    roomId: 4,
-    roomName: 'H3.1 - Phòng thực hành H3.1',
-    dayOfWeek: 7, // Thứ 7
-    timeSlot: 'Tiết 4-6',
-    timeRange: '09:10-11:40',
-    shift: 'morning',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 2
-  },
-  // THỨ 7 - CA CHIỀU (7-12)
-  {
-    id: 23,
-    classId: 3,
-    className: 'Lập trình Web',
-    classCode: 'COMP103',
-    subjectCode: 'LTW',
-    teacherId: 1,
-    teacherName: 'Nguyễn Văn Minh',
-    roomId: 5,
-    roomName: 'A1.1 - Phòng lý thuyết A1.1',
-    dayOfWeek: 7, // Thứ 7
-    timeSlot: 'Tiết 7-9',
-    timeRange: '12:30-15:00',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 3
-  },
-  {
-    id: 24,
-    classId: 4,
-    className: 'Cơ học kỹ thuật',
-    classCode: 'MECH101',
-    subjectCode: 'CHKT',
-    teacherId: 3,
-    teacherName: 'Lê Văn Hùng',
-    roomId: 6,
-    roomName: 'A2.1 - Phòng lý thuyết A2.1',
-    dayOfWeek: 7, // Thứ 7
-    timeSlot: 'Tiết 10-12',
-    timeRange: '15:10-17:40',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 4
-  },
-  // CHỦ NHẬT - CA SÁNG (1-6)
-  {
-    id: 25,
-    classId: 5,
-    className: 'Thực hành CNC',
-    classCode: 'MECH102',
-    subjectCode: 'THCNC',
-    teacherId: 3,
-    teacherName: 'Lê Văn Hùng',
-    roomId: 1,
-    roomName: 'H1.1 - Phòng lý thuyết H1.1',
-    dayOfWeek: 8, // Chủ nhật
-    timeSlot: 'Tiết 1-3',
-    timeRange: '06:30-09:00',
-    shift: 'morning',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 1
-  },
-  {
-    id: 26,
-    classId: 6,
-    className: 'Điện tử cơ bản',
-    classCode: 'ELEC101',
-    subjectCode: 'DTCB',
-    teacherId: 4,
-    teacherName: 'Phạm Thị Mai',
-    roomId: 2,
-    roomName: 'H1.2 - Phòng lý thuyết H1.2',
-    dayOfWeek: 8, // Chủ nhật
-    timeSlot: 'Tiết 4-6',
-    timeRange: '09:10-11:40',
-    shift: 'morning',
-    type: 'theory',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 2
-  },
-  // CHỦ NHẬT - CA CHIỀU (7-12)
-  {
-    id: 27,
-    classId: 7,
-    className: 'Kế toán tài chính',
-    classCode: 'BUS101',
-    subjectCode: 'KTTN',
-    teacherId: 5,
-    teacherName: 'Hoàng Văn Đức',
-    roomId: 3,
-    roomName: 'H2.1 - Phòng lý thuyết H2.1',
-    dayOfWeek: 8, // Chủ nhật
-    timeSlot: 'Tiết 7-9',
-    timeRange: '12:30-15:00',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 3
-  },
-  {
-    id: 28,
-    classId: 1,
-    className: 'Lập trình cơ bản',
-    classCode: 'COMP101',
-    subjectCode: 'NMLT',
-    teacherId: 1,
-    teacherName: 'Nguyễn Văn Minh',
-    roomId: 4,
-    roomName: 'H3.1 - Phòng thực hành H3.1',
-    dayOfWeek: 8, // Chủ nhật
-    timeSlot: 'Tiết 10-12',
-    timeRange: '15:10-17:40',
-    shift: 'afternoon',
-    type: 'practice',
-    status: 'assigned',
-    weekPattern: 'weekly',
-    startWeek: 1,
-    endWeek: 15,
-    timeSlotOrder: 4
-  }
-];
+// Types
+interface WeeklyScheduleItem {
+  id: number;
+  classId: number;
+  className: string;
+  classCode: string;
+  subjectCode: string;
+  subjectName: string;
+  teacherId: number;
+  teacherName: string;
+  teacherCode: string;
+  roomId: number;
+  roomName: string;
+  roomCode: string;
+  roomType: string;
+  dayOfWeek: number;
+  dayName: string;
+  timeSlot: string;
+  timeRange: string;
+  startTime: string;
+  endTime: string;
+  shift: string;
+  shiftName: string;
+  type: string;
+  status: string;
+  statusId: number;
+  weekPattern: string;
+  startWeek: number;
+  endWeek: number;
+  practiceGroup?: number;
+  maxStudents: number;
+  departmentId: number;
+  departmentName: string;
+  majorId?: number;
+  majorName: string;
+  timeSlotOrder: number;
+  assignedAt: string;
+  note?: string;
+}
 
 const WeeklySchedule = () => {
+  // Redux hooks
+  const dispatch = useDispatch<AppDispatch>();
+  const {
+    weeklySchedules,
+    departments,
+    classes,
+    teachers,
+    loading,
+    error
+  } = useSelector((state: RootState) => state.schedule);
+
+  // Local state
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
   const [scheduleType, setScheduleType] = useState('all');
   const [selectedDepartment, setSelectedDepartment] = useState('');
   const [selectedClass, setSelectedClass] = useState('');
   const [selectedTeacher, setSelectedTeacher] = useState('');
+
+  // Load initial data
+  useEffect(() => {
+    dispatch(fetchDepartments());
+    dispatch(fetchClasses());
+    dispatch(fetchTeachers());
+  }, [dispatch]);
+
+  // Load weekly schedule when filters change
+  const loadWeeklySchedule = useCallback(() => {
+    const weekStartDate = selectedDate.startOf('week').add(1, 'day').format('YYYY-MM-DD'); // Start from Monday
+    const filters = {
+      departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined,
+      classId: selectedClass ? parseInt(selectedClass) : undefined,
+      teacherId: selectedTeacher ? parseInt(selectedTeacher) : undefined
+    };
+    
+    dispatch(fetchWeeklySchedule({ weekStartDate, filters }));
+  }, [dispatch, selectedDate, selectedDepartment, selectedClass, selectedTeacher]);
+
+  useEffect(() => {
+    loadWeeklySchedule();
+  }, [loadWeeklySchedule]);
 
   // Tính toán tuần hiện tại
   const currentWeek = useMemo(() => {
@@ -695,7 +145,7 @@ const WeeklySchedule = () => {
 
   // Filter schedules dựa trên các điều kiện
   const filteredSchedules = useMemo(() => {
-    let filtered = mockSchedules;
+    let filtered = weeklySchedules || [];
 
     // Filter theo loại lịch
     if (scheduleType === 'study') {
@@ -704,29 +154,8 @@ const WeeklySchedule = () => {
       filtered = filtered.filter(s => s.type === 'exam');
     }
 
-    // Filter theo khoa
-    if (selectedDepartment) {
-      const departmentId = parseInt(selectedDepartment);
-      filtered = filtered.filter(s => {
-        const classInfo = mockClasses.find(c => c.id === s.classId);
-        return classInfo?.departmentId === departmentId;
-      });
-    }
-
-    // Filter theo lớp
-    if (selectedClass) {
-      const classId = parseInt(selectedClass);
-      filtered = filtered.filter(s => s.classId === classId);
-    }
-
-    // Filter theo giảng viên
-    if (selectedTeacher) {
-      const teacherId = parseInt(selectedTeacher);
-      filtered = filtered.filter(s => s.teacherId === teacherId);
-    }
-
     return filtered;
-  }, [scheduleType, selectedDepartment, selectedClass, selectedTeacher]);
+  }, [weeklySchedules, scheduleType]);
 
   // Tạo lưới lịch học
   const scheduleGrid = useMemo(() => {
@@ -770,7 +199,6 @@ const WeeklySchedule = () => {
     }
   };
 
-
   const handlePreviousWeek = () => {
     setSelectedDate(prev => prev.subtract(1, 'week'));
   };
@@ -787,9 +215,43 @@ const WeeklySchedule = () => {
     window.print();
   };
 
+  // Filter classes based on selected department
+  const filteredClassesForDropdown = useMemo(() => {
+    if (!selectedDepartment) return classes || [];
+    
+    const selectedDept = departments?.find(d => d.id.toString() === selectedDepartment);
+    if (!selectedDept) return classes || [];
+    
+    return (classes || []).filter(cls => cls.departmentId === selectedDept.id);
+  }, [classes, departments, selectedDepartment]);
+
+  // Filter teachers based on selected department
+  const filteredTeachersForDropdown = useMemo(() => {
+    if (!selectedDepartment) return teachers || [];
+    
+    return (teachers || []).filter(teacher => 
+      teacher.departmentId && teacher.departmentId.toString() === selectedDepartment
+    );
+  }, [teachers, selectedDepartment]);
+
+  if (loading) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
+        <CircularProgress />
+      </Box>
+    );
+  }
+
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs} adapterLocale="vi">
       <Box sx={{ p: 3, backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
+        {/* Error Alert */}
+        {error && (
+          <Alert severity="error" sx={{ mb: 2 }}>
+            {error}
+          </Alert>
+        )}
+
         {/* Filters Row */}
         <Paper sx={{ p: 1.5, mb: 1, boxShadow: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -797,7 +259,11 @@ const WeeklySchedule = () => {
               <InputLabel sx={{ fontSize: '0.75rem' }}>Theo khoa</InputLabel>
               <Select
                 value={selectedDepartment}
-                onChange={(e) => setSelectedDepartment(e.target.value)}
+                onChange={(e) => {
+                  setSelectedDepartment(e.target.value);
+                  setSelectedClass('');
+                  setSelectedTeacher('');
+                }}
                 label="Theo khoa"
                 sx={{ 
                   '& .MuiOutlinedInput-root': { 
@@ -808,8 +274,8 @@ const WeeklySchedule = () => {
                 }}
               >
                 <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả khoa</MenuItem>
-                {mockDepartments.map(dept => (
-                  <MenuItem key={dept.id} value={dept.id} sx={{ fontSize: '0.75rem' }}>
+                {(departments || []).map(dept => (
+                  <MenuItem key={dept.id} value={dept.id.toString()} sx={{ fontSize: '0.75rem' }}>
                     {dept.name}
                   </MenuItem>
                 ))}
@@ -831,9 +297,9 @@ const WeeklySchedule = () => {
                 }}
               >
                 <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả lớp</MenuItem>
-                {mockClasses.map(cls => (
-                  <MenuItem key={cls.id} value={cls.id} sx={{ fontSize: '0.75rem' }}>
-                    {cls.className}
+                {filteredClassesForDropdown.map((cls: any) => (
+                  <MenuItem key={cls.id} value={cls.id.toString()} sx={{ fontSize: '0.75rem' }}>
+                    {cls.className || cls.name}
                   </MenuItem>
                 ))}
               </Select>
@@ -854,8 +320,8 @@ const WeeklySchedule = () => {
                 }}
               >
                 <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả GV</MenuItem>
-                {mockTeachers.map(teacher => (
-                  <MenuItem key={teacher.id} value={teacher.id} sx={{ fontSize: '0.75rem' }}>
+                {filteredTeachersForDropdown.map(teacher => (
+                  <MenuItem key={teacher.id} value={teacher.id.toString()} sx={{ fontSize: '0.75rem' }}>
                     {teacher.name}
                   </MenuItem>
                 ))}
@@ -1102,7 +568,7 @@ const WeeklySchedule = () => {
                           border: '1px solid #ddd'
                         }}
                       >
-                        {daySchedules.map((schedule) => (
+                        {daySchedules.map((schedule: WeeklyScheduleItem) => (
                           <Card 
                             key={schedule.id} 
                             sx={{ 
@@ -1128,6 +594,11 @@ const WeeklySchedule = () => {
                               <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
                                 GV: {schedule.teacherName}
                               </Typography>
+                              {schedule.practiceGroup && (
+                                <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                                  Nhóm: {schedule.practiceGroup}
+                                </Typography>
+                              )}
                             </CardContent>
                           </Card>
                         ))}

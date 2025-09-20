@@ -14,6 +14,9 @@ router.get('/request-types', scheduleManagementController.getRequestTypes);
 // Routes yêu cầu xác thực
 router.use(verifyToken);
 
+// Lịch học theo tuần - cần xác thực để biết role
+router.get('/weekly-schedule', scheduleManagementController.getWeeklySchedule);
+
 // Gán phòng cho lịch học
 router.post('/assign-room/:scheduleId', authorize(['admin']), scheduleManagementController.assignRoomToSchedule);
 router.delete('/unassign-room/:scheduleId', authorize(['admin']), scheduleManagementController.unassignRoomFromSchedule);
