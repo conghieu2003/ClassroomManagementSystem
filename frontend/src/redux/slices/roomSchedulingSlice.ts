@@ -106,6 +106,7 @@ interface RoomSchedulingState {
   
   // UI State
   loading: boolean;
+  refreshing: boolean; // Separate loading state for data refresh
   error: string | null;
   successMessage: string | null;
   
@@ -134,6 +135,7 @@ const initialState: RoomSchedulingState = {
   
   // UI State
   loading: false,
+  refreshing: false,
   error: null,
   successMessage: null,
   
@@ -170,6 +172,26 @@ export const loadAllData = createAsyncThunk(
   }
 );
 
+// Load only schedule data (classes and stats) for faster refresh
+export const loadScheduleData = createAsyncThunk(
+  'roomScheduling/loadScheduleData',
+  async (_, { rejectWithValue }) => {
+    try {
+      const [classesResponse, statsResponse] = await Promise.all([
+        scheduleManagementService.getClassesForScheduling(),
+        scheduleManagementService.getSchedulingStats()
+      ]);
+
+      return {
+        classes: classesResponse.data || [],
+        stats: statsResponse.data || null
+      };
+    } catch (error: any) {
+      return rejectWithValue(error.response?.data?.message || 'Lỗi tải dữ liệu lịch học');
+    }
+  }
+);
+
 export const loadAvailableRooms = createAsyncThunk(
   'roomScheduling/loadAvailableRooms',
   async (scheduleId: string, { rejectWithValue }) => {
@@ -196,9 +218,13 @@ export const loadRoomsByDepartmentAndType = createAsyncThunk(
 
 export const assignRoomToSchedule = createAsyncThunk(
   'roomScheduling/assignRoomToSchedule',
-  async ({ scheduleId, roomId }: { scheduleId: string, roomId: string }, { rejectWithValue }) => {
+  async ({ scheduleId, roomId }: { scheduleId: string, roomId: string }, { rejectWithValue, dispatch }) => {
     try {
       const response = await scheduleManagementService.assignRoomToSchedule(scheduleId, roomId);
+      
+      // Auto refresh schedule data after successful assignment
+      dispatch(loadScheduleData());
+      
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Lỗi gán phòng');
@@ -208,9 +234,13 @@ export const assignRoomToSchedule = createAsyncThunk(
 
 export const unassignRoomFromSchedule = createAsyncThunk(
   'roomScheduling/unassignRoomFromSchedule',
-  async (scheduleId: string, { rejectWithValue }) => {
+  async (scheduleId: string, { rejectWithValue, dispatch }) => {
     try {
       const response = await scheduleManagementService.unassignRoomFromSchedule(scheduleId);
+      
+      // Auto refresh schedule data after successful unassignment
+      dispatch(loadScheduleData());
+      
       return response.data;
     } catch (error: any) {
       return rejectWithValue(error.response?.data?.message || 'Lỗi hủy gán phòng');
@@ -286,6 +316,21 @@ const roomSchedulingSlice = createSlice({
       })
       .addCase(loadAllData.rejected, (state, action) => {
         state.loading = false;
+        state.error = action.payload as string;
+      })
+      
+      // Load schedule data only
+      .addCase(loadScheduleData.pending, (state) => {
+        state.refreshing = true;
+        state.error = null;
+      })
+      .addCase(loadScheduleData.fulfilled, (state, action) => {
+        state.refreshing = false;
+        state.classes = action.payload.classes;
+        state.stats = action.payload.stats;
+      })
+      .addCase(loadScheduleData.rejected, (state, action) => {
+        state.refreshing = false;
         state.error = action.payload as string;
       })
       

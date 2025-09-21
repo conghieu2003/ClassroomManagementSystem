@@ -13,6 +13,7 @@ router.post('/list', authorize(['admin']), userController.list);
 router.get('/next-code', authorize(['admin']), userController.nextCode);
 router.post('/create', authorize(['admin']), userController.create);
 router.put('/:userId', authorize(['admin']), userController.update);
+router.post('/send-email', authorize(['admin']), userController.sendEmail);
 
 module.exports = router;
 

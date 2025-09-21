@@ -2,10 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 class ClassRoomTypeService {
-  // =====================================================
   // LẤY DANH SÁCH LOẠI PHÒNG/LỚP
-  // =====================================================
-  
   async getAllClassRoomTypes() {
     try {
       const classRoomTypes = await prisma.classRoomType.findMany({

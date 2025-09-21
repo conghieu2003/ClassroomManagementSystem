@@ -354,6 +354,19 @@ export const userService = {
       throw error;
     }
   },
+
+  sendEmail: async (emailData: { userId: number; subject: string; content: string; includeCredentials: boolean }): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.post('/users/send-email', emailData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Send email error:', error);
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
 };
 
 // Schedule Management Service (Gộp tất cả logic sắp xếp phòng)
@@ -606,6 +619,74 @@ export const enhancedScheduleService = {
       throw error;
     }
   }
+};
+
+// Profile Service
+export const profileService = {
+  getProfile: async (): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.get('/profile');
+      return response.data;
+    } catch (error: any) {
+      console.error('Get profile error:', error);
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
+
+  getProfileById: async (userId: number): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.get(`/profile/${userId}`);
+      return response.data;
+    } catch (error: any) {
+      console.error('Get profile by ID error:', error);
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
+
+  updatePersonalProfile: async (personalData: any): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.put('/profile/personal', personalData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update personal profile error:', error);
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
+
+  updateFamilyInfo: async (familyData: any): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.put('/profile/family', familyData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update family info error:', error);
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
+
+  updateAcademicProfile: async (academicData: any): Promise<ApiResponse<any>> => {
+    try {
+      const response = await api.put('/profile/academic', academicData);
+      return response.data;
+    } catch (error: any) {
+      console.error('Update academic profile error:', error);
+      if (error.response && error.response.data) {
+        return error.response.data;
+      }
+      throw error;
+    }
+  },
 };
 
 export default api;

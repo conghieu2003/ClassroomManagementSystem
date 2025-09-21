@@ -16,6 +16,7 @@ import RoomRequestList from './pages/RoomManagement/RoomRequestList';
 import RoomScheduling from './pages/RoomManagement/RoomScheduling';
 import WeeklySchedule from './pages/Schedule/WeeklySchedule';
 import ScheduleManagement from './pages/Schedule/ScheduleManagement';
+import Profile from './pages/Dashboard/Profile';
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute';
 
 const App = () => {
@@ -37,6 +38,8 @@ const App = () => {
             <Route path="/" element={<Navigate to="/dashboard" replace />} />
             {/* @ts-ignore */}
             <Route path="/dashboard" element={<Dashboard />} />
+            {/* @ts-ignore */}
+            <Route path="/profile" element={<Profile />} />
             {/* @ts-ignore */}
             <Route path="/users" element={<UserManagement />} />
             {/* @ts-ignore */}

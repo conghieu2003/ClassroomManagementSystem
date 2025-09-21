@@ -2,10 +2,7 @@ const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
 class ClassService {
-  // =====================================================
   // LẤY DANH SÁCH LỚP HỌC
-  // =====================================================
-  
   async getAllClasses() {
     try {
       const classes = await prisma.class.findMany({
@@ -427,11 +424,7 @@ class ClassService {
       };
     }
   }
-
-  // =====================================================
   // HELPER METHODS
-  // =====================================================
-  
   getDayName(dayOfWeek) {
     const days = {
       1: 'Chủ nhật',

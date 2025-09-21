@@ -24,7 +24,8 @@ import {
   Alert,
   Tooltip,
   Paper,
-  Stack
+  Stack,
+  InputAdornment
 } from '@mui/material';
 import {
   DataGrid,
@@ -46,11 +47,16 @@ import {
   PersonAdd as PersonAddIcon,
   TrendingUp as TrendingUpIcon,
   FileDownload as FileDownloadIcon,
+  Search as SearchIcon,
+  Clear as ClearIcon,
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import { User } from '../../types';
 import { fetchUsersThunk, updateUserThunk } from '../../redux/slices/userSlice';
 import { RootState, AppDispatch } from '../../redux/store';
+import { userService } from '../../services/api';
+import EmailDialog from '../../components/EmailDialog/EmailDialog';
+import { toast } from 'react-toastify';
 
 interface RoleOption {
   id: string;
@@ -62,9 +68,13 @@ const UserManagement = () => {
   const dispatch = useDispatch<AppDispatch>();
   const { users, usersLoading, usersError } = useSelector((state: RootState) => state.user);
   const [filterRole, setFilterRole] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
   const [editDialogOpen, setEditDialogOpen] = useState<boolean>(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
   const [editFormData, setEditFormData] = useState<any>({});
+  const [emailDialogOpen, setEmailDialogOpen] = useState<boolean>(false);
+  const [emailUser, setEmailUser] = useState<User | null>(null);
+  const [emailLoading, setEmailLoading] = useState<boolean>(false);
   const [filterModel, setFilterModel] = useState<GridFilterModel>({ items: [] });
   const [sortModel, setSortModel] = useState<GridSortModel>([]);
   const [isFiltering, setIsFiltering] = useState(false);
@@ -101,6 +111,36 @@ const UserManagement = () => {
     };
   }, [users]);
 
+  // Filtered users based on search term and role
+  const filteredUsers = useMemo(() => {
+    let filtered = users;
+
+    // Filter by role
+    if (filterRole !== 'all') {
+      filtered = filtered.filter(user => user.role === filterRole);
+    }
+
+    // Filter by search term
+    if (searchTerm.trim()) {
+      const searchLower = searchTerm.toLowerCase().trim();
+      filtered = filtered.filter(user => {
+        const fullName = (user.fullName || '').toLowerCase();
+        const teacherCode = (user.teacherCode || '').toLowerCase();
+        const studentCode = (user.studentCode || '').toLowerCase();
+        const phone = (user.phone || '').toLowerCase();
+        const email = (user.email || '').toLowerCase();
+
+        return fullName.includes(searchLower) ||
+               teacherCode.includes(searchLower) ||
+               studentCode.includes(searchLower) ||
+               phone.includes(searchLower) ||
+               email.includes(searchLower);
+      });
+    }
+
+    return filtered;
+  }, [users, filterRole, searchTerm]);
+
   const fetchUsers = useCallback((role?: string): void => {
     const roleFilter = role === 'all' || !role ? undefined : (role as any);
     const currentUser = JSON.parse(localStorage.getItem('user') || 'null');
@@ -119,6 +159,10 @@ const UserManagement = () => {
       setIsFiltering(false);
     }, 500);
   }, [fetchUsers]);
+
+  const handleSearchChange = useCallback((newSearchTerm: string) => {
+    setSearchTerm(newSearchTerm);
+  }, []);
 
   // Initial load only
   useEffect(() => {
@@ -168,9 +212,25 @@ const UserManagement = () => {
   };
 
   const handleSendEmail = (user: User) => {
-    const subject = encodeURIComponent('Thông báo từ hệ thống quản lý lớp học');
-    const body = encodeURIComponent(`Xin chào ${user.fullName},\n\nĐây là email được gửi từ hệ thống quản lý lớp học.\n\nTrân trọng,\nBan quản trị`);
-    window.open(`mailto:${user.email}?subject=${subject}&body=${body}`);
+    setEmailUser(user);
+    setEmailDialogOpen(true);
+  };
+
+  const handleSendEmailSubmit = async (emailData: any) => {
+    setEmailLoading(true);
+    try {
+      const result = await userService.sendEmail(emailData);
+      if (result.success) {
+        toast.success(result.message || 'Email đã được gửi thành công');
+        setEmailDialogOpen(false);
+      } else {
+        toast.error(result.message || 'Có lỗi xảy ra khi gửi email');
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Có lỗi xảy ra khi gửi email');
+    } finally {
+      setEmailLoading(false);
+    }
   };
 
   const getRoleText = (role: string) => {
@@ -208,8 +268,7 @@ const UserManagement = () => {
         includeHeaders: true,
         delimiter: ',',
         getRowsToExport: () => {
-          // Trả về array của row IDs
-          return users.map(user => user.id);
+          return filteredUsers.map(user => user.id);
         }
       });
     }
@@ -551,6 +610,38 @@ const UserManagement = () => {
               ))}
             </Select>
           </FormControl>
+
+               <TextField
+                 size="small"
+                 placeholder="Tìm kiếm..."
+                 value={searchTerm}
+                 onChange={(e) => handleSearchChange(e.target.value)}
+                 sx={{ 
+                   minWidth: 280,
+                   maxWidth: 320,
+                   '& .MuiInputBase-root': {
+                     fontSize: '0.75rem'
+                   }
+                 }}
+                 InputProps={{
+                   startAdornment: (
+                     <InputAdornment position="start">
+                       <SearchIcon sx={{ fontSize: '1rem', color: 'text.secondary' }} />
+                     </InputAdornment>
+                   ),
+                   endAdornment: searchTerm && (
+                     <InputAdornment position="end">
+                       <IconButton
+                         size="small"
+                         onClick={() => handleSearchChange('')}
+                         sx={{ p: 0.5 }}
+                       >
+                         <ClearIcon sx={{ fontSize: '0.875rem' }} />
+                       </IconButton>
+                     </InputAdornment>
+                   ),
+                 }}
+               />
               
               <Tooltip title="Làm mới dữ liệu">
                 <IconButton 
@@ -625,7 +716,7 @@ const UserManagement = () => {
           )}
           <DataGrid
             apiRef={dataGridRef}
-            rows={users}
+            rows={filteredUsers}
             columns={columns}
             getRowId={(row) => row.id}
             filterModel={filterModel}
@@ -738,6 +829,17 @@ const UserManagement = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Email Dialog */}
+      <EmailDialog
+        open={emailDialogOpen}
+        onClose={() => {
+          setEmailDialogOpen(false);
+        }}
+        user={emailUser}
+        onSendEmail={handleSendEmailSubmit}
+        loading={emailLoading}
+      />
     </Box>
   );
 };
