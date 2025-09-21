@@ -90,7 +90,7 @@ const getSchedules = async (filters = {}) => {
   }
 };
 
-// Lấy lịch học theo tuần
+// Lấy lịch học theo tuần với thông tin ngoại lệ
 const getWeeklySchedule = async (weekStartDate, filters = {}) => {
   try {
     // Tính toán ngày bắt đầu và kết thúc tuần
@@ -98,75 +98,126 @@ const getWeeklySchedule = async (weekStartDate, filters = {}) => {
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 6);
 
-    let query = `
-      SELECT 
-        cs.id,
-        cs.classId,
-        c.className,
-        c.code as classCode,
-        c.subjectCode,
-        cs.teacherId,
-        u.fullName as teacherName,
-        cs.classRoomId,
-        cr.name as roomName,
-        cs.dayOfWeek,
-        ts.slotName as timeSlot,
-        CONCAT(ts.startTime, '-', ts.endTime) as timeRange,
-        ts.shift,
-        CASE 
-          WHEN c.classType = 'theory' THEN 'theory'
-          WHEN c.classType = 'practice' THEN 'practice'
-          WHEN c.classType = 'mixed' THEN 'theory'
-          ELSE 'theory'
-        END as type,
-        cs.status,
-        cs.weekPattern,
-        cs.startWeek,
-        cs.endWeek
-      FROM ClassSchedule cs
-      INNER JOIN Class c ON cs.classId = c.id
-      INNER JOIN Teacher t ON cs.teacherId = t.id
-      INNER JOIN [User] u ON t.userId = u.id
-      INNER JOIN TimeSlot ts ON cs.timeSlotId = ts.id
-      LEFT JOIN ClassRoom cr ON cs.classRoomId = cr.id
-      WHERE cs.status IN ('assigned', 'active')
-    `;
-
-    const params = [];
+    // Build where clause
+    const whereClause = {
+      statusId: { in: [2, 3, 5, 6] } // Đã phân phòng, Đang hoạt động, Tạm ngưng, Thi
+    };
 
     // Filter theo khoa
     if (filters.departmentId) {
-      query += ' AND c.departmentId = ?';
-      params.push(filters.departmentId);
+      whereClause.class = {
+        departmentId: filters.departmentId
+      };
     }
 
     // Filter theo lớp
     if (filters.classId) {
-      query += ' AND cs.classId = ?';
-      params.push(filters.classId);
+      whereClause.classId = filters.classId;
     }
 
     // Filter theo giảng viên
     if (filters.teacherId) {
-      query += ' AND cs.teacherId = ?';
-      params.push(filters.teacherId);
+      whereClause.teacherId = filters.teacherId;
     }
 
     // Filter theo loại lịch
     if (filters.scheduleType && filters.scheduleType !== 'all') {
       if (filters.scheduleType === 'study') {
-        query += ' AND c.classType IN (?, ?)';
-        params.push('theory', 'practice');
+        whereClause.statusId = { in: [2, 3] }; // Chỉ lấy lịch học bình thường
       } else if (filters.scheduleType === 'exam') {
-        query += ' AND cs.status = ?';
-        params.push('exam');
+        whereClause.statusId = 6; // Chỉ lấy lịch thi
       }
     }
 
-    query += ' ORDER BY cs.dayOfWeek, ts.startTime';
+    const schedules = await db.classSchedule.findMany({
+      where: whereClause,
+      include: {
+        class: {
+          include: {
+            department: true,
+            major: true
+          }
+        },
+        teacher: {
+          include: {
+            user: true
+          }
+        },
+        timeSlot: true,
+        classRoom: true,
+        ClassRoomType: true,
+        RequestType: true,
+        scheduleRequests: {
+          where: {
+            exceptionDate: {
+              gte: startDate,
+              lte: endDate
+            },
+            requestStatusId: 2 // Chỉ lấy các yêu cầu đã được phê duyệt
+          },
+          include: {
+            RequestType: true
+          }
+        }
+      },
+      orderBy: [
+        { dayOfWeek: 'asc' },
+        { timeSlot: { startTime: 'asc' } }
+      ]
+    });
 
-    const result = await db.query(query, params);
-    return result.recordset;
+    // Transform data to match expected format
+    const result = schedules.map(schedule => {
+      // Get the first exception if exists
+      const exception = schedule.scheduleRequests.length > 0 ? schedule.scheduleRequests[0] : null;
+      
+      return {
+        id: schedule.id,
+        classId: schedule.classId,
+        className: schedule.class.className,
+        classCode: schedule.class.code,
+        subjectCode: schedule.class.subjectCode,
+        subjectName: schedule.class.subjectName,
+        teacherId: schedule.teacherId,
+        teacherName: schedule.teacher.user.fullName,
+        teacherCode: schedule.teacher.teacherCode,
+        roomId: schedule.classRoomId,
+        roomName: schedule.classRoom?.name || null,
+        roomCode: schedule.classRoom?.code || null,
+        roomType: schedule.ClassRoomType.name,
+        dayOfWeek: schedule.dayOfWeek,
+        timeSlot: schedule.timeSlot.slotName,
+        timeRange: `${schedule.timeSlot.startTime}-${schedule.timeSlot.endTime}`,
+        startTime: schedule.timeSlot.startTime,
+        endTime: schedule.timeSlot.endTime,
+        shift: schedule.timeSlot.shift,
+        shiftName: schedule.timeSlot.shift === 1 ? 'morning' : 
+                   schedule.timeSlot.shift === 2 ? 'afternoon' : 'evening',
+        type: schedule.ClassRoomType.name === 'Lý thuyết' ? 'theory' :
+              schedule.ClassRoomType.name === 'Thực hành' ? 'practice' : 'online',
+        status: schedule.RequestType.name,
+        statusId: schedule.statusId,
+        weekPattern: schedule.weekPattern,
+        startWeek: schedule.startWeek,
+        endWeek: schedule.endWeek,
+        practiceGroup: schedule.practiceGroup,
+        maxStudents: schedule.class.maxStudents,
+        departmentId: schedule.class.departmentId,
+        departmentName: schedule.class.department?.name || null,
+        majorId: schedule.class.majorId,
+        majorName: schedule.class.major?.name || null,
+        timeSlotOrder: schedule.timeSlot.id,
+        assignedAt: schedule.assignedAt,
+        note: schedule.note,
+        // Exception data
+        exceptionDate: exception?.exceptionDate || null,
+        exceptionType: exception?.exceptionType || null,
+        exceptionReason: exception?.reason || null,
+        exceptionStatus: exception?.RequestType?.name || null
+      };
+    });
+
+    return result;
   } catch (error) {
     console.error('Error in getWeeklySchedule:', error);
     throw error;

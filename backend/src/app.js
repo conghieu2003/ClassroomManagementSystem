@@ -45,6 +45,7 @@ const teacherRoutes = require('./routes/teacher.routes');
 const classRoomTypeRoutes = require('./routes/classRoomType.routes');
 const requestTypeRoutes = require('./routes/requestType.routes');
 const classScheduleRoutes = require('./routes/classSchedule.routes');
+const profileRoutes = require('./routes/profile.routes');
 
 app.use('/api/auth', authRoutes);
 app.use('/api/classes', classRoutes);
@@ -60,6 +61,7 @@ app.use('/api/teachers', teacherRoutes);
 app.use('/api/classroom-types', classRoomTypeRoutes);
 app.use('/api/request-types', requestTypeRoutes);
 app.use('/api/class-schedules', classScheduleRoutes);
+app.use('/api/profile', profileRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

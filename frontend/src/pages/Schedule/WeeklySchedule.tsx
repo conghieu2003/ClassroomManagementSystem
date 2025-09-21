@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useEffect, useCallback, memo, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   Box,
@@ -81,7 +81,140 @@ interface WeeklyScheduleItem {
   timeSlotOrder: number;
   assignedAt: string;
   note?: string;
+  // Thông tin ngoại lệ
+  exceptionDate?: string;
+  exceptionType?: string;
+  exceptionReason?: string;
+  exceptionStatus?: string;
 }
+
+// Memoized Schedule Card Component
+const ScheduleCard = memo(({ schedule, getScheduleColor }: { 
+  schedule: WeeklyScheduleItem; 
+  getScheduleColor: (type: string, exceptionType?: string) => string;
+}) => {
+  const isException = schedule.exceptionDate && schedule.exceptionType;
+  const isCancelled = schedule.exceptionType === 'cancelled';
+  const isExam = schedule.exceptionType === 'exam' || schedule.statusId === 6;
+  
+  return (
+    <Card 
+      sx={{ 
+        mb: 1, 
+        backgroundColor: getScheduleColor(schedule.type, schedule.exceptionType),
+        border: isException ? '2px solid #ff6b6b' : '1px solid #ddd',
+        position: 'relative',
+        opacity: isCancelled ? 0.6 : 1,
+        '&:last-child': { mb: 0 }
+      }}
+    >
+      {/* Nhãn ngoại lệ */}
+      {isException && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            backgroundColor: isCancelled ? '#ff6b6b' : isExam ? '#ffa726' : '#66bb6a',
+            color: 'white',
+            fontSize: '0.6rem',
+            fontWeight: 'bold',
+            padding: '2px 6px',
+            borderRadius: '0 4px 0 8px',
+            zIndex: 1
+          }}
+        >
+          {isCancelled ? 'TẠM NGƯNG' : isExam ? 'THI' : 'NGOẠI LỆ'}
+        </Box>
+      )}
+      
+      <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
+        <Typography 
+          variant="subtitle2" 
+          sx={{ 
+            fontWeight: 'bold', 
+            fontSize: '0.75rem',
+            textDecoration: isCancelled ? 'line-through' : 'none',
+            color: isCancelled ? '#666' : 'inherit'
+          }}
+        >
+          {schedule.className}
+        </Typography>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            display: 'block', 
+            fontSize: '0.7rem',
+            textDecoration: isCancelled ? 'line-through' : 'none',
+            color: isCancelled ? '#666' : 'inherit'
+          }}
+        >
+          {schedule.classCode} - {schedule.subjectCode}
+        </Typography>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            display: 'block', 
+            fontSize: '0.7rem',
+            textDecoration: isCancelled ? 'line-through' : 'none',
+            color: isCancelled ? '#666' : 'inherit'
+          }}
+        >
+          Tiết: {schedule.timeSlot}
+        </Typography>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            display: 'block', 
+            fontSize: '0.7rem',
+            textDecoration: isCancelled ? 'line-through' : 'none',
+            color: isCancelled ? '#666' : 'inherit'
+          }}
+        >
+          Phòng: {schedule.roomName || 'Chưa phân'}
+        </Typography>
+        <Typography 
+          variant="caption" 
+          sx={{ 
+            display: 'block', 
+            fontSize: '0.7rem',
+            textDecoration: isCancelled ? 'line-through' : 'none',
+            color: isCancelled ? '#666' : 'inherit'
+          }}
+        >
+          GV: {schedule.teacherName}
+        </Typography>
+        {schedule.practiceGroup && (
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              display: 'block', 
+              fontSize: '0.7rem',
+              textDecoration: isCancelled ? 'line-through' : 'none',
+              color: isCancelled ? '#666' : 'inherit'
+            }}
+          >
+            Nhóm: {schedule.practiceGroup}
+          </Typography>
+        )}
+        {isException && schedule.exceptionReason && (
+          <Typography 
+            variant="caption" 
+            sx={{ 
+              display: 'block', 
+              fontSize: '0.65rem',
+              color: isCancelled ? '#d32f2f' : isExam ? '#f57c00' : '#2e7d32',
+              fontStyle: 'italic',
+              mt: 0.5
+            }}
+          >
+            {schedule.exceptionReason}
+          </Typography>
+        )}
+      </CardContent>
+    </Card>
+  );
+});
 
 const WeeklySchedule = () => {
   // Redux hooks
@@ -94,6 +227,28 @@ const WeeklySchedule = () => {
     loading,
     error
   } = useSelector((state: RootState) => state.schedule);
+
+  // Local loading state for schedule data only
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  
+  // Debounce filter changes to prevent rapid API calls
+  const [debouncedFilters, setDebouncedFilters] = useState({
+    departmentId: '',
+    classId: '',
+    teacherId: ''
+  });
+
+  // Keep previous data to prevent flickering - use stable reference
+  const previousSchedulesRef = useRef<WeeklyScheduleItem[]>([]);
+  
+  // Cache for schedule data to avoid unnecessary API calls
+  const scheduleCache = useRef<Map<string, WeeklyScheduleItem[]>>(new Map());
+  
+  // Loading timeout ref to prevent race conditions
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Stable data reference to prevent unnecessary re-renders
+  const stableSchedulesRef = useRef<WeeklyScheduleItem[]>([]);
 
   // Local state
   const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
@@ -109,21 +264,97 @@ const WeeklySchedule = () => {
     dispatch(fetchTeachers());
   }, [dispatch]);
 
-  // Load weekly schedule when filters change
-  const loadWeeklySchedule = useCallback(() => {
+  // Debounce filter changes with adaptive timing
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedFilters({
+        departmentId: selectedDepartment,
+        classId: selectedClass,
+        teacherId: selectedTeacher
+      });
+    }, 250); // Reduced to 250ms for better responsiveness
+
+    return () => clearTimeout(timer);
+  }, [selectedDepartment, selectedClass, selectedTeacher]);
+
+  // Generate cache key for current filters
+  const getCacheKey = useCallback((weekStartDate: string, filters: any) => {
+    return `${weekStartDate}-${filters.departmentId || 'all'}-${filters.classId || 'all'}-${filters.teacherId || 'all'}`;
+  }, []);
+
+  // Load weekly schedule when debounced filters change
+  const loadWeeklySchedule = useCallback(async () => {
     const weekStartDate = selectedDate.startOf('week').add(1, 'day').format('YYYY-MM-DD'); // Start from Monday
     const filters = {
-      departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined,
-      classId: selectedClass ? parseInt(selectedClass) : undefined,
-      teacherId: selectedTeacher ? parseInt(selectedTeacher) : undefined
+      departmentId: debouncedFilters.departmentId ? parseInt(debouncedFilters.departmentId) : undefined,
+      classId: debouncedFilters.classId ? parseInt(debouncedFilters.classId) : undefined,
+      teacherId: debouncedFilters.teacherId ? parseInt(debouncedFilters.teacherId) : undefined
     };
     
-    dispatch(fetchWeeklySchedule({ weekStartDate, filters }));
-  }, [dispatch, selectedDate, selectedDepartment, selectedClass, selectedTeacher]);
+    const cacheKey = getCacheKey(weekStartDate, filters);
+    
+    // Check cache first
+    if (scheduleCache.current.has(cacheKey)) {
+      const cachedData = scheduleCache.current.get(cacheKey);
+      if (cachedData) {
+        // Use cached data without API call - update stable reference
+        stableSchedulesRef.current = cachedData;
+        return;
+      }
+    }
+    
+    // Clear any existing timeout
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+    }
+    
+    // Store current data before loading new data
+    if (weeklySchedules && weeklySchedules.length > 0) {
+      previousSchedulesRef.current = weeklySchedules;
+    }
+    
+    // Only show loading if we don't have previous data
+    if (previousSchedulesRef.current.length === 0) {
+      setScheduleLoading(true);
+    }
+    
+    try {
+      const result = await dispatch(fetchWeeklySchedule({ weekStartDate, filters }));
+      
+      // Cache the result and update stable reference
+      if (result.payload && Array.isArray(result.payload)) {
+        const newData = result.payload as WeeklyScheduleItem[];
+        scheduleCache.current.set(cacheKey, newData);
+        stableSchedulesRef.current = newData;
+        
+        // Limit cache size to prevent memory leaks
+        if (scheduleCache.current.size > 50) {
+          const firstKey = scheduleCache.current.keys().next().value;
+          if (firstKey) {
+            scheduleCache.current.delete(firstKey);
+          }
+        }
+      }
+    } finally {
+      // Ensure minimum loading time for smooth UX
+      loadingTimeoutRef.current = setTimeout(() => {
+        setScheduleLoading(false);
+      }, 150);
+    }
+  }, [dispatch, selectedDate, debouncedFilters, weeklySchedules, getCacheKey]);
 
   useEffect(() => {
     loadWeeklySchedule();
   }, [loadWeeklySchedule]);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Tính toán tuần hiện tại
   const currentWeek = useMemo(() => {
@@ -143,9 +374,12 @@ const WeeklySchedule = () => {
     return weekDays;
   }, [selectedDate]);
 
-  // Filter schedules dựa trên các điều kiện
   const filteredSchedules = useMemo(() => {
-    let filtered = weeklySchedules || [];
+    // Use stable reference to prevent flickering
+    const currentData = (weeklySchedules && weeklySchedules.length > 0) ? weeklySchedules : 
+                       (stableSchedulesRef.current.length > 0) ? stableSchedulesRef.current : 
+                       previousSchedulesRef.current;
+    let filtered = currentData || [];
 
     // Filter theo loại lịch
     if (scheduleType === 'study') {
@@ -188,32 +422,78 @@ const WeeklySchedule = () => {
     return grid;
   }, [currentWeek, filteredSchedules]);
 
-  const getScheduleColor = (type: string) => {
+  // Memoize current week to prevent unnecessary recalculations
+  const memoizedCurrentWeek = useMemo(() => currentWeek, [currentWeek]);
+  
+  // Update stable reference when weeklySchedules changes
+  useEffect(() => {
+    if (weeklySchedules && weeklySchedules.length > 0) {
+      stableSchedulesRef.current = weeklySchedules;
+    }
+  }, [weeklySchedules]);
+
+  const getScheduleColor = useCallback((type: string, exceptionType?: string) => {
+    // Xử lý màu sắc cho các trường hợp ngoại lệ
+    if (exceptionType) {
+      switch (exceptionType) {
+        case 'cancelled': return '#f8d7da'; // Light red - Tạm ngưng
+        case 'exam': return '#fff3cd'; // Light yellow - Thi
+        case 'moved': return '#d1ecf1'; // Light blue - Chuyển lịch
+        case 'substitute': return '#e2e3e5'; // Light grey - Thay thế
+        default: return '#f8f9fa'; // Default
+      }
+    }
+    
+    // Màu sắc bình thường
     switch (type) {
       case 'theory': return '#f8f9fa'; // Light grey
       case 'practice': return '#d4edda'; // Green
       case 'online': return '#cce7ff'; // Light blue
       case 'exam': return '#fff3cd'; // Yellow
-      case 'cancelled': return '#f8d7da'; // Red
       default: return '#f8f9fa';
     }
-  };
+  }, []);
 
-  const handlePreviousWeek = () => {
+  const handlePreviousWeek = useCallback(() => {
     setSelectedDate(prev => prev.subtract(1, 'week'));
-  };
+  }, []);
 
-  const handleNextWeek = () => {
+  const handleNextWeek = useCallback(() => {
     setSelectedDate(prev => prev.add(1, 'week'));
-  };
+  }, []);
 
-  const handleCurrentWeek = () => {
+  const handleCurrentWeek = useCallback(() => {
     setSelectedDate(dayjs());
-  };
+  }, []);
 
-  const handlePrint = () => {
+  const handlePrint = useCallback(() => {
     window.print();
-  };
+  }, []);
+
+  // Event handlers for form controls
+  const handleDepartmentChange = useCallback((e: any) => {
+    setSelectedDepartment(e.target.value as string);
+    setSelectedClass('');
+    setSelectedTeacher('');
+  }, []);
+
+  const handleClassChange = useCallback((e: any) => {
+    setSelectedClass(e.target.value as string);
+  }, []);
+
+  const handleTeacherChange = useCallback((e: any) => {
+    setSelectedTeacher(e.target.value as string);
+  }, []);
+
+  const handleScheduleTypeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setScheduleType(e.target.value);
+  }, []);
+
+  const handleDateChange = useCallback((newValue: Dayjs | null) => {
+    if (newValue) {
+      setSelectedDate(newValue);
+    }
+  }, []);
 
   // Filter classes based on selected department
   const filteredClassesForDropdown = useMemo(() => {
@@ -234,7 +514,8 @@ const WeeklySchedule = () => {
     );
   }, [teachers, selectedDepartment]);
 
-  if (loading) {
+  // Only show full loading for initial data load
+  if (loading && !departments && !classes && !teachers) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
@@ -259,11 +540,7 @@ const WeeklySchedule = () => {
               <InputLabel sx={{ fontSize: '0.75rem' }}>Theo khoa</InputLabel>
               <Select
                 value={selectedDepartment}
-                onChange={(e) => {
-                  setSelectedDepartment(e.target.value);
-                  setSelectedClass('');
-                  setSelectedTeacher('');
-                }}
+                onChange={handleDepartmentChange}
                 label="Theo khoa"
                 sx={{ 
                   '& .MuiOutlinedInput-root': { 
@@ -286,7 +563,7 @@ const WeeklySchedule = () => {
               <InputLabel sx={{ fontSize: '0.75rem' }}>Theo lớp</InputLabel>
               <Select
                 value={selectedClass}
-                onChange={(e) => setSelectedClass(e.target.value)}
+                onChange={handleClassChange}
                 label="Theo lớp"
                 sx={{ 
                   '& .MuiOutlinedInput-root': { 
@@ -309,7 +586,7 @@ const WeeklySchedule = () => {
               <InputLabel sx={{ fontSize: '0.75rem' }}>Theo GV</InputLabel>
               <Select
                 value={selectedTeacher}
-                onChange={(e) => setSelectedTeacher(e.target.value)}
+                onChange={handleTeacherChange}
                 label="Theo GV"
                 sx={{ 
                   '& .MuiOutlinedInput-root': { 
@@ -349,7 +626,7 @@ const WeeklySchedule = () => {
                 <RadioGroup
                   row
                   value={scheduleType}
-                  onChange={(e) => setScheduleType(e.target.value)}
+                  onChange={handleScheduleTypeChange}
                 >
                   <FormControlLabel 
                     value="all" 
@@ -392,7 +669,7 @@ const WeeklySchedule = () => {
                 <DatePicker
                   label="Chọn ngày"
                   value={selectedDate}
-                  onChange={(newValue) => newValue && setSelectedDate(newValue)}
+                  onChange={handleDateChange}
                   slotProps={{ 
                     textField: { 
                       size: 'small',
@@ -502,7 +779,34 @@ const WeeklySchedule = () => {
         </Paper>
 
         {/* Schedule Grid */}
-        <Paper sx={{ boxShadow: 3 }}>
+        <Paper sx={{ boxShadow: 3, position: 'relative', minHeight: '400px' }}>
+          {/* Loading overlay for schedule data */}
+          {scheduleLoading && (
+            <Box
+              sx={{
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 10,
+                borderRadius: '4px',
+                backdropFilter: 'blur(2px)'
+              }}
+            >
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+                <CircularProgress size={32} thickness={4} />
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                  Đang tải lịch học...
+                </Typography>
+              </Box>
+            </Box>
+          )}
+          
           <TableContainer sx={{ overflow: 'auto', minWidth: '800px' }}>
             <Table sx={{ minWidth: '800px' }}>
               <TableHead>
@@ -519,7 +823,7 @@ const WeeklySchedule = () => {
                   >
                     Ca học
                   </TableCell>
-                  {currentWeek.map((day, index) => (
+                  {memoizedCurrentWeek.map((day, index) => (
                     <TableCell 
                       key={index} 
                       sx={{ 
@@ -569,38 +873,11 @@ const WeeklySchedule = () => {
                         }}
                       >
                         {daySchedules.map((schedule: WeeklyScheduleItem) => (
-                          <Card 
+                          <ScheduleCard 
                             key={schedule.id} 
-                            sx={{ 
-                              mb: 1, 
-                              backgroundColor: getScheduleColor(schedule.type),
-                              border: '1px solid #ddd',
-                              '&:last-child': { mb: 0 }
-                            }}
-                          >
-                            <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-                              <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
-                                {schedule.className}
-                              </Typography>
-                              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                                {schedule.classCode} - {schedule.subjectCode}
-                              </Typography>
-                              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                                Tiết: {schedule.timeSlot}
-                              </Typography>
-                              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                                Phòng: {schedule.roomName}
-                              </Typography>
-                              <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                                GV: {schedule.teacherName}
-                              </Typography>
-                              {schedule.practiceGroup && (
-                                <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
-                                  Nhóm: {schedule.practiceGroup}
-                                </Typography>
-                              )}
-                            </CardContent>
-                          </Card>
+                            schedule={schedule}
+                            getScheduleColor={getScheduleColor}
+                          />
                         ))}
                       </TableCell>
                     ))}
@@ -634,10 +911,17 @@ const WeeklySchedule = () => {
               <Typography variant="body2">Lịch thi</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
-              <Box sx={{ width: 20, height: 20, backgroundColor: '#f8d7da', border: '1px solid #ddd' }} />
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#f8d7da', border: '2px solid #ff6b6b' }} />
               <Typography variant="body2">Lịch tạm ngưng</Typography>
             </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#d1ecf1', border: '1px solid #ddd' }} />
+              <Typography variant="body2">Lịch chuyển</Typography>
+            </Box>
           </Box>
+          <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary', fontSize: '0.875rem' }}>
+            <strong>Lưu ý:</strong> Các lịch có nhãn màu trên góc phải là lịch ngoại lệ (tạm ngưng, thi, chuyển lịch)
+          </Typography>
         </Paper>
       </Box>
     </LocalizationProvider>

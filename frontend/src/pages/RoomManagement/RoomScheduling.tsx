@@ -42,6 +42,7 @@ import {
 import { RootState, AppDispatch } from '../../redux/store';
 import {
   loadAllData,
+  loadScheduleData,
   loadAvailableRooms,
   loadRoomsByDepartmentAndType,
   assignRoomToSchedule,
@@ -82,6 +83,7 @@ const RoomScheduling: React.FC = () => {
     
     // UI State
     loading,
+    refreshing,
     error,
     successMessage,
     
@@ -98,10 +100,16 @@ const RoomScheduling: React.FC = () => {
     dispatch(loadAllData());
   }, [dispatch]);
 
-  // Refresh data after successful operations
-  const refreshData = () => {
+  // Refresh only schedule data after successful operations
+  const refreshScheduleData = useCallback(() => {
+    // Only reload schedule data, not all data
+    dispatch(loadScheduleData());
+  }, [dispatch]);
+
+  // Refresh data after successful operations (legacy - kept for compatibility)
+  const refreshData = useCallback(() => {
     dispatch(loadAllData());
-  };
+  }, [dispatch]);
 
 
   // Assign room to schedule using Redux
@@ -133,7 +141,7 @@ const RoomScheduling: React.FC = () => {
         
         if (successCount > 0) {
           dispatch(setSuccessMessage(`Tự động gán phòng thành công: ${successCount} lịch học`));
-          refreshData();
+          // Data will be automatically refreshed by the Redux thunk
         }
       }
     } catch (err: any) {
@@ -531,6 +539,12 @@ const RoomScheduling: React.FC = () => {
         {isAssigning && (
           <Alert severity="info" sx={{ mb: 2 }}>
             Đang cập nhật trạng thái gán phòng...
+          </Alert>
+        )}
+
+        {refreshing && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Đang cập nhật dữ liệu...
           </Alert>
         )}
 
