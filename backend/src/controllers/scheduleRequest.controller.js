@@ -77,14 +77,15 @@ const getTeacherSchedules = async (req, res) => {
 const updateScheduleRequestStatus = async (req, res) => {
     try {
         const { requestId } = req.params;
-        const { status, note } = req.body;
+        const { status, note, selectedRoomId } = req.body;
         const { id: approverId } = req.user;
 
         const result = await scheduleRequestService.updateScheduleRequestStatus(
             requestId,
             status,
             approverId,
-            note
+            note,
+            selectedRoomId
         );
 
         res.status(200).json({

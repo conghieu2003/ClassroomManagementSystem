@@ -20,9 +20,14 @@ const createScheduleRequest = async (requestData) => {
             movedToDate,
             movedToTimeSlotId,
             movedToClassRoomId,
+            movedToDayOfWeek,
             substituteTeacherId,
             reason
         } = requestData;
+
+        console.log('Backend received requestData:', requestData);
+        console.log('movedToDayOfWeek:', movedToDayOfWeek);
+        console.log('movedToTimeSlotId:', movedToTimeSlotId);
 
         const scheduleRequest = await prisma.scheduleRequest.create({
             data: {
@@ -43,6 +48,7 @@ const createScheduleRequest = async (requestData) => {
                 movedToDate: movedToDate ? new Date(movedToDate) : null,
                 movedToTimeSlotId: movedToTimeSlotId || null,
                 movedToClassRoomId: movedToClassRoomId || null,
+                movedToDayOfWeek: movedToDayOfWeek || null,
                 substituteTeacherId: substituteTeacherId || null,
                 reason
             },
@@ -304,14 +310,28 @@ const getTeacherSchedules = async (teacherId) => {
     }
 };
 
-const updateScheduleRequestStatus = async (requestId, status, approverId, note) => {
+const updateScheduleRequestStatus = async (requestId, status, approverId, note, selectedRoomId = null) => {
     try {
+        // First, get the request details to understand what needs to be updated
+        const requestDetails = await prisma.scheduleRequest.findUnique({
+            where: { id: parseInt(requestId) },
+            include: {
+                RequestType: true,
+                classSchedule: true
+            }
+        });
+
+        if (!requestDetails) {
+            throw new Error('Schedule request not found');
+        }
+
+        // Update the schedule request status
         const scheduleRequest = await prisma.scheduleRequest.update({
             where: {
                 id: parseInt(requestId)
             },
             data: {
-                status,
+                requestStatusId: status,
                 approvedBy: approverId,
                 approvedAt: new Date(),
                 note: note || null
@@ -389,6 +409,51 @@ const updateScheduleRequestStatus = async (requestId, status, approverId, note) 
             }
         });
 
+        // If request is approved (status = 2) and we have a selected room, update ClassSchedule
+        if (status === 2 && selectedRoomId && requestDetails.classScheduleId) {
+            console.log('Updating ClassSchedule for approved request:', {
+                requestId,
+                requestType: requestDetails.RequestType?.name,
+                classScheduleId: requestDetails.classScheduleId,
+                selectedRoomId
+            });
+
+            const updateData = {};
+
+            // For room change requests, update classRoomId
+            if (requestDetails.RequestType?.name === 'Đổi phòng' ||
+                requestDetails.RequestType?.name === 'Xin phòng mới') {
+                updateData.classRoomId = parseInt(selectedRoomId);
+                console.log('Updating classRoomId to:', selectedRoomId);
+            }
+
+            // For schedule change requests, update dayOfWeek and timeSlotId
+            if (requestDetails.RequestType?.name === 'Đổi lịch') {
+                if (requestDetails.movedToDayOfWeek) {
+                    updateData.dayOfWeek = requestDetails.movedToDayOfWeek;
+                    console.log('Updating dayOfWeek to:', requestDetails.movedToDayOfWeek);
+                }
+                if (requestDetails.movedToTimeSlotId) {
+                    updateData.timeSlotId = requestDetails.movedToTimeSlotId;
+                    console.log('Updating timeSlotId to:', requestDetails.movedToTimeSlotId);
+                }
+                // Also update room if selected
+                if (selectedRoomId) {
+                    updateData.classRoomId = parseInt(selectedRoomId);
+                    console.log('Updating classRoomId to:', selectedRoomId);
+                }
+            }
+
+            // Update ClassSchedule if we have changes to make
+            if (Object.keys(updateData).length > 0) {
+                await prisma.classSchedule.update({
+                    where: { id: requestDetails.classScheduleId },
+                    data: updateData
+                });
+                console.log('ClassSchedule updated successfully');
+            }
+        }
+
         return scheduleRequest;
     } catch (error) {
         console.error('Error updating schedule request status:', error);
@@ -408,6 +473,18 @@ const getScheduleRequestById = async (requestId) => {
                         id: true,
                         fullName: true,
                         email: true
+                    }
+                },
+                RequestType: {
+                    select: {
+                        id: true,
+                        name: true
+                    }
+                },
+                RequestStatus: {
+                    select: {
+                        id: true,
+                        name: true
                     }
                 },
                 classSchedule: {
@@ -435,10 +512,15 @@ const getScheduleRequestById = async (requestId) => {
                                 }
                             }
                         },
-                        // Bỏ timeSlot vì không có relation trực tiếp
+                        timeSlot: {
+                            select: {
+                                id: true,
+                                startTime: true,
+                                endTime: true
+                            }
+                        }
                     }
                 },
-                // Bỏ timeSlot vì không có relation trực tiếp
                 oldClassRoom: {
                     select: {
                         id: true,
@@ -463,6 +545,27 @@ const getScheduleRequestById = async (requestId) => {
                                 name: true
                             }
                         }
+                    }
+                },
+                oldTimeSlot: {
+                    select: {
+                        id: true,
+                        startTime: true,
+                        endTime: true
+                    }
+                },
+                newTimeSlot: {
+                    select: {
+                        id: true,
+                        startTime: true,
+                        endTime: true
+                    }
+                },
+                movedToTimeSlot: {
+                    select: {
+                        id: true,
+                        startTime: true,
+                        endTime: true
                     }
                 },
                 approver: {

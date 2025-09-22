@@ -306,8 +306,18 @@ export const roomService = {
     return response.data;
   },
 
-  updateScheduleRequestStatus: async (requestId: number, status: string, note?: string): Promise<any> => {
-    const response = await api.put(`/schedule-requests/${requestId}/status`, { status, note });
+  getScheduleRequestById: async (requestId: number): Promise<any> => {
+    const response = await api.get(`/schedule-requests/${requestId}`);
+    return response.data;
+  },
+
+  updateScheduleRequestStatus: async (requestId: number, status: number, note?: string, selectedRoomId?: string): Promise<any> => {
+    const response = await api.put(`/schedule-requests/${requestId}/status`, { status, note, selectedRoomId });
+    return response.data;
+  },
+
+  getSchedulesByTimeSlotAndDate: async (timeSlotId: number, dayOfWeek: number): Promise<any> => {
+    const response = await api.get(`/rooms/schedules/by-time-slot?timeSlotId=${timeSlotId}&dayOfWeek=${dayOfWeek}`);
     return response.data;
   },
 };
@@ -415,7 +425,7 @@ export const scheduleManagementService = {
   getWeeklySchedule: async (weekStartDate: string, filters: any = {}): Promise<any> => {
     const params = new URLSearchParams();
     params.append('weekStartDate', weekStartDate);
-    
+
     if (filters.departmentId) params.append('departmentId', filters.departmentId.toString());
     if (filters.classId) params.append('classId', filters.classId.toString());
     if (filters.teacherId) params.append('teacherId', filters.teacherId.toString());

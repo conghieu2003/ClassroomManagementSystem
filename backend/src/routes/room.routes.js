@@ -14,6 +14,7 @@ router.get('/time-slots', roomController.getTimeSlots);
 router.get('/teachers', roomController.getTeachers);
 router.get('/teacher/:teacherId/schedules', roomController.getTeacherSchedules);
 router.get('/schedule/:scheduleId', roomController.getClassScheduleById);
+router.get('/schedules/by-time-slot', roomController.getSchedulesByTimeSlotAndDate);
 
 // Routes yêu cầu xác thực
 router.use(verifyToken);

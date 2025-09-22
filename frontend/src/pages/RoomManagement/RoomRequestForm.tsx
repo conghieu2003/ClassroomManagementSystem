@@ -10,7 +10,6 @@ import {
     Select,
     MenuItem,
     Alert,
-    Chip,
     CircularProgress,
     Dialog,
     DialogTitle,
@@ -20,16 +19,13 @@ import {
     Radio,
     RadioGroup,
     TextField,
-    Paper,
-    Grid
+    Paper
 } from '@mui/material';
 import {
-    Person as PersonIcon,
     Class as ClassIcon,
     Room as RoomIcon,
     Schedule as ScheduleIcon,
     CheckCircle as CheckCircleIcon,
-    Add as AddIcon,
     Send as SendIcon,
     Info as InfoIcon
 } from '@mui/icons-material';
@@ -97,16 +93,16 @@ interface TimeSlot {
     shift: string;
 }
 
-interface ClassRoom {
-    id: number;
-    code: string;
-    name: string;
-    capacity: number;
-    building: string;
-    floor: number;
-    type: string;
-    isAvailable: boolean;
-}
+// interface ClassRoom {
+//     id: number;
+//     code: string;
+//     name: string;
+//     capacity: number;
+//     building: string;
+//     floor: number;
+//     type: string;
+//     isAvailable: boolean;
+// }
 
 const RoomRequestForm: React.FC = () => {
     const { user } = useSelector((state: RootState) => state.auth);
@@ -114,7 +110,6 @@ const RoomRequestForm: React.FC = () => {
     const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
     const [classSchedules, setClassSchedules] = useState<ClassSchedule[]>([]);
     const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
-    const [rooms, setRooms] = useState<ClassRoom[]>([]);
     // Bỏ availableRooms vì admin sẽ chọn phòng
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
@@ -130,7 +125,7 @@ const RoomRequestForm: React.FC = () => {
 
     useEffect(() => {
         loadInitialData();
-    }, []);
+    }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
     const loadInitialData = async () => {
         setLoading(true);
@@ -141,11 +136,7 @@ const RoomRequestForm: React.FC = () => {
                 setTimeSlots(timeSlotsResponse.data);
             }
 
-            // Load rooms
-            const roomsResponse = await roomService.getAllRooms();
-            if (roomsResponse.success) {
-                setRooms(roomsResponse.data);
-            }
+            // Bỏ load rooms vì admin sẽ chọn phòng
 
             // Load teacher's class schedules
             if (user?.id) {
@@ -178,11 +169,11 @@ const RoomRequestForm: React.FC = () => {
         if (!selectedSchedule) {
             errors.push('Vui lòng chọn lớp học');
         }
-        // Validation cho room_request và time_change
-        if ((formData.requestType === 'room_request' || formData.requestType === 'time_change') && !formData.timeSlotId) {
+        // Validation cho time_change (chỉ đổi lịch mới cần chọn thứ và tiết)
+        if (formData.requestType === 'time_change' && !formData.timeSlotId) {
             errors.push('Vui lòng chọn tiết học');
         }
-        if ((formData.requestType === 'room_request' || formData.requestType === 'time_change') && !formData.dayOfWeek) {
+        if (formData.requestType === 'time_change' && !formData.dayOfWeek) {
             errors.push('Vui lòng chọn thứ trong tuần');
         }
         // Bỏ validation phòng mới vì admin sẽ chọn
@@ -203,7 +194,9 @@ const RoomRequestForm: React.FC = () => {
             classScheduleId: schedule?.id || 0,
             oldClassRoomId: schedule?.classRoomId,
             oldTimeSlotId: schedule?.timeSlotId,
-            dayOfWeek: schedule?.dayOfWeek
+            dayOfWeek: schedule?.dayOfWeek,
+            // Chỉ set timeSlotId nếu không phải schedule_change
+            ...(prev.requestType !== 'schedule_change' && { timeSlotId: schedule?.timeSlotId || 0 })
         }));
 
         // Bỏ logic filter phòng vì admin sẽ chọn
@@ -234,9 +227,11 @@ const RoomRequestForm: React.FC = () => {
                     timeSlotId: formData.timeSlotId
                 }),
                 ...(formData.requestType === 'time_change' && {
-                    timeSlotId: formData.timeSlotId,
+                    timeSlotId: selectedSchedule?.timeSlotId, // Tiết hiện tại
                     changeType: 'time_change',
-                    oldTimeSlotId: selectedSchedule?.timeSlotId
+                    oldTimeSlotId: selectedSchedule?.timeSlotId,
+                    movedToTimeSlotId: formData.timeSlotId, // Tiết muốn đổi
+                    movedToDayOfWeek: formData.dayOfWeek // Thứ trong tuần muốn đổi
                 }),
                 ...(formData.requestType === 'schedule_change' && {
                     timeSlotId: selectedSchedule?.timeSlotId,
@@ -251,6 +246,8 @@ const RoomRequestForm: React.FC = () => {
             };
 
             console.log('Sending request data:', requestData);
+            console.log('formData.dayOfWeek:', formData.dayOfWeek);
+            console.log('formData.timeSlotId:', formData.timeSlotId);
             const response = await roomService.createScheduleRequest(requestData);
             console.log('Response:', response);
 
@@ -312,13 +309,16 @@ const RoomRequestForm: React.FC = () => {
                             <RadioGroup
                                 value={formData.requestType}
                                 onChange={(e) => {
+                                    const newRequestType = e.target.value as 'room_request' | 'schedule_change' | 'exception' | 'time_change';
                                     setFormData(prev => ({
                                         ...prev,
-                                        requestType: e.target.value as 'room_request' | 'schedule_change' | 'exception' | 'time_change',
+                                        requestType: newRequestType,
                                         classScheduleId: undefined,
                                         // Bỏ newClassRoomId
                                         newTimeSlotId: undefined,
-                                        dayOfWeek: undefined
+                                        dayOfWeek: undefined,
+                                        // Chỉ reset timeSlotId nếu không phải schedule_change
+                                        ...(newRequestType !== 'schedule_change' && { timeSlotId: 0 })
                                     }));
                                     setSelectedSchedule(null);
                                     // Bỏ setAvailableRooms
@@ -411,8 +411,8 @@ const RoomRequestForm: React.FC = () => {
                     </Card>
                 )}
 
-                {/* Chọn thứ trong tuần và tiết học cho xin phòng mới và đổi lịch học */}
-                {(formData.requestType === 'room_request' || formData.requestType === 'time_change') && selectedSchedule && (
+                {/* Chọn thứ trong tuần và tiết học cho đổi lịch học */}
+                {formData.requestType === 'time_change' && selectedSchedule && (
                     <Card>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
@@ -462,8 +462,8 @@ const RoomRequestForm: React.FC = () => {
                     </Card>
                 )}
 
-                {/* Chọn tiết học cho đổi phòng và ngoại lệ */}
-                {(formData.requestType === 'schedule_change' || formData.requestType === 'exception') && selectedSchedule && (
+                {/* Chọn tiết học cho ngoại lệ */}
+                {formData.requestType === 'exception' && selectedSchedule && (
                     <Card>
                         <CardContent>
                             <Typography variant="h6" gutterBottom>
