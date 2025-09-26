@@ -278,8 +278,21 @@ export const roomService = {
     return response.data;
   },
 
-  getScheduleRequests: async (): Promise<any> => {
-    const response = await api.get('/schedule-requests');
+  getScheduleRequests: async (filters?: {
+    status?: number;
+    requestType?: number;
+    requesterId?: number;
+    page?: number;
+    limit?: number;
+  }): Promise<any> => {
+    const params = new URLSearchParams();
+    if (filters?.status) params.append('status', filters.status.toString());
+    if (filters?.requestType) params.append('requestType', filters.requestType.toString());
+    if (filters?.requesterId) params.append('requesterId', filters.requesterId.toString());
+    if (filters?.page) params.append('page', filters.page.toString());
+    if (filters?.limit) params.append('limit', filters.limit.toString());
+
+    const response = await api.get(`/schedule-requests?${params.toString()}`);
     return response.data;
   },
 
@@ -293,8 +306,18 @@ export const roomService = {
     return response.data;
   },
 
-  updateScheduleRequestStatus: async (requestId: number, status: string, note?: string): Promise<any> => {
-    const response = await api.put(`/schedule-requests/${requestId}/status`, { status, note });
+  getScheduleRequestById: async (requestId: number): Promise<any> => {
+    const response = await api.get(`/schedule-requests/${requestId}`);
+    return response.data;
+  },
+
+  updateScheduleRequestStatus: async (requestId: number, status: number, note?: string, selectedRoomId?: string): Promise<any> => {
+    const response = await api.put(`/schedule-requests/${requestId}/status`, { status, note, selectedRoomId });
+    return response.data;
+  },
+
+  getSchedulesByTimeSlotAndDate: async (timeSlotId: number, dayOfWeek: number): Promise<any> => {
+    const response = await api.get(`/rooms/schedules/by-time-slot?timeSlotId=${timeSlotId}&dayOfWeek=${dayOfWeek}`);
     return response.data;
   },
 };
@@ -415,7 +438,7 @@ export const scheduleManagementService = {
   getWeeklySchedule: async (weekStartDate: string, filters: any = {}): Promise<any> => {
     const params = new URLSearchParams();
     params.append('weekStartDate', weekStartDate);
-    
+
     if (filters.departmentId) params.append('departmentId', filters.departmentId.toString());
     if (filters.classId) params.append('classId', filters.classId.toString());
     if (filters.teacherId) params.append('teacherId', filters.teacherId.toString());

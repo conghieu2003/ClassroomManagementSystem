@@ -14,6 +14,7 @@ import RoomRequest from './pages/RoomManagement/RoomRequest';
 import RoomRequestForm from './pages/RoomManagement/RoomRequestForm';
 import RoomRequestList from './pages/RoomManagement/RoomRequestList';
 import RoomScheduling from './pages/RoomManagement/RoomScheduling';
+import ProcessRequest from './pages/RoomManagement/ProcessRequest';
 import WeeklySchedule from './pages/Schedule/WeeklySchedule';
 import ScheduleManagement from './pages/Schedule/ScheduleManagement';
 import Profile from './pages/Dashboard/Profile';
@@ -52,6 +53,8 @@ const App = () => {
             <Route path="/room-requests" element={<RoomRequestForm />} />
             {/* @ts-ignore */}
             <Route path="/rooms/requests/list" element={<RoomRequestList />} />
+            {/* @ts-ignore */}
+            <Route path="/rooms/requests/:requestId/process" element={<ProcessRequest />} />
             {/* @ts-ignore */}
             <Route path="/rooms/scheduling" element={<RoomScheduling />} />
             {/* @ts-ignore */}

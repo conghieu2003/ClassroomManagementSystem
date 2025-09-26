@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'react-toastify';
+import { roomService } from '../../services/api';
 import {
   Typography,
   Box,
@@ -34,6 +36,7 @@ import {
 } from '@mui/icons-material';
 
 // Sample data for room requests - dựa trên table ScheduleRequest
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 const sampleRoomRequests: RoomRequest[] = [
   {
     id: 1,
@@ -217,9 +220,16 @@ const RoomRequestList = () => {
     setLoading(true);
     setError(null);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setRequests(sampleRoomRequests);
+      const response = await roomService.getScheduleRequests({
+        page: 1,
+        limit: 100
+      });
+
+      if (response.success) {
+        setRequests(response.data);
+      } else {
+        setError(response.message || 'Không thể tải danh sách yêu cầu');
+      }
     } catch (err) {
       setError('Không thể tải danh sách yêu cầu');
       console.error('Error loading requests:', err);
@@ -242,22 +252,22 @@ const RoomRequestList = () => {
   };
 
   const handleApproveRequest = async (requestId: number) => {
-    // Chuyển sang page yêu cầu xin/đổi phòng để xử lý chi tiết
-    navigate(`/rooms/requests?requestId=${requestId}&action=approve`);
+    // Chuyển sang page xử lý yêu cầu để admin chấp nhận và phân phòng
+    navigate(`/rooms/requests/${requestId}/process`);
   };
 
   const handleRejectRequest = async (requestId: number) => {
-    setLoading(true);
     try {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setRequests(prev => prev.map(req => 
-        req.id === requestId ? { ...req, status: 'rejected' as const } : req
-      ));
-    } catch (err) {
-      console.error('Error rejecting request:', err);
-    } finally {
-      setLoading(false);
+      const response = await roomService.updateScheduleRequestStatus(requestId, 3, 'Yêu cầu bị từ chối');
+      if (response.success) {
+        toast.success('Đã từ chối yêu cầu');
+        handleRefresh();
+      } else {
+        toast.error('Có lỗi xảy ra khi từ chối yêu cầu');
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      toast.error('Có lỗi xảy ra khi từ chối yêu cầu');
     }
   };
 
@@ -279,6 +289,7 @@ const RoomRequestList = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getStatusText = (status: string) => {
     switch (status) {
       case 'pending': return 'Chờ duyệt';
@@ -288,6 +299,7 @@ const RoomRequestList = () => {
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const getRequestTypeText = (type: string) => {
     switch (type) {
       case 'room_request': return 'Xin phòng';
@@ -330,7 +342,7 @@ const RoomRequestList = () => {
       sortable: true
     },
     {
-      field: 'requestType',
+      field: 'RequestType',
       headerName: 'Loại yêu cầu',
       flex: 0.12, // 12% width
       minWidth: 100,
@@ -338,8 +350,8 @@ const RoomRequestList = () => {
       sortable: true,
       renderCell: (params) => (
         <Chip
-          label={getRequestTypeText(params.value)}
-          color={getRequestTypeColor(params.value) as any}
+          label={params.value?.name || 'N/A'}
+          color={getRequestTypeColor(params.value?.name) as any}
           size="small"
           variant="outlined"
           sx={{ fontSize: '0.7rem', height: 24 }}
@@ -347,7 +359,7 @@ const RoomRequestList = () => {
       )
     },
     {
-      field: 'status',
+      field: 'RequestStatus',
       headerName: 'Trạng thái',
       flex: 0.12, // 12% width
       minWidth: 110,
@@ -355,9 +367,9 @@ const RoomRequestList = () => {
       sortable: true,
       renderCell: (params) => (
         <Chip
-          icon={getStatusIcon(params.value)}
-          label={getStatusText(params.value)}
-          color={getStatusColor(params.value) as any}
+          icon={getStatusIcon(params.value?.name)}
+          label={params.value?.name || 'N/A'}
+          color={getStatusColor(params.value?.name) as any}
           size="small"
           variant="filled"
           sx={{ fontSize: '0.7rem', height: 24 }}
@@ -365,7 +377,7 @@ const RoomRequestList = () => {
       )
     },
     {
-      field: 'teacherName',
+      field: 'requester',
       headerName: 'Giảng viên yêu cầu',
       flex: 0.15, // 15% width
       minWidth: 140,
@@ -374,20 +386,20 @@ const RoomRequestList = () => {
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
           <PersonIcon color="primary" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
-          <Typography variant="body2" sx={{ 
-            fontWeight: 'medium', 
-            fontSize: '0.75rem', 
+          <Typography variant="body2" sx={{
+            fontWeight: 'medium',
+            fontSize: '0.75rem',
             lineHeight: 1.4,
             wordBreak: 'break-word',
             whiteSpace: 'normal'
           }}>
-            {params.value}
+            {params.value?.fullName || 'N/A'}
           </Typography>
         </Box>
       )
     },
     {
-      field: 'className',
+      field: 'classSchedule',
       headerName: 'Lớp học',
       flex: 0.15, // 15% width
       minWidth: 130,
@@ -396,80 +408,43 @@ const RoomRequestList = () => {
       renderCell: (params) => (
         <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
           <ClassIcon color="secondary" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
-          <Typography variant="body2" sx={{ 
-            fontWeight: 'medium', 
-            fontSize: '0.75rem', 
+          <Typography variant="body2" sx={{
+            fontWeight: 'medium',
+            fontSize: '0.75rem',
             lineHeight: 1.4,
             wordBreak: 'break-word',
             whiteSpace: 'normal'
           }}>
-            {params.value}
+            {params.value?.class?.className || 'N/A'}
           </Typography>
         </Box>
       )
     },
     {
-      field: 'timeSlot',
-      headerName: 'Yêu cầu thay đổi',
+      field: 'reason',
+      headerName: 'Lý do yêu cầu',
       flex: 0.18, // 18% width
       minWidth: 150,
       filterable: true,
       sortable: true,
       renderCell: (params) => {
-        const request = params.row;
-        let changeText = '';
-        
-        if (request.requestType === 'schedule_change') {
-          if (request.changeType === 'time_change') {
-            changeText = `Đổi tiết: ${request.timeSlot}`;
-          } else if (request.changeType === 'room_change') {
-            changeText = `Đổi phòng: ${request.currentRoom} → ${request.requestedRoom}`;
-          } else if (request.changeType === 'both') {
-            changeText = `Đổi cả phòng và tiết`;
-          }
-        } else if (request.requestType === 'room_request') {
-          changeText = `Xin phòng: ${request.requestedRoom}`;
-        }
-        
         return (
           <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.5, minWidth: 0, width: '100%' }}>
             <ScheduleIcon color="info" sx={{ fontSize: 16, marginTop: '2px', flexShrink: 0 }} />
-            <Typography variant="body2" sx={{ 
-              fontSize: '0.75rem', 
+            <Typography variant="body2" sx={{
+              fontSize: '0.75rem',
               lineHeight: 1.4,
               wordBreak: 'break-word',
               whiteSpace: 'normal'
             }}>
-              {changeText}
+              {params.value || 'N/A'}
             </Typography>
           </Box>
         );
       }
     },
     {
-      field: 'reason',
-      headerName: 'Lý do yêu cầu',
-      flex: 0.20, // 20% width - cột quan trọng nhất
-      minWidth: 180,
-      filterable: true,
-      sortable: true,
-      renderCell: (params) => (
-        <Typography 
-          variant="body2" 
-          sx={{ 
-            fontSize: '0.75rem', 
-            lineHeight: 1.4,
-            wordBreak: 'break-word',
-            whiteSpace: 'normal',
-            maxWidth: '100%'
-          }}
-        >
-          {params.value}
-        </Typography>
-      )
-    },
-    {
-      field: 'requestDate',
+      field: 'createdAt',
       headerName: 'Ngày gửi',
       flex: 0.08, // 8% width
       minWidth: 80,
@@ -500,7 +475,7 @@ const RoomRequestList = () => {
               <ViewIcon sx={{ fontSize: 16 }} />
             </IconButton>
           </Tooltip>
-          {params.row.status === 'pending' && (
+          {params.row.RequestStatus?.name === 'Chờ xử lý' && (
             <>
               <Tooltip title="Duyệt và xử lý yêu cầu">
                 <IconButton
@@ -531,10 +506,10 @@ const RoomRequestList = () => {
 
   if (loading && requests.length === 0) {
     return (
-      <Box 
-        display="flex" 
-        justifyContent="center" 
-        alignItems="center" 
+      <Box
+        display="flex"
+        justifyContent="center"
+        alignItems="center"
         height="400px"
         flexDirection="column"
       >
@@ -555,8 +530,8 @@ const RoomRequestList = () => {
               <Typography variant="h6">Không thể tải danh sách yêu cầu</Typography>
               <Typography>{error}</Typography>
             </Alert>
-            <Button 
-              variant="contained" 
+            <Button
+              variant="contained"
               onClick={handleRefresh}
               startIcon={<RefreshIcon />}
               sx={{ mt: 2 }}
@@ -575,20 +550,20 @@ const RoomRequestList = () => {
       <Card sx={{ mb: 3, boxShadow: 3 }}>
         <CardContent>
           <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
-            <Typography variant="h4" component="h1" sx={{ 
-              color: 'primary.main', 
+            <Typography variant="h4" component="h1" sx={{
+              color: 'primary.main',
               fontWeight: 'bold',
               fontSize: { xs: '1.5rem', md: '2rem' }
             }}>
               Danh sách yêu cầu xin/đổi phòng
             </Typography>
-            
+
             <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
               <Tooltip title="Làm mới dữ liệu">
-                <IconButton 
+                <IconButton
                   onClick={handleRefresh}
                   color="primary"
-                  sx={{ 
+                  sx={{
                     bgcolor: 'primary.main',
                     color: 'white',
                     '&:hover': {
@@ -605,14 +580,14 @@ const RoomRequestList = () => {
       </Card>
 
       {/* Statistics Cards */}
-      <Box sx={{ 
-        display: 'grid', 
-        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
-        gap: 2, 
-        mb: 3 
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: 2,
+        mb: 3
       }}>
-        <Card sx={{ 
-          height: 120, 
+        <Card sx={{
+          height: 120,
           minWidth: 150,
           maxWidth: 250,
           flex: '0 0 auto'
@@ -632,8 +607,8 @@ const RoomRequestList = () => {
           </CardContent>
         </Card>
 
-        <Card sx={{ 
-          height: 120, 
+        <Card sx={{
+          height: 120,
           minWidth: 150,
           maxWidth: 250,
           flex: '0 0 auto'
@@ -653,8 +628,8 @@ const RoomRequestList = () => {
           </CardContent>
         </Card>
 
-        <Card sx={{ 
-          height: 120, 
+        <Card sx={{
+          height: 120,
           minWidth: 150,
           maxWidth: 250,
           flex: '0 0 auto'
@@ -674,8 +649,8 @@ const RoomRequestList = () => {
           </CardContent>
         </Card>
 
-        <Card sx={{ 
-          height: 120, 
+        <Card sx={{
+          height: 120,
           minWidth: 150,
           maxWidth: 250,
           flex: '0 0 auto'
@@ -695,8 +670,8 @@ const RoomRequestList = () => {
           </CardContent>
         </Card>
 
-        <Card sx={{ 
-          height: 120, 
+        <Card sx={{
+          height: 120,
           minWidth: 150,
           maxWidth: 250,
           flex: '0 0 auto'
@@ -716,8 +691,8 @@ const RoomRequestList = () => {
           </CardContent>
         </Card>
 
-        <Card sx={{ 
-          height: 120, 
+        <Card sx={{
+          height: 120,
           minWidth: 150,
           maxWidth: 250,
           flex: '0 0 auto'
@@ -739,9 +714,9 @@ const RoomRequestList = () => {
       </Box>
 
       {/* DataGrid */}
-      <Paper sx={{ 
-        height: 600, 
-        width: '100%', 
+      <Paper sx={{
+        height: 600,
+        width: '100%',
         maxWidth: '100%',
         position: 'relative',
         overflow: 'hidden'

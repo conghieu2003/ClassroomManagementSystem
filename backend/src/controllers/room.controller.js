@@ -278,6 +278,34 @@ class RoomController {
       });
     }
   }
+
+  // API lấy lịch học theo time slot và thứ trong tuần
+  async getSchedulesByTimeSlotAndDate(req, res) {
+    try {
+      const { timeSlotId, dayOfWeek } = req.query;
+
+      if (!timeSlotId || !dayOfWeek) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thiếu tham số timeSlotId hoặc dayOfWeek'
+        });
+      }
+
+      const schedules = await roomService.getSchedulesByTimeSlotAndDate(timeSlotId, dayOfWeek);
+
+      return res.status(200).json({
+        success: true,
+        data: schedules
+      });
+    } catch (error) {
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
 }
 
 module.exports = new RoomController();

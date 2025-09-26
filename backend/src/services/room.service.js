@@ -456,6 +456,58 @@ class RoomService {
       throw new Error(`Lỗi lấy thông tin lớp học: ${error.message}`);
     }
   }
+
+  // Lấy lịch học theo time slot và thứ trong tuần
+  async getSchedulesByTimeSlotAndDate(timeSlotId, dayOfWeek) {
+    try {
+      const schedules = await prisma.classSchedule.findMany({
+        where: {
+          timeSlotId: parseInt(timeSlotId),
+          dayOfWeek: parseInt(dayOfWeek) // dayOfWeek (1-7)
+        },
+        include: {
+          class: {
+            select: {
+              id: true,
+              className: true,
+              subjectName: true
+            }
+          },
+          classRoom: {
+            select: {
+              id: true,
+              name: true,
+              code: true
+            }
+          },
+          teacher: {
+            select: {
+              id: true,
+              teacherCode: true,
+              user: {
+                select: {
+                  fullName: true
+                }
+              }
+            }
+          }
+        }
+      });
+
+      return schedules.map(schedule => ({
+        id: schedule.id,
+        classRoomId: schedule.classRoomId,
+        classRoom: schedule.classRoom,
+        class: schedule.class,
+        teacher: schedule.teacher,
+        dayOfWeek: schedule.dayOfWeek,
+        timeSlotId: schedule.timeSlotId
+      }));
+    } catch (error) {
+      console.error('Error getting schedules by time slot and date:', error);
+      throw new Error(`Lỗi lấy lịch học: ${error.message}`);
+    }
+  }
 }
 
 module.exports = new RoomService();
