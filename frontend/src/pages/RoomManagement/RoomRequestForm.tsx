@@ -402,7 +402,7 @@ const RoomRequestForm: React.FC = () => {
                                             Phòng hiện tại:
                                         </Typography>
                                         <Typography variant="body2">
-                                            {selectedSchedule.classRoom?.name || 'Chưa có phòng'}
+                                            {selectedSchedule.classRoom?.name || ''}
                                         </Typography>
                                     </Paper>
                                 </Box>

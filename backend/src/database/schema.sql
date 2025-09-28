@@ -320,6 +320,7 @@ CREATE TABLE ScheduleRequest (
     exceptionType NVARCHAR(50) NULL, -- Loại ngoại lệ: 'cancelled', 'exam', 'moved', 'substitute'
     movedToDate DATE NULL, -- Ngày chuyển đến (nếu type = 'moved')
     movedToTimeSlotId INT NULL, -- ID tiết chuyển đến (nếu type = 'moved')
+    movedToDayOfWeek INT NULL, -- Thứ trong tuần muốn đổi (1: Chủ nhật, 2: Thứ 2, ..., 7: Thứ 7)
     movedToClassRoomId INT NULL, -- ID phòng chuyển đến (nếu type = 'moved')
     substituteTeacherId INT NULL, -- ID giảng viên thay thế (nếu type = 'substitute')
     -- Thông tin chung
@@ -405,6 +406,8 @@ ADD CONSTRAINT CK_ScheduleRequest_Type CHECK (requestTypeId BETWEEN 1 AND 9);
 
 ALTER TABLE ScheduleRequest
 ADD CONSTRAINT CK_ScheduleRequest_Status CHECK (requestStatusId BETWEEN 1 AND 3);
+ALTER TABLE ScheduleRequest
+ADD CONSTRAINT CK_ScheduleRequest_DayOfWeek CHECK (movedToDayOfWeek BETWEEN 1 AND 7);
 
 -- =====================================================
 -- END OF SCHEMA

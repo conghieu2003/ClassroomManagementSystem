@@ -65,6 +65,7 @@ interface ScheduleState {
   classes: Class[];
   teachers: Teacher[];
   loading: boolean;
+  weeklyScheduleLoading: boolean; // Loading state riêng cho weekly schedule
   error: string | null;
   filters: ScheduleFilter;
 }
@@ -77,6 +78,7 @@ const initialState: ScheduleState = {
   classes: [],
   teachers: [],
   loading: false,
+  weeklyScheduleLoading: false,
   error: null,
   filters: {}
 };
@@ -177,10 +179,13 @@ const scheduleSlice = createSlice({
         state.error = action.error.message || 'Failed to fetch schedules';
       });
 
-    // Fetch departments
+    // Fetch departments - không set loading để tránh nhấp nháy
     builder
       .addCase(fetchDepartments.pending, (state) => {
-        state.loading = true;
+        // Chỉ set loading nếu chưa có data
+        if (state.departments.length === 0) {
+          state.loading = true;
+        }
         state.error = null;
       })
       .addCase(fetchDepartments.fulfilled, (state, action) => {
@@ -192,10 +197,13 @@ const scheduleSlice = createSlice({
         state.error = action.error.message || 'Failed to fetch departments';
       });
 
-    // Fetch classes
+    // Fetch classes - không set loading để tránh nhấp nháy
     builder
       .addCase(fetchClasses.pending, (state) => {
-        state.loading = true;
+        // Chỉ set loading nếu chưa có data
+        if (state.classes.length === 0) {
+          state.loading = true;
+        }
         state.error = null;
       })
       .addCase(fetchClasses.fulfilled, (state, action) => {
@@ -207,10 +215,13 @@ const scheduleSlice = createSlice({
         state.error = action.error.message || 'Failed to fetch classes';
       });
 
-    // Fetch teachers
+    // Fetch teachers - không set loading để tránh nhấp nháy
     builder
       .addCase(fetchTeachers.pending, (state) => {
-        state.loading = true;
+        // Chỉ set loading nếu chưa có data
+        if (state.teachers.length === 0) {
+          state.loading = true;
+        }
         state.error = null;
       })
       .addCase(fetchTeachers.fulfilled, (state, action) => {
@@ -225,15 +236,15 @@ const scheduleSlice = createSlice({
     // Fetch weekly schedule
     builder
       .addCase(fetchWeeklySchedule.pending, (state) => {
-        state.loading = true;
+        state.weeklyScheduleLoading = true;
         state.error = null;
       })
       .addCase(fetchWeeklySchedule.fulfilled, (state, action) => {
-        state.loading = false;
+        state.weeklyScheduleLoading = false;
         state.weeklySchedules = action.payload.data || action.payload;
       })
       .addCase(fetchWeeklySchedule.rejected, (state, action) => {
-        state.loading = false;
+        state.weeklyScheduleLoading = false;
         state.error = action.error.message || 'Failed to fetch weekly schedule';
       });
 
@@ -296,6 +307,7 @@ export const selectDepartments = (state: { schedule: ScheduleState }) => state.s
 export const selectClasses = (state: { schedule: ScheduleState }) => state.schedule.classes;
 export const selectTeachers = (state: { schedule: ScheduleState }) => state.schedule.teachers;
 export const selectScheduleLoading = (state: { schedule: ScheduleState }) => state.schedule.loading;
+export const selectWeeklyScheduleLoading = (state: { schedule: ScheduleState }) => state.schedule.weeklyScheduleLoading;
 export const selectScheduleError = (state: { schedule: ScheduleState }) => state.schedule.error;
 export const selectScheduleFilters = (state: { schedule: ScheduleState }) => state.schedule.filters;
 

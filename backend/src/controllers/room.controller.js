@@ -244,7 +244,7 @@ class RoomController {
   // API lấy danh sách lớp học của giảng viên
   async getTeacherSchedules(req, res) {
     try {
-      const { teacherId } = req.params;
+      const { teacherId } = req.params; // Thực tế là userId từ frontend
       const schedules = await roomService.getTeacherSchedules(teacherId);
       return res.status(200).json({
         success: true,
