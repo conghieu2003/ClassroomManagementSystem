@@ -100,7 +100,15 @@ const getWeeklySchedule = async (weekStartDate, filters = {}) => {
 
     // Build where clause
     const whereClause = {
-      statusId: { in: [2, 3, 5, 6] } // Đã phân phòng, Đang hoạt động, Tạm ngưng, Thi
+      OR: [
+        { statusId: { in: [2, 3, 5, 6] } }, // Đã phân phòng, Đang hoạt động, Tạm ngưng, Thi
+        { 
+          AND: [
+            { statusId: 1 }, // Chờ phân phòng
+            { classRoomId: { not: null } } // Nhưng đã có phòng (từ yêu cầu đã được chấp nhận)
+          ]
+        }
+      ]
     };
 
     // Filter theo khoa
@@ -123,9 +131,19 @@ const getWeeklySchedule = async (weekStartDate, filters = {}) => {
     // Filter theo loại lịch
     if (filters.scheduleType && filters.scheduleType !== 'all') {
       if (filters.scheduleType === 'study') {
-        whereClause.statusId = { in: [2, 3] }; // Chỉ lấy lịch học bình thường
+        whereClause.OR = [
+          { statusId: { in: [2, 3] } }, // Đã phân phòng, Đang hoạt động
+          { 
+            AND: [
+              { statusId: 1 }, // Chờ phân phòng
+              { classRoomId: { not: null } } // Nhưng đã có phòng
+            ]
+          }
+        ];
       } else if (filters.scheduleType === 'exam') {
-        whereClause.statusId = 6; // Chỉ lấy lịch thi
+        whereClause.OR = [
+          { statusId: 6 } // Chỉ lấy lịch thi
+        ];
       }
     }
 

@@ -57,7 +57,7 @@ const getScheduleRequests = async (req, res) => {
 
 const getTeacherSchedules = async (req, res) => {
     try {
-        const { teacherId } = req.params;
+        const { teacherId } = req.params; // Thực tế là userId từ frontend
         const result = await scheduleRequestService.getTeacherSchedules(teacherId);
 
         res.status(200).json({

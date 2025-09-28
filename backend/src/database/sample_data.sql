@@ -883,6 +883,7 @@ VALUES
 -- =====================================================
 INSERT INTO ClassStudent (classId, studentId, groupNumber, academicStatusId, joinedAt)
 VALUES 
+--(8, 21, NULL, 1, '2025-09-01') -- Bảo
 -- Lớp COMP101 (Nhập môn lập trình) - 10 sinh viên CNTT
 (1, 1, 1, 1, '2025-09-01'), -- Ao Công Hiếu - Nhóm 1
 (1, 2, 1, 1, '2025-09-01'), -- Nguyễn Thị Lan Anh - Nhóm 1
@@ -938,6 +939,7 @@ VALUES
 -- =====================================================
 -- Lớp COMP201 (Cấu trúc dữ liệu và giải thuật) - 8 sinh viên CNTT SE
 (8, 1, NULL, 1, '2025-09-01'), -- Ao Công Hiếu
+--
 (8, 4, NULL, 1, '2025-09-01'), -- Lê Thị Hương
 (8, 7, NULL, 1, '2025-09-01'), -- Vũ Văn Hùng
 (8, 10, NULL, 1, '2025-09-01'), -- Ngô Thị Thu
@@ -997,28 +999,28 @@ VALUES
 -- =====================================================
 -- 15. DỮ LIỆU YÊU CẦU THAY ĐỔI LỊCH HỌC
 -- =====================================================
-INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
-VALUES 
--- Yêu cầu phòng độc lập (Đổi phòng = 7)
-(7, NULL, 1, 1, '2025-10-15', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, N'Yêu cầu phòng cho buổi thuyết trình', NULL, 1, NULL, NULL),
+--INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
+--VALUES 
+---- Yêu cầu phòng độc lập (Đổi phòng = 7)
+--(7, NULL, 1, 1, '2025-10-15', 1, NULL, NULL, NULL, NULL, NULL, NULL, NULL, N'Yêu cầu phòng cho buổi thuyết trình', NULL, 1, NULL, NULL),
 
--- Yêu cầu thay đổi phòng học (Đổi phòng = 7)
-(7, 1, NULL, 1, '2025-10-15', 1, 'room_change', 1, 2, NULL, NULL, NULL, NULL, N'Phòng hiện tại quá nhỏ cho số lượng sinh viên', 1, 2, '2025-10-01 10:00:00', N'Admin đã phê duyệt thay đổi phòng'),
+---- Yêu cầu thay đổi phòng học (Đổi phòng = 7)
+--(7, 1, NULL, 1, '2025-10-15', 1, 'room_change', 1, 2, NULL, NULL, NULL, NULL, N'Phòng hiện tại quá nhỏ cho số lượng sinh viên', 1, 2, '2025-10-01 10:00:00', N'Admin đã phê duyệt thay đổi phòng'),
 
--- Yêu cầu thay đổi tiết học (Đổi lịch = 8)
-(8, 2, NULL, 2, '2025-10-15', 7, 'time_change', NULL, NULL, 7, 10, NULL, NULL, N'Giảng viên có lịch trùng với tiết 7-9', 1, 1, NULL, N'Đang chờ admin xem xét'),
+---- Yêu cầu thay đổi tiết học (Đổi lịch = 8)
+--(8, 2, NULL, 2, '2025-10-15', 7, 'time_change', NULL, NULL, 7, 10, NULL, NULL, N'Giảng viên có lịch trùng với tiết 7-9', 1, 1, NULL, N'Đang chờ admin xem xét'),
 
--- Yêu cầu thay đổi cả phòng và tiết (Đổi lịch = 8)
-(8, 3, NULL, 3, '2025-10-15', 4, 'both', 2, 3, 4, 5, NULL, NULL, N'Phòng và tiết hiện tại không phù hợp', NULL, 1, NULL, N'Chờ admin phê duyệt'),
+---- Yêu cầu thay đổi cả phòng và tiết (Đổi lịch = 8)
+--(8, 3, NULL, 3, '2025-10-15', 4, 'both', 2, 3, 4, 5, NULL, NULL, N'Phòng và tiết hiện tại không phù hợp', NULL, 1, NULL, N'Chờ admin phê duyệt'),
 
--- Ngoại lệ: Chuyển sang thi (Thi = 6)
-(6, 1, NULL, 1, '2025-10-15', 1, 'exception', NULL, NULL, NULL, NULL, '2025-11-07', 'exam', N'Chuyển từ học sang thi giữa kỳ', 1, 2, '2025-10-01 10:00:00', N'Admin đã phê duyệt chuyển sang thi'),
+---- Ngoại lệ: Chuyển sang thi (Thi = 6)
+--(6, 1, NULL, 1, '2025-10-15', 1, 'exception', NULL, NULL, NULL, NULL, '2025-11-07', 'exam', N'Chuyển từ học sang thi giữa kỳ', 1, 2, '2025-10-01 10:00:00', N'Admin đã phê duyệt chuyển sang thi'),
 
--- Ngoại lệ: Nghỉ học (Tạm ngưng = 5)
-(5, 2, NULL, 2, '2025-10-15', 7, 'exception', NULL, NULL, NULL, NULL, '2025-11-07', 'cancelled', N'Nghỉ học do bão', NULL, 1, NULL, N'Chờ admin phê duyệt'),
+---- Ngoại lệ: Nghỉ học (Tạm ngưng = 5)
+--(5, 2, NULL, 2, '2025-10-15', 7, 'exception', NULL, NULL, NULL, NULL, '2025-11-07', 'cancelled', N'Nghỉ học do bão', NULL, 1, NULL, N'Chờ admin phê duyệt'),
 
--- Ngoại lệ: Chuyển sang ngày khác (Đổi lịch = 8)
-(8, 3, NULL, 3, '2025-10-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-11-07', 'moved', N'Chuyển lớp do nghỉ lễ', NULL, 1, NULL, N'Chờ admin phê duyệt');
+---- Ngoại lệ: Chuyển sang ngày khác (Đổi lịch = 8)
+--(8, 3, NULL, 3, '2025-10-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-11-07', 'moved', N'Chuyển lớp do nghỉ lễ', NULL, 1, NULL, N'Chờ admin phê duyệt');
 
 -- =====================================================
 -- 16. DỮ LIỆU THÔNG TIN PROFILE MỞ RỘNG
@@ -1238,28 +1240,28 @@ VALUES (
     N'Phó Giáo sư'
 );
 
--- =====================================================
--- 17. DỮ LIỆU NGOẠI LỆ LỊCH HỌC (TẠM NGƯNG VÀ THI)
--- =====================================================
+---- =====================================================
+---- 17. DỮ LIỆU NGOẠI LỆ LỊCH HỌC (TẠM NGƯNG VÀ THI)
+---- =====================================================
 
--- Thêm lịch tạm ngưng cho sinh viên Ao Công Hiếu (COMP201 - Cấu trúc dữ liệu và giải thuật)
--- Tuần 4, Thứ 3, Tiết 4-6: Tạm ngưng do nghỉ lễ
-INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
-VALUES 
-(5, 18, NULL, 1, '2025-09-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-09-23', 'cancelled', N'Tạm ngưng lớp do nghỉ lễ Quốc khánh', 1, 2, '2025-09-01 10:00:00', N'Admin đã phê duyệt tạm ngưng lớp');
+---- Thêm lịch tạm ngưng cho sinh viên Ao Công Hiếu (COMP201 - Cấu trúc dữ liệu và giải thuật)
+---- Tuần 4, Thứ 3, Tiết 4-6: Tạm ngưng do nghỉ lễ
+--INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
+--VALUES 
+--(5, 18, NULL, 1, '2025-09-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-09-23', 'cancelled', N'Tạm ngưng lớp do nghỉ lễ Quốc khánh', 1, 2, '2025-09-01 10:00:00', N'Admin đã phê duyệt tạm ngưng lớp');
 
--- Thêm lịch thi cho sinh viên Ao Công Hiếu (COMP201 - Cấu trúc dữ liệu và giải thuật)
--- Tuần 5, Thứ 3, Tiết 4-6: Chuyển sang thi giữa kỳ
-INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
-VALUES 
-(6, 18, NULL, 1, '2025-09-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-09-30', 'exam', N'Chuyển từ học sang thi giữa kỳ môn Cấu trúc dữ liệu và giải thuật', 1, 2, '2025-09-01 10:00:00', N'Admin đã phê duyệt chuyển sang thi');
+---- Thêm lịch thi cho sinh viên Ao Công Hiếu (COMP201 - Cấu trúc dữ liệu và giải thuật)
+---- Tuần 5, Thứ 3, Tiết 4-6: Chuyển sang thi giữa kỳ
+--INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
+--VALUES 
+--(6, 18, NULL, 1, '2025-09-15', 4, 'exception', NULL, NULL, NULL, NULL, '2025-09-30', 'exam', N'Chuyển từ học sang thi giữa kỳ môn Cấu trúc dữ liệu và giải thuật', 1, 2, '2025-09-01 10:00:00', N'Admin đã phê duyệt chuyển sang thi');
 
--- Thêm lịch tạm ngưng cho sinh viên Ao Công Hiếu (COMP101 - Nhập môn lập trình)
--- Tuần 6, Thứ 3, Tiết 1-3: Tạm ngưng do bão
-INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
-VALUES 
-(5, 1, NULL, 1, '2025-10-15', 1, 'exception', NULL, NULL, NULL, NULL, '2025-10-14', 'cancelled', N'Tạm ngưng lớp do bão Noru', 1, 2, '2025-10-01 10:00:00', N'Admin đã phê duyệt tạm ngưng lớp do thời tiết');
+---- Thêm lịch tạm ngưng cho sinh viên Ao Công Hiếu (COMP101 - Nhập môn lập trình)
+---- Tuần 6, Thứ 3, Tiết 1-3: Tạm ngưng do bão
+--INSERT INTO ScheduleRequest (requestTypeId, classScheduleId, classRoomId, requesterId, requestDate, timeSlotId, changeType, oldClassRoomId, newClassRoomId, oldTimeSlotId, newTimeSlotId, exceptionDate, exceptionType, reason, approvedBy, requestStatusId, approvedAt, note)
+--VALUES 
+--(5, 1, NULL, 1, '2025-10-15', 1, 'exception', NULL, NULL, NULL, NULL, '2025-10-14', 'cancelled', N'Tạm ngưng lớp do bão Noru', 1, 2, '2025-10-01 10:00:00', N'Admin đã phê duyệt tạm ngưng lớp do thời tiết');
 
--- =====================================================
--- END OF SAMPLE DATA
--- =====================================================
+---- =====================================================
+---- END OF SAMPLE DATA
+---- =====================================================

@@ -258,11 +258,28 @@ class RoomService {
   }
 
   // Lấy danh sách lớp học của giảng viên
-  async getTeacherSchedules(teacherId) {
+  async getTeacherSchedules(userId) {
     try {
+      // Tìm Teacher ID từ User ID
+      const teacher = await prisma.teacher.findFirst({
+        where: {
+          userId: parseInt(userId)
+        },
+        select: {
+          id: true
+        }
+      });
+
+      if (!teacher) {
+        return [];
+      }
+
       const classSchedules = await prisma.classSchedule.findMany({
         where: {
-          teacherId: parseInt(teacherId)
+          teacherId: teacher.id,
+          classRoomId: {
+            not: null  // Chỉ lấy những lớp đã có phòng
+          }
         },
         include: {
           class: {

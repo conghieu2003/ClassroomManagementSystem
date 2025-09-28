@@ -191,4 +191,3 @@ class ScheduleManagementController {
 }
 
 module.exports = new ScheduleManagementController();
-

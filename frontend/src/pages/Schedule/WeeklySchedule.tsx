@@ -40,7 +40,8 @@ import {
   fetchWeeklySchedule, 
   fetchDepartments, 
   fetchClasses, 
-  fetchTeachers 
+  fetchTeachers,
+  selectWeeklyScheduleLoading
 } from '../../redux/slices/scheduleSlice';
 
 // Types
@@ -81,284 +82,20 @@ interface WeeklyScheduleItem {
   timeSlotOrder: number;
   assignedAt: string;
   note?: string;
-  // Thông tin ngoại lệ
-  exceptionDate?: string;
-  exceptionType?: string;
-  exceptionReason?: string;
-  exceptionStatus?: string;
 }
 
-// Memoized Schedule Card Component
-const ScheduleCard = memo(({ schedule, getScheduleColor }: { 
-  schedule: WeeklyScheduleItem; 
-  getScheduleColor: (type: string, exceptionType?: string) => string;
-}) => {
-  const isException = schedule.exceptionDate && schedule.exceptionType;
-  const isCancelled = schedule.exceptionType === 'cancelled';
-  const isExam = schedule.exceptionType === 'exam' || schedule.statusId === 6;
-  
-  return (
-    <Card 
-      sx={{ 
-        mb: 1, 
-        backgroundColor: getScheduleColor(schedule.type, schedule.exceptionType),
-        border: isException ? '2px solid #ff6b6b' : '1px solid #ddd',
-        position: 'relative',
-        opacity: isCancelled ? 0.6 : 1,
-        '&:last-child': { mb: 0 }
-      }}
-    >
-      {/* Nhãn ngoại lệ */}
-      {isException && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            backgroundColor: isCancelled ? '#ff6b6b' : isExam ? '#ffa726' : '#66bb6a',
-            color: 'white',
-            fontSize: '0.6rem',
-            fontWeight: 'bold',
-            padding: '2px 6px',
-            borderRadius: '0 4px 0 8px',
-            zIndex: 1
-          }}
-        >
-          {isCancelled ? 'TẠM NGƯNG' : isExam ? 'THI' : 'NGOẠI LỆ'}
-        </Box>
-      )}
-      
-      <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
-        <Typography 
-          variant="subtitle2" 
-          sx={{ 
-            fontWeight: 'bold', 
-            fontSize: '0.75rem',
-            textDecoration: isCancelled ? 'line-through' : 'none',
-            color: isCancelled ? '#666' : 'inherit'
-          }}
-        >
-          {schedule.className}
-        </Typography>
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            display: 'block', 
-            fontSize: '0.7rem',
-            textDecoration: isCancelled ? 'line-through' : 'none',
-            color: isCancelled ? '#666' : 'inherit'
-          }}
-        >
-          {schedule.classCode} - {schedule.subjectCode}
-        </Typography>
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            display: 'block', 
-            fontSize: '0.7rem',
-            textDecoration: isCancelled ? 'line-through' : 'none',
-            color: isCancelled ? '#666' : 'inherit'
-          }}
-        >
-          Tiết: {schedule.timeSlot}
-        </Typography>
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            display: 'block', 
-            fontSize: '0.7rem',
-            textDecoration: isCancelled ? 'line-through' : 'none',
-            color: isCancelled ? '#666' : 'inherit'
-          }}
-        >
-          Phòng: {schedule.roomName || 'Chưa phân'}
-        </Typography>
-        <Typography 
-          variant="caption" 
-          sx={{ 
-            display: 'block', 
-            fontSize: '0.7rem',
-            textDecoration: isCancelled ? 'line-through' : 'none',
-            color: isCancelled ? '#666' : 'inherit'
-          }}
-        >
-          GV: {schedule.teacherName}
-        </Typography>
-        {schedule.practiceGroup && (
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              display: 'block', 
-              fontSize: '0.7rem',
-              textDecoration: isCancelled ? 'line-through' : 'none',
-              color: isCancelled ? '#666' : 'inherit'
-            }}
-          >
-            Nhóm: {schedule.practiceGroup}
-          </Typography>
-        )}
-        {isException && schedule.exceptionReason && (
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              display: 'block', 
-              fontSize: '0.65rem',
-              color: isCancelled ? '#d32f2f' : isExam ? '#f57c00' : '#2e7d32',
-              fontStyle: 'italic',
-              mt: 0.5
-            }}
-          >
-            {schedule.exceptionReason}
-          </Typography>
-        )}
-      </CardContent>
-    </Card>
-  );
-});
-
-const WeeklySchedule = () => {
-  // Redux hooks
-  const dispatch = useDispatch<AppDispatch>();
-  const {
-    weeklySchedules,
-    departments,
-    classes,
-    teachers,
-    loading,
-    error
-  } = useSelector((state: RootState) => state.schedule);
-
-  // Local loading state for schedule data only
-  const [scheduleLoading, setScheduleLoading] = useState(false);
-  
-  // Debounce filter changes to prevent rapid API calls
-  const [debouncedFilters, setDebouncedFilters] = useState({
-    departmentId: '',
-    classId: '',
-    teacherId: ''
-  });
-
-  // Keep previous data to prevent flickering - use stable reference
-  const previousSchedulesRef = useRef<WeeklyScheduleItem[]>([]);
-  
-  // Cache for schedule data to avoid unnecessary API calls
-  const scheduleCache = useRef<Map<string, WeeklyScheduleItem[]>>(new Map());
-  
-  // Loading timeout ref to prevent race conditions
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  
-  // Stable data reference to prevent unnecessary re-renders
-  const stableSchedulesRef = useRef<WeeklyScheduleItem[]>([]);
-
-  // Local state
-  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
-  const [scheduleType, setScheduleType] = useState('all');
-  const [selectedDepartment, setSelectedDepartment] = useState('');
-  const [selectedClass, setSelectedClass] = useState('');
-  const [selectedTeacher, setSelectedTeacher] = useState('');
-
-  // Load initial data
-  useEffect(() => {
-    dispatch(fetchDepartments());
-    dispatch(fetchClasses());
-    dispatch(fetchTeachers());
-  }, [dispatch]);
-
-  // Debounce filter changes with adaptive timing
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setDebouncedFilters({
-        departmentId: selectedDepartment,
-        classId: selectedClass,
-        teacherId: selectedTeacher
-      });
-    }, 250); // Reduced to 250ms for better responsiveness
-
-    return () => clearTimeout(timer);
-  }, [selectedDepartment, selectedClass, selectedTeacher]);
-
-  // Generate cache key for current filters
-  const getCacheKey = useCallback((weekStartDate: string, filters: any) => {
-    return `${weekStartDate}-${filters.departmentId || 'all'}-${filters.classId || 'all'}-${filters.teacherId || 'all'}`;
-  }, []);
-
-  // Load weekly schedule when debounced filters change
-  const loadWeeklySchedule = useCallback(async () => {
-    const weekStartDate = selectedDate.startOf('week').add(1, 'day').format('YYYY-MM-DD'); // Start from Monday
-    const filters = {
-      departmentId: debouncedFilters.departmentId ? parseInt(debouncedFilters.departmentId) : undefined,
-      classId: debouncedFilters.classId ? parseInt(debouncedFilters.classId) : undefined,
-      teacherId: debouncedFilters.teacherId ? parseInt(debouncedFilters.teacherId) : undefined
-    };
-    
-    const cacheKey = getCacheKey(weekStartDate, filters);
-    
-    // Check cache first
-    if (scheduleCache.current.has(cacheKey)) {
-      const cachedData = scheduleCache.current.get(cacheKey);
-      if (cachedData) {
-        // Use cached data without API call - update stable reference
-        stableSchedulesRef.current = cachedData;
-        return;
-      }
-    }
-    
-    // Clear any existing timeout
-    if (loadingTimeoutRef.current) {
-      clearTimeout(loadingTimeoutRef.current);
-    }
-    
-    // Store current data before loading new data
-    if (weeklySchedules && weeklySchedules.length > 0) {
-      previousSchedulesRef.current = weeklySchedules;
-    }
-    
-    // Only show loading if we don't have previous data
-    if (previousSchedulesRef.current.length === 0) {
-      setScheduleLoading(true);
-    }
-    
-    try {
-      const result = await dispatch(fetchWeeklySchedule({ weekStartDate, filters }));
-      
-      // Cache the result and update stable reference
-      if (result.payload && Array.isArray(result.payload)) {
-        const newData = result.payload as WeeklyScheduleItem[];
-        scheduleCache.current.set(cacheKey, newData);
-        stableSchedulesRef.current = newData;
-        
-        // Limit cache size to prevent memory leaks
-        if (scheduleCache.current.size > 50) {
-          const firstKey = scheduleCache.current.keys().next().value;
-          if (firstKey) {
-            scheduleCache.current.delete(firstKey);
-          }
-        }
-      }
-    } finally {
-      // Ensure minimum loading time for smooth UX
-      loadingTimeoutRef.current = setTimeout(() => {
-        setScheduleLoading(false);
-      }, 150);
-    }
-  }, [dispatch, selectedDate, debouncedFilters, weeklySchedules, getCacheKey]);
-
-  useEffect(() => {
-    loadWeeklySchedule();
-  }, [loadWeeklySchedule]);
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      if (loadingTimeoutRef.current) {
-        clearTimeout(loadingTimeoutRef.current);
-      }
-    };
-  }, []);
-
-  // Tính toán tuần hiện tại
+// Component tĩnh cho table header - không re-render
+const ScheduleTableHeader = memo(({ selectedDate, headerRef }: { selectedDate: Dayjs, headerRef: React.RefObject<HTMLTableSectionElement> }) => {
   const currentWeek = useMemo(() => {
-    const startOfWeek = selectedDate.startOf('week').add(1, 'day'); // Bắt đầu từ thứ 2
+    const dayOfWeek = selectedDate.day(); // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
+    let startOfWeek;
+    
+    if (dayOfWeek === 0) { // Chủ nhật
+      startOfWeek = selectedDate.subtract(6, 'day');
+    } else {
+      startOfWeek = selectedDate.subtract(dayOfWeek - 1, 'day'); 
+    }
+    
     const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
     
     const weekDays = [];
@@ -374,24 +111,293 @@ const WeeklySchedule = () => {
     return weekDays;
   }, [selectedDate]);
 
+  return (
+    <TableHead ref={headerRef}>
+      <TableRow>
+        <TableCell 
+          sx={{ 
+            backgroundColor: '#e3f2fd', 
+            textAlign: 'center',
+            minWidth: '120px',
+            fontSize: '0.875rem',
+            fontWeight: 'bold',
+            border: '1px solid #ddd'
+          }}
+        >
+          Ca học
+        </TableCell>
+        {currentWeek.map((day, index) => (
+          <TableCell 
+            key={`${day.dayNumber}-${index}`} 
+            sx={{ 
+              backgroundColor: '#1976d2', 
+              color: 'white',
+              textAlign: 'center',
+              minWidth: '150px',
+              fontSize: '0.875rem',
+              fontWeight: 'bold',
+              border: '1px solid #ddd'
+            }}
+          >
+            <Box>
+              <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                {day.dayName}
+              </Typography>
+              <Typography variant="caption" sx={{ opacity: 0.9, mt: 0.5, display: 'block' }}>
+                {day.dayNumber}
+              </Typography>
+            </Box>
+          </TableCell>
+        ))}
+      </TableRow>
+    </TableHead>
+  );
+});
+
+ScheduleTableHeader.displayName = 'ScheduleTableHeader';
+
+const ScheduleTableBody = memo(({ 
+  scheduleGrid, 
+  getScheduleColor 
+}: { 
+  scheduleGrid: any[], 
+  getScheduleColor: (type: string) => string 
+}) => {
+  // Memoize schedule color function để tránh re-render
+  const memoizedGetScheduleColor = useCallback(getScheduleColor, [getScheduleColor]);
+  
+  return (
+    <TableBody>
+      {scheduleGrid.map((shift, shiftIndex) => (
+        <TableRow key={shift.key}>
+          <TableCell 
+            sx={{ 
+              backgroundColor: shift.color, 
+              textAlign: 'center',
+              fontWeight: 'bold',
+              fontSize: '0.875rem',
+              border: '1px solid #ddd'
+            }}
+          >
+            {shift.name}
+          </TableCell>
+          {shift.schedules.map((daySchedules: WeeklyScheduleItem[], dayIndex: number) => (
+            <TableCell 
+              key={dayIndex} 
+              sx={{ 
+                padding: '8px', 
+                verticalAlign: 'top',
+                minHeight: '120px',
+                border: '1px solid #ddd'
+              }}
+            >
+              {daySchedules.map((schedule: WeeklyScheduleItem) => (
+                <Card 
+                  key={schedule.id} 
+                  sx={{ 
+                    mb: 1, 
+                    backgroundColor: memoizedGetScheduleColor(schedule.type),
+                    border: '1px solid #ddd',
+                    '&:last-child': { mb: 0 }
+                  }}
+                >
+                  <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
+                      {schedule.className}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      {schedule.classCode} - {schedule.subjectCode}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      Tiết: {schedule.timeSlot}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      Phòng: {schedule.roomName}
+                    </Typography>
+                    <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                      GV: {schedule.teacherName}
+                    </Typography>
+                    {schedule.practiceGroup && (
+                      <Typography variant="caption" sx={{ display: 'block', fontSize: '0.7rem' }}>
+                        Nhóm: {schedule.practiceGroup}
+                      </Typography>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </TableCell>
+          ))}
+        </TableRow>
+      ))}
+    </TableBody>
+  );
+});
+
+ScheduleTableBody.displayName = 'ScheduleTableBody';
+
+const WeeklySchedule = memo(() => {
+  // Redux hooks
+  const dispatch = useDispatch<AppDispatch>();
+  const {
+    weeklySchedules,
+    departments,
+    classes,
+    teachers,
+    loading,
+    error
+  } = useSelector((state: RootState) => state.schedule);
+  
+  // Get user role from auth state
+  const { user } = useSelector((state: RootState) => state.auth);
+  const isAdmin = user?.role === 'admin';
+  
+  // Sử dụng selector riêng cho weekly schedule loading
+  const weeklyScheduleLoading = useSelector(selectWeeklyScheduleLoading);
+  
+  // Local loading state để control minimum loading time
+  const [localLoading, setLocalLoading] = useState(false);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Local state
+  const [selectedDate, setSelectedDate] = useState<Dayjs>(dayjs());
+  const [scheduleType, setScheduleType] = useState('all');
+  const [selectedDepartment, setSelectedDepartment] = useState('');
+  const [selectedClass, setSelectedClass] = useState('');
+  const [selectedTeacher, setSelectedTeacher] = useState('');
+  
+  // Ref để tránh re-render không cần thiết
+  const headerRef = useRef<HTMLTableSectionElement>(null);
+
+  // Load initial data only once and only for admin
+  useEffect(() => {
+    // Chỉ fetch data nếu là admin và chưa có data
+    if (isAdmin) {
+      if (departments.length === 0) {
+        dispatch(fetchDepartments());
+      }
+      if (classes.length === 0) {
+        dispatch(fetchClasses());
+      }
+      if (teachers.length === 0) {
+        dispatch(fetchTeachers());
+      }
+    }
+  }, [dispatch, departments.length, classes.length, teachers.length, isAdmin]);
+
+  // Debounce timer ref
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Load weekly schedule when filters change with debouncing
+  const loadWeeklySchedule = useCallback(() => {
+    // Clear previous timer
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+    
+    // Show loading immediately
+    setLocalLoading(true);
+    
+    // Debounce API call để tránh gọi quá nhiều lần
+    debounceTimerRef.current = setTimeout(() => {
+      const dayOfWeek = selectedDate.day(); // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
+      let startOfWeek;
+      
+      if (dayOfWeek === 0) { 
+        startOfWeek = selectedDate.subtract(6, 'day');
+      } else {
+        startOfWeek = selectedDate.subtract(dayOfWeek - 1, 'day'); 
+      }
+      
+      const weekStartDate = startOfWeek.format('YYYY-MM-DD'); 
+      const filters = isAdmin ? {
+        departmentId: selectedDepartment ? parseInt(selectedDepartment) : undefined,
+        classId: selectedClass ? parseInt(selectedClass) : undefined,
+        teacherId: selectedTeacher ? parseInt(selectedTeacher) : undefined
+      } : {};
+      
+      console.log('🔍 [DEBUG] Loading weekly schedule:', { weekStartDate, filters, isAdmin });
+      dispatch(fetchWeeklySchedule({ weekStartDate, filters }));
+    }, 100); // Debounce 100ms
+  }, [dispatch, selectedDate, selectedDepartment, selectedClass, selectedTeacher, isAdmin]);
+
+  useEffect(() => {
+    loadWeeklySchedule();
+  }, [loadWeeklySchedule]);
+
+  // Effect để quản lý loading state với minimum time
+  useEffect(() => {
+    if (weeklyScheduleLoading) {
+      // Clear any existing timeout
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    } else if (localLoading) {
+      // API call completed, but ensure minimum loading time
+      loadingTimeoutRef.current = setTimeout(() => {
+        setLocalLoading(false);
+      }, 200); // Minimum 200ms loading time
+    }
+  }, [weeklyScheduleLoading, localLoading]);
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Debug: Log weekly schedules
+  useEffect(() => {
+    console.log('📅 [DEBUG] Weekly schedules updated:', {
+      count: weeklySchedules?.length || 0,
+      schedules: weeklySchedules,
+      loading: weeklyScheduleLoading,
+      localLoading
+    });
+  }, [weeklySchedules, weeklyScheduleLoading, localLoading]);
+
+  // Filter schedules dựa trên các điều kiện
   const filteredSchedules = useMemo(() => {
-    // Use stable reference to prevent flickering
-    const currentData = (weeklySchedules && weeklySchedules.length > 0) ? weeklySchedules : 
-                       (stableSchedulesRef.current.length > 0) ? stableSchedulesRef.current : 
-                       previousSchedulesRef.current;
-    let filtered = currentData || [];
+    if (!weeklySchedules || weeklySchedules.length === 0) {
+      console.log('🔍 [DEBUG] No weekly schedules to filter');
+      return [];
+    }
+
+    console.log('🔍 [DEBUG] Filtering schedules:', {
+      total: weeklySchedules.length,
+      scheduleType,
+      schedules: weeklySchedules.map(s => ({
+        id: s.id,
+        className: s.className,
+        dayOfWeek: s.dayOfWeek,
+        timeSlot: s.timeSlot,
+        roomName: s.roomName,
+        statusId: s.statusId,
+        type: s.type
+      }))
+    });
 
     // Filter theo loại lịch
     if (scheduleType === 'study') {
-      filtered = filtered.filter(s => s.type === 'theory' || s.type === 'practice');
+      const filtered = weeklySchedules.filter(s => s.type === 'theory' || s.type === 'practice');
+      console.log('🔍 [DEBUG] Study schedules filtered:', filtered.length);
+      return filtered;
     } else if (scheduleType === 'exam') {
-      filtered = filtered.filter(s => s.type === 'exam');
+      const filtered = weeklySchedules.filter(s => s.type === 'exam');
+      console.log('🔍 [DEBUG] Exam schedules filtered:', filtered.length);
+      return filtered;
     }
 
-    return filtered;
+    console.log('🔍 [DEBUG] All schedules (no filter):', weeklySchedules.length);
+    return weeklySchedules;
   }, [weeklySchedules, scheduleType]);
 
-  // Tạo lưới lịch học
+  // Tạo lưới lịch học - chỉ phụ thuộc vào filteredSchedules, không phụ thuộc vào currentWeek
   const scheduleGrid = useMemo(() => {
     const shifts = [
       { key: 'morning', name: 'Sáng', color: '#fff3cd' },
@@ -400,9 +406,11 @@ const WeeklySchedule = () => {
     ];
 
     const grid = shifts.map(shift => {
-      const shiftSchedules = currentWeek.map(day => {
+      // Tạo 7 ngày cố định (Thứ 2 đến Chủ nhật)
+      const shiftSchedules = Array.from({ length: 7 }, (_, i) => {
+        const dayOfWeek = i + 1; // 1 = Thứ 2, 2 = Thứ 3, ..., 7 = Chủ nhật (từ database)
         const daySchedules = filteredSchedules.filter(schedule => 
-          schedule.dayOfWeek === day.dayOfWeek && schedule.shift === shift.key
+          schedule.dayOfWeek === dayOfWeek && schedule.shift === shift.key
         );
         
         // Sắp xếp theo thứ tự tiết học (timeSlotOrder)
@@ -419,103 +427,69 @@ const WeeklySchedule = () => {
       };
     });
 
+    console.log('🔍 [DEBUG] Schedule grid created:', {
+      shifts: grid.length,
+      totalSchedules: grid.reduce((sum, shift) => sum + shift.schedules.reduce((s, day) => s + day.length, 0), 0)
+    });
+
     return grid;
-  }, [currentWeek, filteredSchedules]);
+  }, [filteredSchedules]); // Chỉ phụ thuộc vào filteredSchedules
 
-  // Memoize current week to prevent unnecessary recalculations
-  const memoizedCurrentWeek = useMemo(() => currentWeek, [currentWeek]);
-  
-  // Update stable reference when weeklySchedules changes
-  useEffect(() => {
-    if (weeklySchedules && weeklySchedules.length > 0) {
-      stableSchedulesRef.current = weeklySchedules;
-    }
-  }, [weeklySchedules]);
-
-  const getScheduleColor = useCallback((type: string, exceptionType?: string) => {
-    // Xử lý màu sắc cho các trường hợp ngoại lệ
-    if (exceptionType) {
-      switch (exceptionType) {
-        case 'cancelled': return '#f8d7da'; // Light red - Tạm ngưng
-        case 'exam': return '#fff3cd'; // Light yellow - Thi
-        case 'moved': return '#d1ecf1'; // Light blue - Chuyển lịch
-        case 'substitute': return '#e2e3e5'; // Light grey - Thay thế
-        default: return '#f8f9fa'; // Default
-      }
-    }
-    
-    // Màu sắc bình thường
+  const getScheduleColor = (type: string) => {
     switch (type) {
       case 'theory': return '#f8f9fa'; // Light grey
       case 'practice': return '#d4edda'; // Green
       case 'online': return '#cce7ff'; // Light blue
       case 'exam': return '#fff3cd'; // Yellow
+      case 'cancelled': return '#f8d7da'; // Red
       default: return '#f8f9fa';
     }
-  }, []);
+  };
 
   const handlePreviousWeek = useCallback(() => {
-    setSelectedDate(prev => prev.subtract(1, 'week'));
-  }, []);
+    if (!weeklyScheduleLoading && !localLoading) {
+      setSelectedDate(prev => prev.subtract(1, 'week'));
+    }
+  }, [weeklyScheduleLoading, localLoading]);
 
   const handleNextWeek = useCallback(() => {
-    setSelectedDate(prev => prev.add(1, 'week'));
-  }, []);
+    if (!weeklyScheduleLoading && !localLoading) {
+      setSelectedDate(prev => prev.add(1, 'week'));
+    }
+  }, [weeklyScheduleLoading, localLoading]);
 
   const handleCurrentWeek = useCallback(() => {
-    setSelectedDate(dayjs());
-  }, []);
+    if (!weeklyScheduleLoading && !localLoading) {
+      setSelectedDate(dayjs());
+    }
+  }, [weeklyScheduleLoading, localLoading]);
 
   const handlePrint = useCallback(() => {
     window.print();
   }, []);
 
-  // Event handlers for form controls
-  const handleDepartmentChange = useCallback((e: any) => {
-    setSelectedDepartment(e.target.value as string);
-    setSelectedClass('');
-    setSelectedTeacher('');
-  }, []);
-
-  const handleClassChange = useCallback((e: any) => {
-    setSelectedClass(e.target.value as string);
-  }, []);
-
-  const handleTeacherChange = useCallback((e: any) => {
-    setSelectedTeacher(e.target.value as string);
-  }, []);
-
-  const handleScheduleTypeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setScheduleType(e.target.value);
-  }, []);
-
-  const handleDateChange = useCallback((newValue: Dayjs | null) => {
-    if (newValue) {
-      setSelectedDate(newValue);
-    }
-  }, []);
-
-  // Filter classes based on selected department
+  // Filter classes based on selected department - only for admin
   const filteredClassesForDropdown = useMemo(() => {
-    if (!selectedDepartment) return classes || [];
+    if (!isAdmin || !selectedDepartment || !classes || classes.length === 0) return [];
     
     const selectedDept = departments?.find(d => d.id.toString() === selectedDepartment);
-    if (!selectedDept) return classes || [];
+    if (!selectedDept) return [];
     
-    return (classes || []).filter(cls => cls.departmentId === selectedDept.id);
-  }, [classes, departments, selectedDepartment]);
+    return classes.filter(cls => cls.departmentId === selectedDept.id);
+  }, [isAdmin, classes, departments, selectedDepartment]);
 
-  // Filter teachers based on selected department
+  // Filter teachers based on selected department - only for admin
   const filteredTeachersForDropdown = useMemo(() => {
-    if (!selectedDepartment) return teachers || [];
+    if (!isAdmin || !selectedDepartment || !teachers || teachers.length === 0) return [];
     
-    return (teachers || []).filter(teacher => 
+    return teachers.filter(teacher => 
       teacher.departmentId && teacher.departmentId.toString() === selectedDepartment
     );
-  }, [teachers, selectedDepartment]);
+  }, [isAdmin, teachers, selectedDepartment]);
 
-  // Only show full loading for initial data load
-  if (loading && !departments && !classes && !teachers) {
+  // Chỉ hiển thị loading toàn màn hình khi load initial data (departments, classes, teachers)
+  // và chỉ khi là admin và chưa có data nào
+  if (isAdmin && loading && departments.length === 0 && classes.length === 0 && teachers.length === 0) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
@@ -533,79 +507,85 @@ const WeeklySchedule = () => {
           </Alert>
         )}
 
-        {/* Filters Row */}
-        <Paper sx={{ p: 1.5, mb: 1, boxShadow: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Theo khoa</InputLabel>
-              <Select
-                value={selectedDepartment}
-                onChange={handleDepartmentChange}
-                label="Theo khoa"
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    height: '40px'
-                  }
-                }}
-              >
-                <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả khoa</MenuItem>
-                {(departments || []).map(dept => (
-                  <MenuItem key={dept.id} value={dept.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                    {dept.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+        {/* Filters Row - Only show for admin */}
+        {isAdmin && (
+          <Paper sx={{ p: 1.5, mb: 1, boxShadow: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <FormControl size="small" sx={{ minWidth: 100 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Theo khoa</InputLabel>
+                <Select
+                  value={selectedDepartment}
+                  onChange={(e) => {
+                    setSelectedDepartment(e.target.value);
+                    setSelectedClass('');
+                    setSelectedTeacher('');
+                  }}
+                  label="Theo khoa"
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      height: '40px'
+                    }
+                  }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả khoa</MenuItem>
+                  {departments.map(dept => (
+                    <MenuItem key={dept.id} value={dept.id.toString()} sx={{ fontSize: '0.75rem' }}>
+                      {dept.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Theo lớp</InputLabel>
-              <Select
-                value={selectedClass}
-                onChange={handleClassChange}
-                label="Theo lớp"
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    height: '40px'
-                  }
-                }}
-              >
-                <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả lớp</MenuItem>
-                {filteredClassesForDropdown.map((cls: any) => (
-                  <MenuItem key={cls.id} value={cls.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                    {cls.className || cls.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+              <FormControl size="small" sx={{ minWidth: 100 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Theo lớp</InputLabel>
+                <Select
+                  value={selectedClass}
+                  onChange={(e) => setSelectedClass(e.target.value)}
+                  label="Theo lớp"
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      height: '40px'
+                    }
+                  }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả lớp</MenuItem>
+                  {filteredClassesForDropdown.map((cls) => (
+                    <MenuItem key={cls.id} value={cls.id.toString()} sx={{ fontSize: '0.75rem' }}>
+                      {cls.className || cls.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
-            <FormControl size="small" sx={{ minWidth: 100 }}>
-              <InputLabel sx={{ fontSize: '0.75rem' }}>Theo GV</InputLabel>
-              <Select
-                value={selectedTeacher}
-                onChange={handleTeacherChange}
-                label="Theo GV"
-                sx={{ 
-                  '& .MuiOutlinedInput-root': { 
-                    borderRadius: '4px',
-                    fontSize: '0.75rem',
-                    height: '40px'
-                  }
-                }}
-              >
-                <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả GV</MenuItem>
-                {filteredTeachersForDropdown.map(teacher => (
-                  <MenuItem key={teacher.id} value={teacher.id.toString()} sx={{ fontSize: '0.75rem' }}>
-                    {teacher.name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-        </Paper>
+              <FormControl size="small" sx={{ minWidth: 100 }}>
+                <InputLabel sx={{ fontSize: '0.75rem' }}>Theo GV</InputLabel>
+                <Select
+                  value={selectedTeacher}
+                  onChange={(e) => setSelectedTeacher(e.target.value)}
+                  label="Theo GV"
+                  sx={{ 
+                    '& .MuiOutlinedInput-root': { 
+                      borderRadius: '4px',
+                      fontSize: '0.75rem',
+                      height: '40px'
+                    }
+                  }}
+                >
+                  <MenuItem value="" sx={{ fontSize: '0.75rem' }}>Tất cả GV</MenuItem>
+                  {filteredTeachersForDropdown.map(teacher => (
+                    <MenuItem key={teacher.id} value={teacher.id.toString()} sx={{ fontSize: '0.75rem' }}>
+                      {teacher.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
+          </Paper>
+        )}
 
         {/* Title and Controls Row */}
         <Paper sx={{ p: 1.5, mb: 3, boxShadow: 3 }}>
@@ -626,7 +606,7 @@ const WeeklySchedule = () => {
                 <RadioGroup
                   row
                   value={scheduleType}
-                  onChange={handleScheduleTypeChange}
+                  onChange={(e) => setScheduleType(e.target.value)}
                 >
                   <FormControlLabel 
                     value="all" 
@@ -669,7 +649,12 @@ const WeeklySchedule = () => {
                 <DatePicker
                   label="Chọn ngày"
                   value={selectedDate}
-                  onChange={handleDateChange}
+                  onChange={(newValue) => {
+                    if (newValue && !weeklyScheduleLoading) {
+                      setSelectedDate(newValue);
+                    }
+                  }}
+                  disabled={weeklyScheduleLoading}
                   slotProps={{ 
                     textField: { 
                       size: 'small',
@@ -691,6 +676,7 @@ const WeeklySchedule = () => {
                    variant="outlined"
                    onClick={handleCurrentWeek}
                    size="small"
+                   disabled={weeklyScheduleLoading || localLoading}
                    sx={{ 
                      borderRadius: '4px',
                      fontSize: '0.75rem',
@@ -727,6 +713,7 @@ const WeeklySchedule = () => {
                    onClick={handlePreviousWeek}
                    size="small"
                    startIcon={<ArrowBackIcon sx={{ fontSize: '0.75rem' }} />}
+                   disabled={weeklyScheduleLoading || localLoading}
                    sx={{ 
                      borderRadius: '4px',
                      fontSize: '0.75rem',
@@ -745,6 +732,7 @@ const WeeklySchedule = () => {
                    onClick={handleNextWeek}
                    size="small"
                    endIcon={<ArrowForwardIcon sx={{ fontSize: '0.75rem' }} />}
+                   disabled={weeklyScheduleLoading || localLoading}
                    sx={{ 
                      borderRadius: '4px',
                      fontSize: '0.75rem',
@@ -779,9 +767,9 @@ const WeeklySchedule = () => {
         </Paper>
 
         {/* Schedule Grid */}
-        <Paper sx={{ boxShadow: 3, position: 'relative', minHeight: '400px' }}>
-          {/* Loading overlay for schedule data */}
-          {scheduleLoading && (
+        <Paper sx={{ boxShadow: 3, position: 'relative' }}>
+          {/* Loading overlay cho weekly schedule */}
+          {(weeklyScheduleLoading || localLoading) && (
             <Box
               sx={{
                 position: 'absolute',
@@ -798,92 +786,21 @@ const WeeklySchedule = () => {
                 backdropFilter: 'blur(2px)'
               }}
             >
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
-                <CircularProgress size={32} thickness={4} />
-                <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+              <Box sx={{ textAlign: 'center' }}>
+                <CircularProgress size={40} />
+                <Typography variant="body2" sx={{ mt: 1, color: 'text.secondary' }}>
                   Đang tải lịch học...
                 </Typography>
               </Box>
             </Box>
           )}
-          
           <TableContainer sx={{ overflow: 'auto', minWidth: '800px' }}>
             <Table sx={{ minWidth: '800px' }}>
-              <TableHead>
-                <TableRow>
-                  <TableCell 
-                    sx={{ 
-                      backgroundColor: '#e3f2fd', 
-                      textAlign: 'center',
-                      minWidth: '120px',
-                      fontSize: '0.875rem',
-                      fontWeight: 'bold',
-                      border: '1px solid #ddd'
-                    }}
-                  >
-                    Ca học
-                  </TableCell>
-                  {memoizedCurrentWeek.map((day, index) => (
-                    <TableCell 
-                      key={index} 
-                      sx={{ 
-                        backgroundColor: '#1976d2', 
-                        color: 'white',
-                        textAlign: 'center',
-                        minWidth: '150px',
-                        fontSize: '0.875rem',
-                        fontWeight: 'bold',
-                        border: '1px solid #ddd'
-                      }}
-                    >
-                      <Box>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                          {day.dayName}
-                        </Typography>
-                        <Typography variant="caption" sx={{ opacity: 0.9, mt: 0.5, display: 'block' }}>
-                          {day.dayNumber}
-                        </Typography>
-                      </Box>
-                    </TableCell>
-                  ))}
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {scheduleGrid.map((shift, shiftIndex) => (
-                  <TableRow key={shift.key}>
-                    <TableCell 
-                      sx={{ 
-                        backgroundColor: shift.color, 
-                        textAlign: 'center',
-                        fontWeight: 'bold',
-                        fontSize: '0.875rem',
-                        border: '1px solid #ddd'
-                      }}
-                    >
-                      {shift.name}
-                    </TableCell>
-                    {shift.schedules.map((daySchedules, dayIndex) => (
-                      <TableCell 
-                        key={dayIndex} 
-                        sx={{ 
-                          padding: '8px', 
-                          verticalAlign: 'top',
-                          minHeight: '120px',
-                          border: '1px solid #ddd'
-                        }}
-                      >
-                        {daySchedules.map((schedule: WeeklyScheduleItem) => (
-                          <ScheduleCard 
-                            key={schedule.id} 
-                            schedule={schedule}
-                            getScheduleColor={getScheduleColor}
-                          />
-                        ))}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
-              </TableBody>
+              <ScheduleTableHeader selectedDate={selectedDate} headerRef={headerRef} />
+              <ScheduleTableBody 
+                scheduleGrid={scheduleGrid} 
+                getScheduleColor={getScheduleColor} 
+              />
             </Table>
           </TableContainer>
         </Paper>
@@ -911,21 +828,16 @@ const WeeklySchedule = () => {
               <Typography variant="body2">Lịch thi</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
-              <Box sx={{ width: 20, height: 20, backgroundColor: '#f8d7da', border: '2px solid #ff6b6b' }} />
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#f8d7da', border: '1px solid #ddd' }} />
               <Typography variant="body2">Lịch tạm ngưng</Typography>
             </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
-              <Box sx={{ width: 20, height: 20, backgroundColor: '#d1ecf1', border: '1px solid #ddd' }} />
-              <Typography variant="body2">Lịch chuyển</Typography>
-            </Box>
           </Box>
-          <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary', fontSize: '0.875rem' }}>
-            <strong>Lưu ý:</strong> Các lịch có nhãn màu trên góc phải là lịch ngoại lệ (tạm ngưng, thi, chuyển lịch)
-          </Typography>
         </Paper>
       </Box>
     </LocalizationProvider>
   );
-};
+});
+
+WeeklySchedule.displayName = 'WeeklySchedule';
 
 export default WeeklySchedule;

@@ -265,11 +265,29 @@ const getScheduleRequests = async (filters = {}) => {
     }
 };
 
-const getTeacherSchedules = async (teacherId) => {
+// Lấy danh sách lớp học của giảng viên (chỉ những lớp đã có phòng)
+const getTeacherSchedules = async (userId) => {
     try {
+        // Tìm Teacher ID từ User ID
+        const teacher = await prisma.teacher.findFirst({
+            where: {
+                userId: parseInt(userId)
+            },
+            select: {
+                id: true
+            }
+        });
+
+        if (!teacher) {
+            return [];
+        }
+
         const classSchedules = await prisma.classSchedule.findMany({
             where: {
-                teacherId: parseInt(teacherId)
+                teacherId: teacher.id,
+                classRoomId: {
+                    not: null  // Chỉ lấy những lớp đã có phòng
+                }
             },
             include: {
                 class: {
@@ -424,7 +442,11 @@ const updateScheduleRequestStatus = async (requestId, status, approverId, note, 
             if (requestDetails.RequestType?.name === 'Đổi phòng' ||
                 requestDetails.RequestType?.name === 'Xin phòng mới') {
                 updateData.classRoomId = parseInt(selectedRoomId);
+                updateData.statusId = 2; // Cập nhật thành "Đã phân phòng"
+                updateData.assignedBy = approverId;
+                updateData.assignedAt = new Date();
                 console.log('Updating classRoomId to:', selectedRoomId);
+                console.log('Updating statusId to 2 (Đã phân phòng)');
             }
 
             // For schedule change requests, update dayOfWeek and timeSlotId
@@ -441,6 +463,12 @@ const updateScheduleRequestStatus = async (requestId, status, approverId, note, 
                 if (selectedRoomId) {
                     updateData.classRoomId = parseInt(selectedRoomId);
                     console.log('Updating classRoomId to:', selectedRoomId);
+                }
+                if (selectedRoomId) {
+                    updateData.statusId = 2;
+                    updateData.assignedBy = approverId;
+                    updateData.assignedAt = new Date();
+                    console.log('Updating statusId to 2 (Đã phân phòng)');
                 }
             }
 
