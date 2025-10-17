@@ -82,7 +82,56 @@ interface WeeklyScheduleItem {
   timeSlotOrder: number;
   assignedAt: string;
   note?: string;
+  // Exception data
+  exceptionDate?: string | null;
+  exceptionType?: string | null;
+  exceptionReason?: string | null;
+  exceptionStatus?: string | null;
+  requestTypeId?: number | null;
 }
+
+// Function để lấy tên RequestType từ ID
+const getRequestTypeName = (requestTypeId: number) => {
+  switch (requestTypeId) {
+    case 1: return 'Chờ phân phòng';
+    case 2: return 'Đã phân phòng';
+    case 3: return 'Đang hoạt động';
+    case 4: return 'Đã hủy';
+    case 5: return 'Tạm ngưng';
+    case 6: return 'Thi';
+    case 7: return 'Đổi phòng';
+    case 8: return 'Đổi lịch';
+    case 9: return 'Đổi giáo viên';
+    default: return 'Ngoại lệ';
+  }
+};
+
+// Function để tính toán tuần hiện tại
+const getCurrentWeek = (selectedDate: Dayjs) => {
+  const dayOfWeek = selectedDate.day(); // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
+  let startOfWeek;
+  
+  // Tính ngày bắt đầu tuần (Thứ 2)
+  if (dayOfWeek === 0) { // Chủ nhật
+    startOfWeek = selectedDate.subtract(5, 'day'); // Lùi 5 ngày để đến Thứ 2
+  } else {
+    startOfWeek = selectedDate.subtract(dayOfWeek - 1, 'day'); // Lùi để đến Thứ 2
+  }
+  
+  const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
+  
+  const weekDays = [];
+  for (let i = 0; i < 7; i++) {
+    const day = startOfWeek.add(i, 'day');
+    weekDays.push({
+      dayOfWeek: i === 6 ? 1 : i + 2, // 2=Thứ 2, 3=Thứ 3, ..., 7=Thứ 7, 1=Chủ nhật
+      date: day,
+      dayName: dayNames[i],
+      dayNumber: day.format('DD/MM/YYYY')
+    });
+  }
+  return weekDays;
+};
 
 // Component tĩnh cho table header - không re-render
 const ScheduleTableHeader = memo(({ selectedDate, headerRef }: { selectedDate: Dayjs, headerRef: React.RefObject<HTMLTableSectionElement> }) => {
@@ -90,10 +139,11 @@ const ScheduleTableHeader = memo(({ selectedDate, headerRef }: { selectedDate: D
     const dayOfWeek = selectedDate.day(); // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
     let startOfWeek;
     
+    // Tính ngày bắt đầu tuần (Thứ 2)
     if (dayOfWeek === 0) { // Chủ nhật
-      startOfWeek = selectedDate.subtract(6, 'day');
+      startOfWeek = selectedDate.subtract(5, 'day'); // Lùi 5 ngày để đến Thứ 2
     } else {
-      startOfWeek = selectedDate.subtract(dayOfWeek - 1, 'day'); 
+      startOfWeek = selectedDate.subtract(dayOfWeek - 1, 'day'); // Lùi để đến Thứ 2
     }
     
     const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
@@ -102,7 +152,7 @@ const ScheduleTableHeader = memo(({ selectedDate, headerRef }: { selectedDate: D
     for (let i = 0; i < 7; i++) {
       const day = startOfWeek.add(i, 'day');
       weekDays.push({
-        dayOfWeek: i + 2, // 2 = Thứ 2, 3 = Thứ 3, ..., 8 = Chủ nhật
+        dayOfWeek: i === 6 ? 1 : i + 2, // 2=Thứ 2, 3=Thứ 3, ..., 7=Thứ 7, 1=Chủ nhật
         date: day,
         dayName: dayNames[i],
         dayNumber: day.format('DD/MM/YYYY')
@@ -158,10 +208,12 @@ ScheduleTableHeader.displayName = 'ScheduleTableHeader';
 
 const ScheduleTableBody = memo(({ 
   scheduleGrid, 
-  getScheduleColor 
+  getScheduleColor,
+  selectedDate
 }: { 
   scheduleGrid: any[], 
-  getScheduleColor: (type: string) => string 
+  getScheduleColor: (schedule: WeeklyScheduleItem) => string,
+  selectedDate: Dayjs
 }) => {
   // Memoize schedule color function để tránh re-render
   const memoizedGetScheduleColor = useCallback(getScheduleColor, [getScheduleColor]);
@@ -191,16 +243,79 @@ const ScheduleTableBody = memo(({
                 border: '1px solid #ddd'
               }}
             >
-              {daySchedules.map((schedule: WeeklyScheduleItem) => (
+              {daySchedules.map((schedule: WeeklyScheduleItem) => {
+                // Debug log để kiểm tra dữ liệu ngoại lệ
+                if (schedule.id === 1) {
+                  console.log('🔍 [DEBUG] Schedule 1 exception data:', {
+                    id: schedule.id,
+                    exceptionDate: schedule.exceptionDate,
+                    requestTypeId: schedule.requestTypeId,
+                    requestTypeName: schedule.requestTypeId ? getRequestTypeName(schedule.requestTypeId) : 'N/A',
+                    exceptionStatus: schedule.exceptionStatus,
+                    exceptionReason: schedule.exceptionReason
+                  });
+                }
+                
+                return (
                 <Card 
                   key={schedule.id} 
                   sx={{ 
                     mb: 1, 
-                    backgroundColor: memoizedGetScheduleColor(schedule.type),
+                    backgroundColor: memoizedGetScheduleColor(schedule),
                     border: '1px solid #ddd',
+                    position: 'relative',
                     '&:last-child': { mb: 0 }
                   }}
                 >
+                  {/* Exception label overlay - chỉ hiển thị khi ngày ngoại lệ khớp với ngày của schedule */}
+                  {(() => {
+                    // Kiểm tra xem có ngoại lệ và ngày ngoại lệ có khớp với ngày hiện tại không
+                    if (!schedule.exceptionDate || !schedule.requestTypeId) return null;
+                    
+                    const exceptionDate = new Date(schedule.exceptionDate);
+                    const exceptionDateStr = exceptionDate.toISOString().split('T')[0]; // YYYY-MM-DD
+                    
+                    // Lấy ngày hiện tại của schedule từ currentWeek
+                    const currentWeek = getCurrentWeek(selectedDate);
+                    const scheduleDay = currentWeek.find(day => day.dayOfWeek === schedule.dayOfWeek);
+                    if (!scheduleDay) return null;
+                    
+                    const scheduleDateStr = scheduleDay.date.format('YYYY-MM-DD');
+                    
+                    // Chỉ hiển thị nhãn khi ngày ngoại lệ khớp với ngày của schedule
+                    const shouldShowLabel = exceptionDateStr === scheduleDateStr;
+                    
+                    if (schedule.id === 1) {
+                      console.log('🔍 [DEBUG] Exception label check:', {
+                        scheduleId: schedule.id,
+                        scheduleDayOfWeek: schedule.dayOfWeek,
+                        exceptionDate: exceptionDateStr,
+                        scheduleDate: scheduleDateStr,
+                        shouldShowLabel: shouldShowLabel,
+                        currentWeek: currentWeek.map(day => ({ dayOfWeek: day.dayOfWeek, date: day.date.format('YYYY-MM-DD') }))
+                      });
+                    }
+                    
+                    return shouldShowLabel ? (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          top: 0,
+                          right: 0,
+                          backgroundColor: 'rgba(0,0,0,0.7)',
+                          color: 'white',
+                          fontSize: '0.6rem',
+                          padding: '2px 4px',
+                          borderRadius: '0 4px 0 4px',
+                          fontWeight: 'bold',
+                          zIndex: 1
+                        }}
+                      >
+                        {getRequestTypeName(schedule.requestTypeId)}
+                      </Box>
+                    ) : null;
+                  })()}
+                  
                   <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
                       {schedule.className}
@@ -222,9 +337,21 @@ const ScheduleTableBody = memo(({
                         Nhóm: {schedule.practiceGroup}
                       </Typography>
                     )}
+                    {schedule.exceptionReason && (
+                      <Typography variant="caption" sx={{ 
+                        display: 'block', 
+                        fontSize: '0.65rem',
+                        fontStyle: 'italic',
+                        color: 'text.secondary',
+                        mt: 0.5
+                      }}>
+                        Lý do: {schedule.exceptionReason}
+                      </Typography>
+                    )}
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </TableCell>
           ))}
         </TableRow>
@@ -408,7 +535,8 @@ const WeeklySchedule = memo(() => {
     const grid = shifts.map(shift => {
       // Tạo 7 ngày cố định (Thứ 2 đến Chủ nhật)
       const shiftSchedules = Array.from({ length: 7 }, (_, i) => {
-        const dayOfWeek = i + 1; // 1 = Thứ 2, 2 = Thứ 3, ..., 7 = Chủ nhật (từ database)
+        // Map từ index 0-6 thành dayOfWeek 2-8, nhưng Chủ nhật (index 6) = dayOfWeek 1
+        const dayOfWeek = i === 6 ? 1 : i + 2; // 2=Thứ 2, 3=Thứ 3, ..., 7=Thứ 7, 1=Chủ nhật
         const daySchedules = filteredSchedules.filter(schedule => 
           schedule.dayOfWeek === dayOfWeek && schedule.shift === shift.key
         );
@@ -435,13 +563,33 @@ const WeeklySchedule = memo(() => {
     return grid;
   }, [filteredSchedules]); // Chỉ phụ thuộc vào filteredSchedules
 
-  const getScheduleColor = (type: string) => {
-    switch (type) {
+  // Function để lấy màu sắc dựa trên RequestType ID
+  const getRequestTypeColor = (requestTypeId: number): string => {
+    switch (requestTypeId) {
+      case 1: return '#e3f2fd'; // Light blue - Chờ phân phòng
+      case 2: return '#f3e5f5'; // Light purple - Đã phân phòng
+      case 3: return '#e8f5e8'; // Light green - Đang hoạt động
+      case 4: return '#f8d7da'; // Red - Đã hủy
+      case 5: return '#f8d7da'; // Red - Tạm ngưng
+      case 6: return '#fff3cd'; // Yellow - Thi
+      case 7: return '#ffeaa7'; // Light orange - Đổi phòng
+      case 8: return '#d1ecf1'; // Light cyan - Đổi lịch
+      case 9: return '#a8e6cf'; // Light green - Đổi giáo viên
+      default: return '#f8f9fa'; // Default light grey
+    }
+  };
+
+  const getScheduleColor = (schedule: WeeklyScheduleItem) => {
+    // Kiểm tra ngoại lệ trước - sử dụng requestTypeId nếu có
+    if (schedule.exceptionDate && schedule.requestTypeId) {
+      return getRequestTypeColor(schedule.requestTypeId);
+    }
+    
+    // Nếu không có ngoại lệ, dùng màu theo loại lớp
+    switch (schedule.type) {
       case 'theory': return '#f8f9fa'; // Light grey
       case 'practice': return '#d4edda'; // Green
       case 'online': return '#cce7ff'; // Light blue
-      case 'exam': return '#fff3cd'; // Yellow
-      case 'cancelled': return '#f8d7da'; // Red
       default: return '#f8f9fa';
     }
   };
@@ -799,7 +947,8 @@ const WeeklySchedule = memo(() => {
               <ScheduleTableHeader selectedDate={selectedDate} headerRef={headerRef} />
               <ScheduleTableBody 
                 scheduleGrid={scheduleGrid} 
-                getScheduleColor={getScheduleColor} 
+                getScheduleColor={getScheduleColor}
+                selectedDate={selectedDate}
               />
             </Table>
           </TableContainer>
@@ -810,7 +959,12 @@ const WeeklySchedule = memo(() => {
           <Typography variant="h6" sx={{ mb: 2, fontWeight: 'bold' }}>
             Chú thích:
           </Typography>
-          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+          
+          {/* Loại lịch học */}
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold', color: 'primary.main' }}>
+            Loại lịch học:
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: '#f8f9fa', border: '1px solid #ddd' }} />
               <Typography variant="body2">Lịch học lý thuyết</Typography>
@@ -823,13 +977,44 @@ const WeeklySchedule = memo(() => {
               <Box sx={{ width: 20, height: 20, backgroundColor: '#cce7ff', border: '1px solid #ddd' }} />
               <Typography variant="body2">Lịch học trực tuyến</Typography>
             </Box>
+          </Box>
+
+          {/* Trạng thái ngoại lệ */}
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold', color: 'error.main' }}>
+            Trạng thái ngoại lệ:
+          </Typography>
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
-              <Box sx={{ width: 20, height: 20, backgroundColor: '#fff3cd', border: '1px solid #ddd' }} />
-              <Typography variant="body2">Lịch thi</Typography>
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#e3f2fd', border: '1px solid #ddd' }} />
+              <Typography variant="body2">Chờ phân phòng</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#f3e5f5', border: '1px solid #ddd' }} />
+              <Typography variant="body2">Đã phân phòng</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#e8f5e8', border: '1px solid #ddd' }} />
+              <Typography variant="body2">Đang hoạt động</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
               <Box sx={{ width: 20, height: 20, backgroundColor: '#f8d7da', border: '1px solid #ddd' }} />
-              <Typography variant="body2">Lịch tạm ngưng</Typography>
+              <Typography variant="body2">Đã hủy / Tạm ngưng</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#fff3cd', border: '1px solid #ddd' }} />
+              <Typography variant="body2">Thi</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#ffeaa7', border: '1px solid #ddd' }} />
+              <Typography variant="body2">Đổi phòng</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#d1ecf1', border: '1px solid #ddd' }} />
+              <Typography variant="body2">Đổi lịch</Typography>
+            </Box>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: '200px' }}>
+              <Box sx={{ width: 20, height: 20, backgroundColor: '#a8e6cf', border: '1px solid #ddd' }} />
+              <Typography variant="body2">Đổi giáo viên</Typography>
             </Box>
           </Box>
         </Paper>

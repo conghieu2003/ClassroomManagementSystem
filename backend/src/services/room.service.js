@@ -184,15 +184,6 @@ class RoomService {
     }
   }
 
-  async getDepartments() {
-    try {
-      return await prisma.department.findMany({
-        orderBy: { name: 'asc' }
-      });
-    } catch (error) {
-      throw new Error(`Lỗi lấy danh sách khoa: ${error.message}`);
-    }
-  }
 
   async getRequestTypes() {
     try {
@@ -232,30 +223,6 @@ class RoomService {
     }
   }
 
-  // Lấy danh sách giảng viên
-  async getTeachers() {
-    try {
-      const teachers = await prisma.teacher.findMany({
-        include: {
-          user: true,
-          department: true
-        },
-        orderBy: { user: { fullName: 'asc' } }
-      });
-
-      return teachers.map(teacher => ({
-        id: teacher.id,
-        name: teacher.user.fullName,
-        code: teacher.teacherCode,
-        departmentId: teacher.departmentId,
-        departmentName: teacher.department?.name || 'Chưa xác định',
-        email: teacher.user.email,
-        phone: teacher.user.phone
-      }));
-    } catch (error) {
-      throw new Error(`Lỗi lấy danh sách giảng viên: ${error.message}`);
-    }
-  }
 
   // Lấy danh sách lớp học của giảng viên
   async getTeacherSchedules(userId) {

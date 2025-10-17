@@ -583,7 +583,18 @@ class ScheduleManagementService {
             }
           },
           timeSlot: true,
-          ClassRoomType: true
+          ClassRoomType: true,
+          // Include thông tin ngoại lệ
+          scheduleRequests: {
+            where: {
+              requestStatusId: 2, // Chỉ lấy các yêu cầu đã được phê duyệt
+              requestTypeId: { in: [3, 4, 5, 6, 7, 8, 9] } // Lấy tất cả loại ngoại lệ (ID 3-9)
+            },
+            include: {
+              RequestType: true,
+              RequestStatus: true
+            }
+          }
         },
         orderBy: [
           { dayOfWeek: 'asc' },
@@ -592,6 +603,24 @@ class ScheduleManagementService {
       });
 
       console.log(`[GET_WEEKLY_SCHEDULE] Found ${schedules.length} assigned schedules`);
+      
+      // Debug: Kiểm tra scheduleRequests
+      schedules.forEach(schedule => {
+        if (schedule.id === 1) {
+          console.log('🔍 [DEBUG] Schedule 1 scheduleRequests:', {
+            id: schedule.id,
+            scheduleRequestsCount: schedule.scheduleRequests.length,
+            scheduleRequests: schedule.scheduleRequests.map(req => ({
+              id: req.id,
+              requestTypeId: req.requestTypeId,
+              requestStatusId: req.requestStatusId,
+              exceptionDate: req.exceptionDate,
+              exceptionType: req.exceptionType,
+              reason: req.reason
+            }))
+          });
+        }
+      });
 
       // Chuyển đổi dữ liệu để phù hợp với frontend
       const weeklySchedules = schedules.map(schedule => {
@@ -601,6 +630,40 @@ class ScheduleManagementService {
           return null;
         }
         const shift = this.getShiftFromTimeSlot(timeSlot.shift);
+        
+        // Filter scheduleRequests theo ngày chính xác trong tuần
+        const relevantExceptions = schedule.scheduleRequests.filter(request => {
+          if (!request.exceptionDate) return false;
+          
+          const exceptionDate = new Date(request.exceptionDate);
+          const exceptionDateStr = exceptionDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          
+          // Tính ngày của schedule trong tuần hiện tại
+          // dayOfWeek: 1=CN, 2=T2, 3=T3, 4=T4, 5=T5, 6=T6, 7=T7
+          const startDate = new Date(weekStartDate);
+          const scheduleDayOffset = schedule.dayOfWeek - 1; // 1=CN -> 0, 2=T2 -> 1, 3=T3 -> 2, ...
+          const scheduleDate = new Date(startDate);
+          scheduleDate.setDate(startDate.getDate() + scheduleDayOffset);
+          const scheduleDateStr = scheduleDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          
+          // Chỉ lấy ngoại lệ khi ngày ngoại lệ khớp chính xác với ngày của schedule
+          const isRelevant = exceptionDateStr === scheduleDateStr;
+          
+          if (schedule.id === 1) {
+            console.log('🔍 [DEBUG] Backend exception filter:', {
+              scheduleId: schedule.id,
+              scheduleDayOfWeek: schedule.dayOfWeek,
+              scheduleDateStr: scheduleDateStr,
+              exceptionDateStr: exceptionDateStr,
+              isRelevant: isRelevant
+            });
+          }
+          
+          return isRelevant;
+        });
+        
+        // Lấy ngoại lệ đầu tiên (nếu có)
+        const exception = relevantExceptions[0];
         
         return {
           id: schedule.id,
@@ -638,7 +701,13 @@ class ScheduleManagementService {
           majorName: schedule.class.major?.name || 'Chưa xác định',
           timeSlotOrder: this.getTimeSlotOrder(timeSlot.id),
           assignedAt: schedule.assignedAt,
-          note: schedule.note
+          note: schedule.note,
+          // Thêm thông tin ngoại lệ
+          exceptionDate: exception?.exceptionDate || null,
+          exceptionType: exception?.exceptionType || null,
+          exceptionReason: exception?.reason || null,
+          exceptionStatus: exception?.RequestStatus?.name || null,
+          requestTypeId: exception?.requestTypeId || null
         };
       }).filter(schedule => schedule !== null);
 

@@ -5,6 +5,7 @@ import roomReducer from './slices/roomSlice';
 import scheduleReducer from './slices/scheduleSlice';
 import roomSchedulingReducer from './slices/roomSchedulingSlice';
 import profileReducer from './slices/profileSlice';
+import scheduleExceptionReducer from './slices/scheduleExceptionSlice';
 
 const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ const store = configureStore({
     schedule: scheduleReducer,
     roomScheduling: roomSchedulingReducer,
     profile: profileReducer,
+    scheduleException: scheduleExceptionReducer,
   },
 });
 

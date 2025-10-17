@@ -68,7 +68,7 @@ const Sidebar: React.FC = () => {
         icon: 'fas fa-calendar-alt',
         children: [
           { id: 'weekly-schedule', name: 'Lịch học theo tuần', path: '/schedule/weekly', icon: 'fas fa-calendar-week' },
-          { id: 'schedule-management', name: 'Quản lý đổi lịch', path: '/schedule/management', icon: 'fas fa-exchange-alt' }
+          { id: 'schedule-management', name: 'Quản lý ngoại lệ lịch học', path: '/schedule/management', icon: 'fas fa-exclamation-triangle' }
         ]
       }
     ],

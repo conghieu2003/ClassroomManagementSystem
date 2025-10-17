@@ -17,7 +17,7 @@ interface LoginData {
 const Login: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
-  const { isLoading, error, isAuthenticated } = useSelector((state: RootState) => state.auth);
+  const { isLoading } = useSelector((state: RootState) => state.auth);
   
   const [selectedRole, setSelectedRole] = useState<string>('student');
   const [loginData, setLoginData] = useState<LoginData>({
@@ -91,13 +91,21 @@ const Login: React.FC = () => {
     // Kiểm tra dữ liệu nhập và focus vào trường bị lỗi
     if (!loginData.username.trim()) {
       setLoginErrors({ username: 'Vui lòng nhập tên đăng nhập' });
-      setTimeout(() => usernameRef.current?.focus(), 100);
+      setTimeout(() => {
+        if (usernameRef.current && usernameRef.current.instance) {
+          usernameRef.current.instance.focus();
+        }
+      }, 100);
       return;
     }
     
     if (!loginData.password.trim()) {
       setLoginErrors({ password: 'Vui lòng nhập mật khẩu' });
-      setTimeout(() => passwordRef.current?.focus(), 100);
+      setTimeout(() => {
+        if (passwordRef.current && passwordRef.current.instance) {
+          passwordRef.current.instance.focus();
+        }
+      }, 100);
       return;
     }
 
@@ -147,9 +155,17 @@ const Login: React.FC = () => {
       
       // Focus vào trường bị lỗi
       if (focusField === 'username') {
-        setTimeout(() => usernameRef.current?.focus(), 100);
+        setTimeout(() => {
+          if (usernameRef.current && usernameRef.current.instance) {
+            usernameRef.current.instance.focus();
+          }
+        }, 100);
       } else if (focusField === 'password') {
-        setTimeout(() => passwordRef.current?.focus(), 100);
+        setTimeout(() => {
+          if (passwordRef.current && passwordRef.current.instance) {
+            passwordRef.current.instance.focus();
+          }
+        }, 100);
       }
     }
   };
@@ -297,7 +313,7 @@ const Login: React.FC = () => {
         </div>
 
         {/* Login Form */}
-        <form onSubmit={(e) => { e.preventDefault(); e.stopPropagation(); }} style={{ width: '100%' }}>
+        <form onSubmit={handleLogin} style={{ width: '100%' }}>
           <div style={{ marginBottom: '20px' }}>
             <TextBox
               ref={usernameRef}
@@ -313,7 +329,10 @@ const Login: React.FC = () => {
               onKeyDown={(e: any) => {
                 if (e.event.key === 'Enter') {
                   e.event.preventDefault();
-                  handleLogin();
+                  // Focus vào trường password nếu đang ở username
+                  if (passwordRef.current && passwordRef.current.instance) {
+                    passwordRef.current.instance.focus();
+                  }
                 }
               }}
               width="100%"
