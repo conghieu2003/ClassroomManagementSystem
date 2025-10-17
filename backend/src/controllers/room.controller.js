@@ -151,23 +151,6 @@ class RoomController {
     }
   }
 
-  // API lấy danh sách khoa
-  async getDepartments(req, res) {
-    try {
-      const departments = await roomService.getDepartments();
-      return res.status(200).json({
-        success: true,
-        data: departments
-      });
-    } catch (error) {
-      console.error('Room Controller Error:', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || 'Lỗi server',
-        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    }
-  }
 
   // API lấy danh sách loại yêu cầu
   async getRequestTypes(req, res) {
@@ -223,23 +206,6 @@ class RoomController {
     }
   }
 
-  // API lấy danh sách giảng viên
-  async getTeachers(req, res) {
-    try {
-      const teachers = await roomService.getTeachers();
-      return res.status(200).json({
-        success: true,
-        data: teachers
-      });
-    } catch (error) {
-      console.error('Room Controller Error:', error);
-      return res.status(500).json({
-        success: false,
-        message: error.message || 'Lỗi server',
-        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
-      });
-    }
-  }
 
   // API lấy danh sách lớp học của giảng viên
   async getTeacherSchedules(req, res) {

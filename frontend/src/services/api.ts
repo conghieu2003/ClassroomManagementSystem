@@ -712,4 +712,73 @@ export const profileService = {
   },
 };
 
+// Schedule Exception Service
+export const scheduleExceptionService = {
+  // Lấy danh sách ngoại lệ lịch học
+  getScheduleExceptions: async (): Promise<any> => {
+    const response = await api.get('/schedule-exceptions');
+    return response.data;
+  },
+
+  // Lấy danh sách lịch học có thể tạo ngoại lệ
+  getAvailableSchedules: async (): Promise<any> => {
+    const response = await api.get('/schedule-exceptions/available/schedules');
+    return response.data;
+  },
+
+  // Tạo ngoại lệ lịch học
+  createScheduleException: async (data: any): Promise<any> => {
+    const response = await api.post('/schedule-exceptions', data);
+    return response.data;
+  },
+
+  // Cập nhật ngoại lệ lịch học
+  updateScheduleException: async (id: number, data: any): Promise<any> => {
+    const response = await api.put(`/schedule-exceptions/${id}`, data);
+    return response.data;
+  },
+
+  // Xóa ngoại lệ lịch học
+  deleteScheduleException: async (id: number): Promise<any> => {
+    const response = await api.delete(`/schedule-exceptions/${id}`);
+    return response.data;
+  },
+
+  // Lấy thông tin ngoại lệ theo ID
+  getScheduleExceptionById: async (id: number): Promise<any> => {
+    const response = await api.get(`/schedule-exceptions/${id}`);
+    return response.data;
+  },
+
+  // Lấy danh sách khoa
+  getDepartments: async (): Promise<any> => {
+    const response = await api.get('/departments');
+    return response.data;
+  },
+
+  // Lấy danh sách tiết học
+  getTimeSlots: async (): Promise<any> => {
+    const response = await api.get('/rooms/time-slots');
+    return response.data;
+  },
+
+  // Lấy danh sách phòng học
+  getRooms: async (): Promise<any> => {
+    const response = await api.get('/rooms');
+    return response.data;
+  },
+
+  // Lấy danh sách giảng viên
+  getTeachers: async (): Promise<any> => {
+    const response = await api.get('/teachers');
+    return response.data;
+  },
+
+  // Lấy danh sách loại ngoại lệ (RequestType)
+  getRequestTypes: async (): Promise<any> => {
+    const response = await api.get('/rooms/request-types');
+    return response.data;
+  }
+};
+
 export default api;
