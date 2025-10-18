@@ -160,15 +160,12 @@ const ProcessRequest: React.FC = () => {
                 })));
 
                 let suggested = allRooms.filter((room: any) => {
-                    // Check capacity (room should accommodate at least the class size)
                     const capacityMatch = room.capacity >= classMaxStudents;
 
-                    // Check room type (if class is practice, prefer practice rooms)
                     const roomType = room.type || room.ClassRoomType?.name;
                     const typeMatch = roomType === 'Thực hành' ||
                         (classRoomTypeId === 1 && roomType === 'Lý thuyết');
 
-                    // Check availability (default to true if not specified)
                     const available = room.isAvailable !== false;
 
                     console.log(`Room ${room.name}: capacity=${room.capacity}>=${classMaxStudents}=${capacityMatch}, type=${roomType} match=${typeMatch}, available=${available}`);
@@ -178,7 +175,6 @@ const ProcessRequest: React.FC = () => {
 
                 console.log(`After initial filtering: ${suggested.length} rooms found`);
 
-                // For time change requests, check schedule conflicts
                 console.log('Time change check:', {
                     requestType: request.RequestType?.name,
                     movedToTimeSlotId: request.movedToTimeSlotId,
@@ -188,7 +184,6 @@ const ProcessRequest: React.FC = () => {
                 if (request.RequestType?.name === 'Đổi lịch' && request.movedToTimeSlotId && request.movedToDayOfWeek) {
                     console.log('Checking schedule conflicts for time change request');
 
-                    // Load existing schedules for the requested time slot and day of week
                     const schedulesResponse = await roomService.getSchedulesByTimeSlotAndDate(
                         Number(request.movedToTimeSlotId) || 0,
                         Number(request.movedToDayOfWeek) || 0
@@ -264,7 +259,8 @@ const ProcessRequest: React.FC = () => {
     };
 
     const getDayName = (dayOfWeek: number): string => {
-        const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        // Mapping theo logic của WeeklySchedule.tsx: 1=CN, 2=T2, 3=T3, 4=T4, 5=T5, 6=T6, 7=T7
+        const days = ['', 'Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         return days[dayOfWeek] || '';
     };
 

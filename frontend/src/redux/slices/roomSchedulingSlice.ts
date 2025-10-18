@@ -1,8 +1,6 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
 import { 
-  scheduleManagementService, 
-  roomService, 
-  scheduleService 
+  scheduleManagementService
 } from '../../services/api';
 
 // Types
@@ -107,6 +105,7 @@ interface RoomSchedulingState {
   // UI State
   loading: boolean;
   refreshing: boolean; // Separate loading state for data refresh
+  loadingRooms: boolean; // Loading state for room list
   error: string | null;
   successMessage: string | null;
   
@@ -136,6 +135,7 @@ const initialState: RoomSchedulingState = {
   // UI State
   loading: false,
   refreshing: false,
+  loadingRooms: false,
   error: null,
   successMessage: null,
   
@@ -336,27 +336,29 @@ const roomSchedulingSlice = createSlice({
       
       // Load available rooms
       .addCase(loadAvailableRooms.pending, (state) => {
-        state.loading = true;
+        state.loadingRooms = true;
+        state.error = null;
       })
       .addCase(loadAvailableRooms.fulfilled, (state, action) => {
-        state.loading = false;
+        state.loadingRooms = false;
         state.availableRooms = action.payload;
       })
       .addCase(loadAvailableRooms.rejected, (state, action) => {
-        state.loading = false;
+        state.loadingRooms = false;
         state.error = action.payload as string;
       })
       
       // Load rooms by department and type
       .addCase(loadRoomsByDepartmentAndType.pending, (state) => {
-        state.loading = true;
+        state.loadingRooms = true;
+        state.error = null;
       })
       .addCase(loadRoomsByDepartmentAndType.fulfilled, (state, action) => {
-        state.loading = false;
+        state.loadingRooms = false;
         state.availableRooms = action.payload;
       })
       .addCase(loadRoomsByDepartmentAndType.rejected, (state, action) => {
-        state.loading = false;
+        state.loadingRooms = false;
         state.error = action.payload as string;
       })
       

@@ -37,6 +37,7 @@ import {
   CircularProgress,
   Tooltip
 } from '@mui/material';
+import { toast } from 'react-toastify';
 import {
   Add as AddIcon,
   Edit as EditIcon,
@@ -319,8 +320,35 @@ const ScheduleManagement = () => {
   };
 
   const handleSaveException = async () => {
-    if (!formData.classScheduleId || formData.classScheduleId === 0 || !formData.exceptionDate || !formData.reason.trim()) {
-      alert('Vui lòng chọn lịch học và điền đầy đủ thông tin');
+    // Clear previous messages
+    dispatch(clearError());
+
+    // Validation
+    if (!formData.classScheduleId || formData.classScheduleId === 0) {
+      toast.error('Vui lòng chọn lịch học');
+      return;
+    }
+
+    if (!formData.exceptionDate) {
+      toast.error('Vui lòng chọn ngày ngoại lệ');
+      return;
+    }
+
+    if (!formData.reason.trim()) {
+      toast.error('Vui lòng nhập lý do ngoại lệ');
+      return;
+    }
+
+    // Additional validation for specific exception types
+    if (formData.exceptionType === 'moved' || formData.exceptionType === 'exam') {
+      if (!formData.newDate || !formData.newTimeSlotId || !formData.newClassRoomId) {
+        toast.error('Vui lòng điền đầy đủ thông tin chuyển lịch (ngày mới, tiết mới, phòng mới)');
+        return;
+      }
+    }
+
+    if (formData.exceptionType === 'substitute' && !formData.substituteTeacherId) {
+      toast.error('Vui lòng chọn giảng viên thay thế');
       return;
     }
 
@@ -339,13 +367,16 @@ const ScheduleManagement = () => {
           id: editingException.id,
           data: dataToSend
         })).unwrap();
+        toast.success('Cập nhật ngoại lệ thành công!');
       } else {
         await dispatch(createScheduleException(dataToSend)).unwrap();
+        toast.success('Tạo ngoại lệ thành công!');
       }
       handleCloseExceptionDialog();
       dispatch(getScheduleExceptions({}));
     } catch (error) {
       console.error('Error saving exception:', error);
+      toast.error('Có lỗi xảy ra khi lưu ngoại lệ');
     }
   };
 
@@ -353,9 +384,11 @@ const ScheduleManagement = () => {
     if (window.confirm('Bạn có chắc chắn muốn xóa ngoại lệ này?')) {
       try {
         await dispatch(deleteScheduleException(id)).unwrap();
+        toast.success('Xóa ngoại lệ thành công!');
         dispatch(getScheduleExceptions({}));
       } catch (error) {
         console.error('Error deleting exception:', error);
+        toast.error('Có lỗi xảy ra khi xóa ngoại lệ');
       }
     }
   };
@@ -1057,6 +1090,7 @@ const ScheduleManagement = () => {
             </Button>
           </DialogActions>
         </Dialog>
+
       </Box>
     </LocalizationProvider>
   );

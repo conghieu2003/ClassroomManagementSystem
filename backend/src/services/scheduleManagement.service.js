@@ -603,25 +603,6 @@ class ScheduleManagementService {
       });
 
       console.log(`[GET_WEEKLY_SCHEDULE] Found ${schedules.length} assigned schedules`);
-      
-      // Debug: Kiểm tra scheduleRequests
-      schedules.forEach(schedule => {
-        if (schedule.id === 1) {
-          console.log('🔍 [DEBUG] Schedule 1 scheduleRequests:', {
-            id: schedule.id,
-            scheduleRequestsCount: schedule.scheduleRequests.length,
-            scheduleRequests: schedule.scheduleRequests.map(req => ({
-              id: req.id,
-              requestTypeId: req.requestTypeId,
-              requestStatusId: req.requestStatusId,
-              exceptionDate: req.exceptionDate,
-              exceptionType: req.exceptionType,
-              reason: req.reason
-            }))
-          });
-        }
-      });
-
       // Chuyển đổi dữ liệu để phù hợp với frontend
       const weeklySchedules = schedules.map(schedule => {
         const timeSlot = schedule.timeSlot;
@@ -641,7 +622,14 @@ class ScheduleManagementService {
           // Tính ngày của schedule trong tuần hiện tại
           // dayOfWeek: 1=CN, 2=T2, 3=T3, 4=T4, 5=T5, 6=T6, 7=T7
           const startDate = new Date(weekStartDate);
-          const scheduleDayOffset = schedule.dayOfWeek - 1; // 1=CN -> 0, 2=T2 -> 1, 3=T3 -> 2, ...
+          // Tính offset từ Thứ 2 (ngày bắt đầu tuần)
+          // Thứ 2 (dayOfWeek=2) -> offset=0, Thứ 3 (dayOfWeek=3) -> offset=1, ..., Chủ nhật (dayOfWeek=1) -> offset=6
+          let scheduleDayOffset;
+          if (schedule.dayOfWeek === 1) { // Chủ nhật
+            scheduleDayOffset = 6; // Ngày thứ 7 trong tuần (Chủ nhật)
+          } else {
+            scheduleDayOffset = schedule.dayOfWeek - 2; // Thứ 2=0, Thứ 3=1, ..., Thứ 7=5
+          }
           const scheduleDate = new Date(startDate);
           scheduleDate.setDate(startDate.getDate() + scheduleDayOffset);
           const scheduleDateStr = scheduleDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -649,12 +637,14 @@ class ScheduleManagementService {
           // Chỉ lấy ngoại lệ khi ngày ngoại lệ khớp chính xác với ngày của schedule
           const isRelevant = exceptionDateStr === scheduleDateStr;
           
+          // Debug log cho schedule ID 1
           if (schedule.id === 1) {
-            console.log('🔍 [DEBUG] Backend exception filter:', {
+            console.log('🔍 [DEBUG] Date filter for schedule 1:', {
               scheduleId: schedule.id,
               scheduleDayOfWeek: schedule.dayOfWeek,
               scheduleDateStr: scheduleDateStr,
-              exceptionDateStr: exceptionDateStr,
+              exceptionDate: request.exceptionDate,
+              exceptionDateStr,
               isRelevant: isRelevant
             });
           }
