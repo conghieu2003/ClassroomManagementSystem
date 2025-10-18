@@ -244,17 +244,6 @@ const ScheduleTableBody = memo(({
               }}
             >
               {daySchedules.map((schedule: WeeklyScheduleItem) => {
-                // Debug log để kiểm tra dữ liệu ngoại lệ
-                if (schedule.id === 1) {
-                  console.log('🔍 [DEBUG] Schedule 1 exception data:', {
-                    id: schedule.id,
-                    exceptionDate: schedule.exceptionDate,
-                    requestTypeId: schedule.requestTypeId,
-                    requestTypeName: schedule.requestTypeId ? getRequestTypeName(schedule.requestTypeId) : 'N/A',
-                    exceptionStatus: schedule.exceptionStatus,
-                    exceptionReason: schedule.exceptionReason
-                  });
-                }
                 
                 return (
                 <Card 
@@ -270,7 +259,16 @@ const ScheduleTableBody = memo(({
                   {/* Exception label overlay - chỉ hiển thị khi ngày ngoại lệ khớp với ngày của schedule */}
                   {(() => {
                     // Kiểm tra xem có ngoại lệ và ngày ngoại lệ có khớp với ngày hiện tại không
-                    if (!schedule.exceptionDate || !schedule.requestTypeId) return null;
+                    if (!schedule.exceptionDate || !schedule.requestTypeId) {
+                      if (schedule.id === 1) {
+                        console.log('🔍 [DEBUG] Schedule 1 no exception data:', {
+                          id: schedule.id,
+                          exceptionDate: schedule.exceptionDate,
+                          requestTypeId: schedule.requestTypeId
+                        });
+                      }
+                      return null;
+                    }
                     
                     const exceptionDate = new Date(schedule.exceptionDate);
                     const exceptionDateStr = exceptionDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -292,7 +290,19 @@ const ScheduleTableBody = memo(({
                         exceptionDate: exceptionDateStr,
                         scheduleDate: scheduleDateStr,
                         shouldShowLabel: shouldShowLabel,
-                        currentWeek: currentWeek.map(day => ({ dayOfWeek: day.dayOfWeek, date: day.date.format('YYYY-MM-DD') }))
+                        selectedDate: selectedDate.format('YYYY-MM-DD'),
+                        currentWeek: currentWeek.map(day => ({ dayOfWeek: day.dayOfWeek, date: day.date.format('YYYY-MM-DD') })),
+                        exceptionDateRaw: schedule.exceptionDate,
+                        requestTypeId: schedule.requestTypeId
+                      });
+                    }
+                    
+                    if (schedule.id === 1) {
+                      console.log('🔍 [DEBUG] Schedule 1 exception label decision:', {
+                        id: schedule.id,
+                        shouldShowLabel: shouldShowLabel,
+                        requestTypeId: schedule.requestTypeId,
+                        requestTypeName: getRequestTypeName(schedule.requestTypeId)
                       });
                     }
                     
@@ -347,6 +357,15 @@ const ScheduleTableBody = memo(({
                       }}>
                         Lý do: {schedule.exceptionReason}
                       </Typography>
+                    )}
+                    {schedule.id === 1 && (
+                      <Typography variant="caption" sx={{ 
+                        display: 'block', 
+                        fontSize: '0.6rem',
+                        color: 'red',
+                        mt: 0.5
+                      }}>
+                     </Typography>
                     )}
                   </CardContent>
                 </Card>
@@ -477,16 +496,6 @@ const WeeklySchedule = memo(() => {
       }
     };
   }, []);
-
-  // Debug: Log weekly schedules
-  useEffect(() => {
-    console.log('📅 [DEBUG] Weekly schedules updated:', {
-      count: weeklySchedules?.length || 0,
-      schedules: weeklySchedules,
-      loading: weeklyScheduleLoading,
-      localLoading
-    });
-  }, [weeklySchedules, weeklyScheduleLoading, localLoading]);
 
   // Filter schedules dựa trên các điều kiện
   const filteredSchedules = useMemo(() => {

@@ -42,7 +42,6 @@ import {
 import { RootState, AppDispatch } from '../../redux/store';
 import {
   loadAllData,
-  loadScheduleData,
   loadAvailableRooms,
   loadRoomsByDepartmentAndType,
   assignRoomToSchedule,
@@ -84,6 +83,7 @@ const RoomScheduling: React.FC = () => {
     // UI State
     loading,
     refreshing,
+    loadingRooms,
     error,
     successMessage,
     
@@ -100,16 +100,6 @@ const RoomScheduling: React.FC = () => {
     dispatch(loadAllData());
   }, [dispatch]);
 
-  // Refresh only schedule data after successful operations
-  const refreshScheduleData = useCallback(() => {
-    // Only reload schedule data, not all data
-    dispatch(loadScheduleData());
-  }, [dispatch]);
-
-  // Refresh data after successful operations (legacy - kept for compatibility)
-  const refreshData = useCallback(() => {
-    dispatch(loadAllData());
-  }, [dispatch]);
 
 
   // Assign room to schedule using Redux
@@ -141,7 +131,6 @@ const RoomScheduling: React.FC = () => {
         
         if (successCount > 0) {
           dispatch(setSuccessMessage(`Tự động gán phòng thành công: ${successCount} lịch học`));
-          // Data will be automatically refreshed by the Redux thunk
         }
       }
     } catch (err: any) {
@@ -154,6 +143,9 @@ const RoomScheduling: React.FC = () => {
   const handleOpenAssignDialog = (schedule: ScheduleData) => {
     dispatch(openAssignDialog(schedule));
     
+    // Clear previous room selection
+    dispatch(setSelectedRoom(''));
+    
     // Tìm thông tin lớp học để lấy departmentId
     const classInfo = classes.find(c => c.classId === schedule.classId);
     if (classInfo) {
@@ -164,9 +156,11 @@ const RoomScheduling: React.FC = () => {
           classRoomTypeId: schedule.classRoomTypeId.toString()
         }));
       } else {
+        // Fallback to available rooms for schedule
         dispatch(loadAvailableRooms(schedule.scheduleId.toString()));
       }
     } else {
+      // Fallback to available rooms for schedule
       dispatch(loadAvailableRooms(schedule.scheduleId.toString()));
     }
   };
@@ -548,6 +542,12 @@ const RoomScheduling: React.FC = () => {
           </Alert>
         )}
 
+        {loadingRooms && assignDialogOpen && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Đang tải danh sách phòng...
+          </Alert>
+        )}
+
         {/* Statistics Cards */}
         {stats && (
           <Box display="grid" gridTemplateColumns="repeat(auto-fit, minmax(200px, 1fr))" gap={2} mb={3}>
@@ -750,63 +750,91 @@ const RoomScheduling: React.FC = () => {
         <DialogContent>
             <FormControl fullWidth sx={{ mt: 2 }}>
               <InputLabel>Chọn phòng</InputLabel>
-                    <Select
-                value={selectedRoom}
-                label="Chọn phòng"
-                onChange={(e) => dispatch(setSelectedRoom(e.target.value))}
-              >
-                  {availableRooms.map((room) => {
-                    const hasConflict = !room.isAvailable;
-                    return (
-                      <MenuItem 
-                        key={room.id} 
-                        value={room.id}
-                        disabled={hasConflict}
-                        sx={{ 
-                          opacity: hasConflict ? 0.5 : 1,
-                          backgroundColor: hasConflict ? '#ffebee' : 'transparent'
-                        }}
-                      >
-                        <Box sx={{ width: '100%' }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <Typography variant="body1" fontWeight="bold">
-                              {room.name}
-                            </Typography>
-                            <Box sx={{ display: 'flex', gap: 1 }}>
-                              <Chip 
-                                label={room.type} 
-                                size="small" 
-                                color={room.type === 'Lý thuyết' ? 'primary' : 'secondary'} 
-                                variant="outlined"
-                              />
-                              {hasConflict && (
+              {loadingRooms ? (
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'center', 
+                    py: 3,
+                    border: '1px solid #e0e0e0',
+                    borderRadius: 1,
+                    backgroundColor: '#f5f5f5'
+                  }}
+                >
+                  <CircularProgress size={24} sx={{ mr: 2 }} />
+                  <Typography variant="body2" color="text.secondary">
+                    Đang tải danh sách phòng...
+                  </Typography>
+                </Box>
+              ) : (
+                <Select
+                  value={selectedRoom}
+                  label="Chọn phòng"
+                  onChange={(e) => dispatch(setSelectedRoom(e.target.value))}
+                  disabled={loadingRooms}
+                >
+                  {availableRooms.length === 0 ? (
+                    <MenuItem disabled>
+                      <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        Không có phòng phù hợp
+                      </Typography>
+                    </MenuItem>
+                  ) : (
+                    availableRooms.map((room) => {
+                      const hasConflict = !room.isAvailable;
+                      return (
+                        <MenuItem 
+                          key={room.id} 
+                          value={room.id}
+                          disabled={hasConflict}
+                          sx={{ 
+                            opacity: hasConflict ? 0.5 : 1,
+                            backgroundColor: hasConflict ? '#ffebee' : 'transparent'
+                          }}
+                        >
+                          <Box sx={{ width: '100%' }}>
+                            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <Typography variant="body1" fontWeight="bold">
+                                {room.name}
+                              </Typography>
+                              <Box sx={{ display: 'flex', gap: 1 }}>
                                 <Chip 
-                                  label="Đã sử dụng" 
+                                  label={room.type} 
                                   size="small" 
-                                  color="error" 
-                                  variant="filled"
+                                  color={room.type === 'Lý thuyết' ? 'primary' : 'secondary'} 
+                                  variant="outlined"
                                 />
-                              )}
+                                {hasConflict && (
+                                  <Chip 
+                                    label="Đã sử dụng" 
+                                    size="small" 
+                                    color="error" 
+                                    variant="filled"
+                                  />
+                                )}
+                              </Box>
                             </Box>
-                          </Box>
-                          <Typography variant="body2" color="text.secondary">
-                            {room.code} - {room.capacity} chỗ - {room.building} tầng {room.floor}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {room.department} {room.isSameDepartment && '✓'}
-                          </Typography>
-                          {hasConflict && room.conflictInfo && (
-                            <Typography variant="caption" color="error">
-                              ⚠️ Đã được sử dụng bởi {room.conflictInfo.className} ({room.conflictInfo.teacherName}) 
-                              trong khung giờ {room.conflictInfo.time}
+                            <Typography variant="body2" color="text.secondary">
+                              {room.code} - {room.capacity} chỗ - {room.building} tầng {room.floor}
                             </Typography>
-                          )}
-                        </Box>
-                      </MenuItem>
-                    );
-                  })}
-                    </Select>
-                  </FormControl>
+                            <Typography variant="body2" color="text.secondary">
+                              {room.department} {room.isSameDepartment && '✓'}
+                            </Typography>
+                            {hasConflict && room.conflictInfo && (
+                              <Typography variant="caption" color="error">
+                                ⚠️ Đã được sử dụng bởi {room.conflictInfo.className} ({room.conflictInfo.teacherName}) 
+                                trong khung giờ {room.conflictInfo.time}
+                              </Typography>
+                            )}
+                          </Box>
+                        </MenuItem>
+                      );
+                    })
+                  )}
+                </Select>
+              )}
+            </FormControl>
         </DialogContent>
         <DialogActions>
             <Button onClick={() => dispatch(closeAssignDialog())}>
@@ -815,10 +843,10 @@ const RoomScheduling: React.FC = () => {
             <Button 
               onClick={handleAssignRoom} 
               variant="contained"
-              disabled={!selectedRoom || isAssigning}
+              disabled={!selectedRoom || isAssigning || loadingRooms}
               startIcon={isAssigning ? <CircularProgress size={20} /> : <AssignmentIcon />}
             >
-              {isAssigning ? 'Đang gán phòng...' : 'Gán phòng'}
+              {isAssigning ? 'Đang gán phòng...' : loadingRooms ? 'Đang tải phòng...' : 'Gán phòng'}
           </Button>
         </DialogActions>
       </Dialog>

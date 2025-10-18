@@ -276,7 +276,8 @@ const RoomRequestForm: React.FC = () => {
     };
 
     const getDayName = (dayOfWeek: number): string => {
-        const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+        // Mapping theo logic của WeeklySchedule.tsx: 1=CN, 2=T2, 3=T3, 4=T4, 5=T5, 6=T6, 7=T7
+        const days = ['', 'Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
         return days[dayOfWeek] || '';
     };
 

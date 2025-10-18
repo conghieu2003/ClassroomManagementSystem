@@ -97,6 +97,7 @@ interface ScheduleExceptionState {
   currentException: ScheduleException | null;
   loading: boolean;
   error: string | null;
+  successMessage: string | null;
   pagination: {
     page: number;
     limit: number;
@@ -111,6 +112,7 @@ const initialState: ScheduleExceptionState = {
   currentException: null,
   loading: false,
   error: null,
+  successMessage: null,
   pagination: {
     page: 1,
     limit: 10,
@@ -213,6 +215,12 @@ const scheduleExceptionSlice = createSlice({
     clearError: (state) => {
       state.error = null;
     },
+    setError: (state, action: PayloadAction<string>) => {
+      state.error = action.payload;
+    },
+    clearSuccessMessage: (state) => {
+      state.successMessage = null;
+    },
     clearCurrentException: (state) => {
       state.currentException = null;
     },
@@ -227,15 +235,18 @@ const scheduleExceptionSlice = createSlice({
       .addCase(createScheduleException.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.successMessage = null;
       })
       .addCase(createScheduleException.fulfilled, (state, action) => {
         state.loading = false;
         state.exceptions.unshift(action.payload);
         state.error = null;
+        state.successMessage = 'Tạo ngoại lệ lịch học thành công';
       })
       .addCase(createScheduleException.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        state.successMessage = null;
       })
 
       // Get schedule exceptions
@@ -273,6 +284,7 @@ const scheduleExceptionSlice = createSlice({
       .addCase(updateScheduleException.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.successMessage = null;
       })
       .addCase(updateScheduleException.fulfilled, (state, action) => {
         state.loading = false;
@@ -284,16 +296,19 @@ const scheduleExceptionSlice = createSlice({
           state.currentException = action.payload;
         }
         state.error = null;
+        state.successMessage = 'Cập nhật ngoại lệ lịch học thành công';
       })
       .addCase(updateScheduleException.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        state.successMessage = null;
       })
 
       // Delete schedule exception
       .addCase(deleteScheduleException.pending, (state) => {
         state.loading = true;
         state.error = null;
+        state.successMessage = null;
       })
       .addCase(deleteScheduleException.fulfilled, (state, action) => {
         state.loading = false;
@@ -302,10 +317,12 @@ const scheduleExceptionSlice = createSlice({
           state.currentException = null;
         }
         state.error = null;
+        state.successMessage = 'Xóa ngoại lệ lịch học thành công';
       })
       .addCase(deleteScheduleException.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
+        state.successMessage = null;
       })
 
       // Get available schedules
@@ -325,5 +342,5 @@ const scheduleExceptionSlice = createSlice({
   }
 });
 
-export const { clearError, clearCurrentException, setPagination } = scheduleExceptionSlice.actions;
+export const { clearError, setError, clearSuccessMessage, clearCurrentException, setPagination } = scheduleExceptionSlice.actions;
 export default scheduleExceptionSlice.reducer;

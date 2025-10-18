@@ -97,13 +97,7 @@ const getWeeklySchedule = async (weekStartDate, filters = {}) => {
     const startDate = new Date(weekStartDate);
     const endDate = new Date(startDate);
     endDate.setDate(startDate.getDate() + 6);
-    
-    console.log('🔍 [DEBUG] Weekly schedule date range:', {
-      weekStartDate,
-      startDate: startDate.toISOString().split('T')[0],
-      endDate: endDate.toISOString().split('T')[0]
-    });
-
+  
     // Build where clause
     const whereClause = {
       OR: [
@@ -186,28 +180,6 @@ const getWeeklySchedule = async (weekStartDate, filters = {}) => {
         { timeSlot: { startTime: 'asc' } }
       ]
     });
-
-    // Debug: Kiểm tra tất cả scheduleRequests trước khi filter
-    console.log('🔍 [DEBUG] All schedules found:', schedules.length);
-    schedules.forEach(schedule => {
-      if (schedule.id === 1) {
-        console.log('🔍 [DEBUG] Schedule 1 details:', {
-          id: schedule.id,
-          dayOfWeek: schedule.dayOfWeek,
-          scheduleRequestsCount: schedule.scheduleRequests.length,
-          scheduleRequests: schedule.scheduleRequests.map(req => ({
-            id: req.id,
-            requestTypeId: req.requestTypeId,
-            requestStatusId: req.requestStatusId,
-            exceptionDate: req.exceptionDate,
-            exceptionType: req.exceptionType,
-            reason: req.reason,
-            RequestType: req.RequestType
-          }))
-        });
-      }
-    });
-
     // Transform data to match expected format
     const result = schedules.map(schedule => {
       // Filter scheduleRequests theo ngày chính xác trong tuần
@@ -220,7 +192,14 @@ const getWeeklySchedule = async (weekStartDate, filters = {}) => {
         // Tính ngày của schedule trong tuần hiện tại
         // dayOfWeek: 1=CN, 2=T2, 3=T3, 4=T4, 5=T5, 6=T6, 7=T7
         const startDate = new Date(weekStartDate);
-        const scheduleDayOffset = schedule.dayOfWeek - 1; // 1=CN -> 0, 2=T2 -> 1, 3=T3 -> 2, ...
+        // Tính offset từ Thứ 2 (ngày bắt đầu tuần)
+        // Thứ 2 (dayOfWeek=2) -> offset=0, Thứ 3 (dayOfWeek=3) -> offset=1, ..., Chủ nhật (dayOfWeek=1) -> offset=6
+        let scheduleDayOffset;
+        if (schedule.dayOfWeek === 1) { // Chủ nhật
+          scheduleDayOffset = 6; // Ngày thứ 7 trong tuần (Chủ nhật)
+        } else {
+          scheduleDayOffset = schedule.dayOfWeek - 2; // Thứ 2=0, Thứ 3=1, ..., Thứ 7=5
+        }
         const scheduleDate = new Date(startDate);
         scheduleDate.setDate(startDate.getDate() + scheduleDayOffset);
         const scheduleDateStr = scheduleDate.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -228,59 +207,13 @@ const getWeeklySchedule = async (weekStartDate, filters = {}) => {
         // Chỉ lấy ngoại lệ khi ngày ngoại lệ khớp chính xác với ngày của schedule
         const isRelevant = exceptionDateStr === scheduleDateStr;
         
-        // Debug log cho schedule ID 1
-        if (schedule.id === 1) {
-          console.log('🔍 [DEBUG] Date filter for schedule 1:', {
-            scheduleId: schedule.id,
-            scheduleDayOfWeek: schedule.dayOfWeek,
-            scheduleDateStr: scheduleDateStr,
-            exceptionDate: request.exceptionDate,
-            exceptionDateStr,
-            isRelevant: isRelevant
-          });
-        }
-        
+       
         return isRelevant;
       });
       
       // Get the first exception if exists
       const exception = relevantExceptions.length > 0 ? relevantExceptions[0] : null;
-      
-      // Debug log để kiểm tra ngoại lệ
-      if (schedule.id === 1) { // classScheduleId = 1
-        console.log('🔍 [DEBUG] Schedule ID 1:', {
-          scheduleId: schedule.id,
-          dayOfWeek: schedule.dayOfWeek,
-          allScheduleRequests: schedule.scheduleRequests.map(req => ({
-            id: req.id,
-            requestTypeId: req.requestTypeId,
-            requestStatusId: req.requestStatusId,
-            exceptionDate: req.exceptionDate,
-            exceptionType: req.exceptionType,
-            reason: req.reason
-          })),
-          relevantExceptions: relevantExceptions.map(req => ({
-            id: req.id,
-            requestTypeId: req.requestTypeId,
-            requestStatusId: req.requestStatusId,
-            exceptionDate: req.exceptionDate,
-            exceptionType: req.exceptionType,
-            reason: req.reason
-          })),
-          exception: exception ? {
-            id: exception.id,
-            requestTypeId: exception.requestTypeId,
-            requestStatusId: exception.requestStatusId,
-            exceptionDate: exception.exceptionDate,
-            exceptionType: exception.exceptionType,
-            reason: exception.reason
-          } : null,
-          weekStartDate,
-          startDate: startDate.toISOString().split('T')[0],
-          endDate: endDate.toISOString().split('T')[0]
-        });
-      }
-      
+           
       return {
         id: schedule.id,
         classId: schedule.classId,
@@ -328,8 +261,6 @@ const getWeeklySchedule = async (weekStartDate, filters = {}) => {
       };
     });
 
-    // Debug: Kiểm tra kết quả cuối cùng
-    console.log('🔍 [DEBUG] Final result for schedule ID 1:', result.find(r => r.id === 1));
 
     return result;
   } catch (error) {
