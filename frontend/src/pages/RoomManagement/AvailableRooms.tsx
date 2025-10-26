@@ -491,7 +491,7 @@ const AvailableRooms: React.FC = () => {
         <CardContent>
           <Box display="flex" justifyContent="space-between" alignItems="center">
             <Typography variant="h4" component="h1" sx={{ color: 'primary.main', fontWeight: 'bold' }}>
-              Tìm kiếm phòng trống
+                Danh sách phòng học
             </Typography>
             <Tooltip title="Làm mới dữ liệu">
               <IconButton 
