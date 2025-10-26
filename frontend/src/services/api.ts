@@ -316,9 +316,52 @@ export const roomService = {
     return response.data;
   },
 
-  getSchedulesByTimeSlotAndDate: async (timeSlotId: number, dayOfWeek: number): Promise<any> => {
-    const response = await api.get(`/rooms/schedules/by-time-slot?timeSlotId=${timeSlotId}&dayOfWeek=${dayOfWeek}`);
-    return response.data;
+  getSchedulesByTimeSlotAndDate: async (timeSlotId: number, dayOfWeek: number, date?: string): Promise<any> => {
+    try {
+      const params: any = {
+        timeSlotId,
+        dayOfWeek
+      };
+      
+      // Thêm date parameter nếu có
+      if (date) {
+        params.date = date;
+      }
+      
+      const response = await api.get('/rooms/schedules/by-time-slot', { params });
+      return { success: true, data: response.data.data };
+    } catch (error: any) {
+      console.error('Error getting schedules:', error);
+      return { success: false, data: [] };
+    }
+  },
+
+  // API mới: Lấy phòng available cho ngoại lệ (bao gồm phòng trống do ngoại lệ khác)
+  getAvailableRoomsForException: async (
+    timeSlotId: number, 
+    dayOfWeek: number, 
+    date: string,
+    capacity?: number,
+    classRoomTypeId?: string,
+    departmentId?: string
+  ): Promise<any> => {
+    try {
+      const params: any = {
+        timeSlotId,
+        dayOfWeek,
+        date
+      };
+      
+      if (capacity) params.capacity = capacity;
+      if (classRoomTypeId) params.classRoomTypeId = classRoomTypeId;
+      if (departmentId) params.departmentId = departmentId;
+      
+      const response = await api.get('/rooms/available-for-exception', { params });
+      return { success: true, data: response.data.data, message: response.data.message };
+    } catch (error: any) {
+      console.error('Error getting available rooms for exception:', error);
+      return { success: false, data: { normalRooms: [], freedRooms: [], occupiedRooms: [], totalAvailable: 0 } };
+    }
   },
 };
 

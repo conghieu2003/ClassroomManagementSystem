@@ -441,8 +441,8 @@ class RoomService {
     }
   }
 
-  // Lấy lịch học theo time slot và thứ trong tuần
-  async getSchedulesByTimeSlotAndDate(timeSlotId, dayOfWeek) {
+  // Lấy lịch học theo time slot và thứ trong tuần (có hỗ trợ kiểm tra ngoại lệ cho ngày cụ thể)
+  async getSchedulesByTimeSlotAndDate(timeSlotId, dayOfWeek, specificDate = null) {
     try {
       const schedules = await prisma.classSchedule.findMany({
         where: {
@@ -454,7 +454,9 @@ class RoomService {
             select: {
               id: true,
               className: true,
-              subjectName: true
+              subjectName: true,
+              startDate: true,
+              endDate: true
             }
           },
           classRoom: {
@@ -474,22 +476,221 @@ class RoomService {
                 }
               }
             }
-          }
+          },
+          scheduleRequests: specificDate ? {
+            where: {
+              exceptionDate: new Date(specificDate),
+              requestStatusId: 2, // Chỉ lấy ngoại lệ đã hoàn thành
+              requestTypeId: { in: [3, 4, 5, 6, 7, 8, 9] } // Lấy tất cả loại ngoại lệ
+            },
+            include: {
+              RequestType: true
+            }
+          } : false
         }
       });
 
-      return schedules.map(schedule => ({
-        id: schedule.id,
-        classRoomId: schedule.classRoomId,
-        classRoom: schedule.classRoom,
-        class: schedule.class,
-        teacher: schedule.teacher,
-        dayOfWeek: schedule.dayOfWeek,
-        timeSlotId: schedule.timeSlotId
-      }));
+      // Nếu KHÔNG có ngày cụ thể → trả về lịch cố định như cũ
+      if (!specificDate) {
+        return schedules.map(schedule => ({
+          id: schedule.id,
+          classRoomId: schedule.classRoomId,
+          classRoom: schedule.classRoom,
+          class: schedule.class,
+          teacher: schedule.teacher,
+          dayOfWeek: schedule.dayOfWeek,
+          timeSlotId: schedule.timeSlotId,
+          hasException: false
+        }));
+      }
+
+      // Nếu CÓ ngày cụ thể → kiểm tra ngoại lệ
+      const specificDateObj = new Date(specificDate);
+      
+      console.log(`[getSchedulesByTimeSlotAndDate] Processing ${schedules.length} schedules for date: ${specificDate}`);
+      
+      return schedules
+        .filter(schedule => {
+          // Kiểm tra ngày có nằm trong khoảng thời gian của lớp không
+          const classStartDate = new Date(schedule.class.startDate);
+          const classEndDate = new Date(schedule.class.endDate);
+          
+          if (specificDateObj < classStartDate || specificDateObj > classEndDate) {
+            return false; // Lớp chưa bắt đầu hoặc đã kết thúc
+          }
+          
+          return true;
+        })
+        .map(schedule => {
+          const hasException = schedule.scheduleRequests && schedule.scheduleRequests.length > 0;
+          const exception = hasException ? schedule.scheduleRequests[0] : null;
+          
+          // Debug logging
+          if (schedule.classRoom?.name === 'Phòng lý thuyết H1.1' || schedule.classRoom?.code === 'H1.1') {
+            console.log(`[DEBUG H1.1] Schedule ID: ${schedule.id}, Class: ${schedule.class.className}`);
+            console.log(`[DEBUG H1.1] Has exception: ${hasException}`);
+            if (exception) {
+              console.log(`[DEBUG H1.1] Exception type: ${exception.exceptionType}, RequestType: ${exception.RequestType?.name}`);
+              console.log(`[DEBUG H1.1] Exception date: ${exception.exceptionDate}, Reason: ${exception.reason}`);
+              console.log(`[DEBUG H1.1] RequestTypeId: ${exception.requestTypeId}, StatusId: ${exception.requestStatusId}`);
+            }
+          }
+          
+          // Kiểm tra exception theo requestTypeId thay vì exceptionType
+          // RequestTypeId: 3=Tạm ngưng, 4=Thi, 5=Nghỉ, 6=Đổi lịch, ...
+          if (exception) {
+            const shouldFreeRoom = [3, 4, 5].includes(exception.requestTypeId) || // Tạm ngưng, Thi, Nghỉ
+                                   ['cancelled', 'exam'].includes(exception.exceptionType);
+            
+            if (shouldFreeRoom) {
+              console.log(`[DEBUG] Freeing room ${schedule.classRoom?.name} due to exception type ${exception.exceptionType || exception.RequestType?.name}`);
+              return {
+                id: schedule.id,
+                classRoomId: null, // ← Phòng TRỐNG
+                classRoom: null,
+                class: schedule.class,
+                teacher: schedule.teacher,
+                dayOfWeek: schedule.dayOfWeek,
+                timeSlotId: schedule.timeSlotId,
+                hasException: true,
+                exceptionType: exception.exceptionType || 'exception',
+                exceptionReason: exception.reason,
+                exceptionTypeName: exception.RequestType?.name || exception.exceptionType,
+                requestTypeId: exception.requestTypeId,
+                // Giữ thông tin phòng gốc
+                originalClassRoom: schedule.classRoom
+              };
+            }
+          }
+          
+          // Nếu ngoại lệ 'moved' → Phòng gốc TRỐNG
+          if (exception && (exception.exceptionType === 'moved' || exception.requestTypeId === 6)) {
+            return {
+              id: schedule.id,
+              classRoomId: null, // Phòng gốc trống
+              classRoom: null,
+              class: schedule.class,
+              teacher: schedule.teacher,
+              dayOfWeek: schedule.dayOfWeek,
+              timeSlotId: schedule.timeSlotId,
+              hasException: true,
+              exceptionType: 'moved',
+              exceptionReason: exception.reason,
+              movedToClassRoomId: exception.movedToClassRoomId,
+              movedToTimeSlotId: exception.movedToTimeSlotId,
+              movedToDate: exception.movedToDate,
+              originalClassRoom: schedule.classRoom
+            };
+          }
+          
+          // Không có ngoại lệ → giữ nguyên lịch cố định
+          return {
+            id: schedule.id,
+            classRoomId: schedule.classRoomId,
+            classRoom: schedule.classRoom,
+            class: schedule.class,
+            teacher: schedule.teacher,
+            dayOfWeek: schedule.dayOfWeek,
+            timeSlotId: schedule.timeSlotId,
+            hasException: false
+          };
+        });
     } catch (error) {
       console.error('Error getting schedules by time slot and date:', error);
       throw new Error(`Lỗi lấy lịch học: ${error.message}`);
+    }
+  }
+
+  // Lấy danh sách phòng available cho ngoại lệ (bao gồm cả phòng trống do ngoại lệ khác)
+  async getAvailableRoomsForException(timeSlotId, dayOfWeek, specificDate, requiredCapacity = 0, classRoomTypeId = null, departmentId = null) {
+    try {
+      // Step 1: Lấy TẤT CẢ phòng phù hợp với các điều kiện
+      const whereClause = {
+        isAvailable: true,
+        capacity: { gte: parseInt(requiredCapacity) || 0 }
+      };
+
+      // Lọc theo loại phòng nếu có
+      if (classRoomTypeId && classRoomTypeId !== 'all') {
+        whereClause.classRoomTypeId = parseInt(classRoomTypeId);
+      }
+
+      // Lọc theo khoa nếu có
+      if (departmentId && departmentId !== 'all') {
+        whereClause.OR = [
+          { departmentId: parseInt(departmentId) },
+          { departmentId: null } // Phòng chung
+        ];
+      }
+
+      const allRooms = await prisma.classRoom.findMany({
+        where: whereClause,
+        include: {
+          ClassRoomType: true,
+          department: true
+        }
+      });
+
+      console.log(`[getAvailableRoomsForException] Found ${allRooms.length} total rooms matching criteria`);
+
+      // Step 2: Lấy schedules với exceptions cho ngày cụ thể
+      const schedules = await this.getSchedulesByTimeSlotAndDate(
+        timeSlotId,
+        dayOfWeek,
+        specificDate
+      );
+
+      console.log(`[getAvailableRoomsForException] Found ${schedules.length} schedules for this time slot`);
+
+      // Step 3: Phân loại phòng
+      const occupiedRoomIds = schedules
+        .filter(s => s.classRoomId && !s.hasException)
+        .map(s => s.classRoomId);
+
+      const freedRoomInfo = schedules
+        .filter(s => s.hasException && s.originalClassRoom)
+        .map(s => ({
+          roomId: s.originalClassRoom.id,
+          className: s.class.className,
+          exceptionType: s.exceptionType,
+          exceptionReason: s.exceptionReason,
+          exceptionTypeName: s.exceptionTypeName
+        }));
+
+      const freedRoomIds = freedRoomInfo.map(r => r.roomId);
+
+      console.log(`[getAvailableRoomsForException] Occupied rooms: ${occupiedRoomIds.length}, Freed rooms: ${freedRoomIds.length}`);
+
+      // Step 4: Tạo danh sách phòng với thông tin chi tiết
+      const categorizedRooms = allRooms.map(room => {
+        const isOccupied = occupiedRoomIds.includes(room.id);
+        const freedInfo = freedRoomInfo.find(f => f.roomId === room.id);
+        const isFreedByException = !!freedInfo;
+
+        const processedRoom = this.processRoomData(room);
+
+        return {
+          ...processedRoom,
+          status: isOccupied ? 'occupied' : 'available',
+          isFreedByException,
+          exceptionInfo: isFreedByException ? freedInfo : null
+        };
+      });
+
+      // Step 5: Lọc và sắp xếp
+      const result = {
+        normalRooms: categorizedRooms.filter(r => r.status === 'available' && !r.isFreedByException),
+        freedRooms: categorizedRooms.filter(r => r.isFreedByException),
+        occupiedRooms: categorizedRooms.filter(r => r.status === 'occupied'),
+        totalAvailable: categorizedRooms.filter(r => r.status === 'available').length
+      };
+
+      console.log(`[getAvailableRoomsForException] Result: ${result.normalRooms.length} normal, ${result.freedRooms.length} freed, ${result.occupiedRooms.length} occupied`);
+
+      return result;
+    } catch (error) {
+      console.error('Error in getAvailableRoomsForException:', error);
+      throw new Error(`Lỗi lấy phòng available: ${error.message}`);
     }
   }
 }

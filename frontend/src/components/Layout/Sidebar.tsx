@@ -55,10 +55,12 @@ const Sidebar: React.FC = () => {
         path: '/rooms',
         icon: 'fas fa-door-open',
         children: [
-          { id: 'all', name: 'Danh sách phòng', path: '/rooms', icon: 'fas fa-list' },
+          { id: 'all', name: 'Hệ thống phòng học', path: '/rooms', icon: 'fas fa-building' },
+          { id: 'available-rooms', name: 'Tìm phòng trống', path: '/rooms/available', icon: 'fas fa-search' },
           { id: 'request-form', name: 'Yêu cầu xin/đổi phòng', path: '/rooms/requests', icon: 'fas fa-exchange-alt' },
           { id: 'request-list', name: 'Danh sách yêu cầu', path: '/rooms/requests/list', icon: 'fas fa-clipboard-list' },
-          { id: 'room-scheduling', name: 'Sắp xếp phòng học', path: '/rooms/scheduling', icon: 'fas fa-calendar-check' }
+          { id: 'room-scheduling', name: 'Sắp xếp phòng học', path: '/rooms/scheduling', icon: 'fas fa-calendar-check' },
+          
         ]
       },
       {

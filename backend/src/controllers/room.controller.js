@@ -245,10 +245,10 @@ class RoomController {
     }
   }
 
-  // API lấy lịch học theo time slot và thứ trong tuần
+  // API lấy lịch học theo time slot và thứ trong tuần (có hỗ trợ kiểm tra ngoại lệ cho ngày cụ thể)
   async getSchedulesByTimeSlotAndDate(req, res) {
     try {
-      const { timeSlotId, dayOfWeek } = req.query;
+      const { timeSlotId, dayOfWeek, date } = req.query; // Thêm tham số 'date'
 
       if (!timeSlotId || !dayOfWeek) {
         return res.status(400).json({
@@ -257,11 +257,57 @@ class RoomController {
         });
       }
 
-      const schedules = await roomService.getSchedulesByTimeSlotAndDate(timeSlotId, dayOfWeek);
+      // Gọi service với date parameter (nếu có)
+      const schedules = await roomService.getSchedulesByTimeSlotAndDate(
+        timeSlotId, 
+        dayOfWeek,
+        date || null // Nếu không có date → lấy lịch cố định
+      );
 
       return res.status(200).json({
         success: true,
-        data: schedules
+        data: schedules,
+        message: date 
+          ? `Lấy lịch học cho ngày ${date} thành công` 
+          : 'Lấy lịch học cố định thành công'
+      });
+    } catch (error) {
+      console.error('Room Controller Error:', error);
+      return res.status(500).json({
+        success: false,
+        message: error.message || 'Lỗi server',
+        error: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
+  }
+
+  // API lấy danh sách phòng available cho ngoại lệ (bao gồm cả phòng trống do ngoại lệ khác)
+  async getAvailableRoomsForException(req, res) {
+    try {
+      const { timeSlotId, dayOfWeek, date, capacity, classRoomTypeId, departmentId } = req.query;
+      
+      if (!timeSlotId || !dayOfWeek || !date) {
+        return res.status(400).json({
+          success: false,
+          message: 'Thiếu thông tin bắt buộc: timeSlotId, dayOfWeek, date'
+        });
+      }
+
+      console.log('[getAvailableRoomsForException] Request params:', { timeSlotId, dayOfWeek, date, capacity, classRoomTypeId, departmentId });
+
+      const rooms = await roomService.getAvailableRoomsForException(
+        parseInt(timeSlotId),
+        parseInt(dayOfWeek),
+        date,
+        capacity ? parseInt(capacity) : 0,
+        classRoomTypeId || null,
+        departmentId || null
+      );
+
+      return res.status(200).json({
+        success: true,
+        data: rooms,
+        message: `Tìm thấy ${rooms.normalRooms.length} phòng trống thường và ${rooms.freedRooms.length} phòng trống do ngoại lệ`
       });
     } catch (error) {
       console.error('Room Controller Error:', error);
