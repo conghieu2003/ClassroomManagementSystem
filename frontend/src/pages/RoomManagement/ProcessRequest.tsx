@@ -91,6 +91,13 @@ interface SuggestedRoom {
         name: string;
     };
     isAvailable: boolean;
+    isFreedByException?: boolean;
+    exceptionInfo?: {
+        className: string;
+        exceptionType: string;
+        exceptionReason: string;
+        exceptionTypeName: string;
+    };
 }
 
 const ProcessRequest: React.FC = () => {
@@ -139,72 +146,117 @@ const ProcessRequest: React.FC = () => {
 
     const loadSuggestedRooms = async (request: ProcessRequestData) => {
         try {
-            // Load available rooms based on request type and class requirements
+            const classMaxStudents = request.classSchedule?.class?.maxStudents || 0;
+            const classRoomTypeId = request.classSchedule?.classRoom?.ClassRoomType?.name === 'Thực hành' ? '2' : '1';
+
+            console.log('Class requirements:', { classMaxStudents, classRoomTypeId });
+
+            // ⭐ Nếu là yêu cầu "Đổi lịch" và có ngày cụ thể → Sử dụng API mới
+            if (request.RequestType?.name === 'Đổi lịch' && 
+                request.movedToTimeSlotId && 
+                request.movedToDayOfWeek && 
+                request.movedToDate) {
+                
+                console.log('🎯 Using getAvailableRoomsForException API');
+                console.log('Request params:', {
+                    timeSlotId: request.movedToTimeSlotId,
+                    dayOfWeek: request.movedToDayOfWeek,
+                    date: request.movedToDate,
+                    capacity: classMaxStudents,
+                    classRoomTypeId
+                });
+
+                const availableRoomsResponse = await roomService.getAvailableRoomsForException(
+                    Number(request.movedToTimeSlotId),
+                    Number(request.movedToDayOfWeek),
+                    request.movedToDate.split('T')[0], // Format: YYYY-MM-DD
+                    classMaxStudents,
+                    classRoomTypeId
+                );
+
+                if (availableRoomsResponse.success) {
+                    const { normalRooms, freedRooms } = availableRoomsResponse.data;
+                    
+                    console.log('✅ Available rooms:', {
+                        normal: normalRooms.length,
+                        freed: freedRooms.length
+                    });
+
+                    // Merge normal và freed rooms với flag để phân biệt
+                    const allAvailable = [
+                        ...freedRooms.map((room: any) => ({ 
+                            ...room, 
+                            isFreedByException: true,
+                            sortPriority: 1 // Freed rooms có priority cao hơn
+                        })),
+                        ...normalRooms.map((room: any) => ({ 
+                            ...room, 
+                            isFreedByException: false,
+                            sortPriority: 2
+                        }))
+                    ];
+
+                    // Sort: Freed rooms trước, sau đó sort theo capacity gần với yêu cầu nhất
+                    allAvailable.sort((a: any, b: any) => {
+                        if (a.sortPriority !== b.sortPriority) {
+                            return a.sortPriority - b.sortPriority;
+                        }
+                        const aDiff = Math.abs(a.capacity - classMaxStudents);
+                        const bDiff = Math.abs(b.capacity - classMaxStudents);
+                        return aDiff - bDiff;
+                    });
+
+                    console.log('Suggested rooms:', allAvailable.slice(0, 15));
+                    setSuggestedRooms(allAvailable.slice(0, 15)); // Top 15 suggestions
+
+                    if (freedRooms.length > 0) {
+                        toast.info(
+                            `🎉 Có ${freedRooms.length} phòng trống do lớp khác nghỉ/thi trong ngày này`,
+                            { autoClose: 5000 }
+                        );
+                    }
+
+                    return;
+                }
+            }
+
+            // ⭐ Logic cũ: Cho các trường hợp khác (hoặc khi API mới fail)
+            console.log('Using legacy room suggestion logic');
+            
             const roomsResponse = await roomService.getAllRooms();
             console.log('Rooms response:', roomsResponse);
+            
             if (roomsResponse.success) {
                 const allRooms = roomsResponse.data;
                 console.log('All rooms:', allRooms);
 
-                // Filter rooms based on class requirements
-                const classMaxStudents = request.classSchedule?.class?.maxStudents || 0;
-                const classRoomTypeId = request.classSchedule?.classRoom?.ClassRoomType?.name === 'Thực hành' ? 2 : 1;
-
-                console.log('Class requirements:', { classMaxStudents, classRoomTypeId });
-                console.log('All rooms before filtering:', allRooms.map((room: any) => ({
-                    id: room.id,
-                    name: room.name,
-                    capacity: room.capacity,
-                    type: room.type || room.ClassRoomType?.name,
-                    isAvailable: room.isAvailable
-                })));
-
                 let suggested = allRooms.filter((room: any) => {
                     const capacityMatch = room.capacity >= classMaxStudents;
-
                     const roomType = room.type || room.ClassRoomType?.name;
                     const typeMatch = roomType === 'Thực hành' ||
-                        (classRoomTypeId === 1 && roomType === 'Lý thuyết');
-
+                        (classRoomTypeId === '1' && roomType === 'Lý thuyết');
                     const available = room.isAvailable !== false;
-
-                    console.log(`Room ${room.name}: capacity=${room.capacity}>=${classMaxStudents}=${capacityMatch}, type=${roomType} match=${typeMatch}, available=${available}`);
 
                     return capacityMatch && typeMatch && available;
                 });
 
                 console.log(`After initial filtering: ${suggested.length} rooms found`);
 
-                console.log('Time change check:', {
-                    requestType: request.RequestType?.name,
-                    movedToTimeSlotId: request.movedToTimeSlotId,
-                    movedToDayOfWeek: request.movedToDayOfWeek
-                });
-
+                // Kiểm tra conflict cho case "Đổi lịch" không có ngày cụ thể
                 if (request.RequestType?.name === 'Đổi lịch' && request.movedToTimeSlotId && request.movedToDayOfWeek) {
-                    console.log('Checking schedule conflicts for time change request');
+                    console.log('Checking schedule conflicts for time change request (legacy)');
 
                     const schedulesResponse = await roomService.getSchedulesByTimeSlotAndDate(
-                        Number(request.movedToTimeSlotId) || 0,
-                        Number(request.movedToDayOfWeek) || 0
+                        Number(request.movedToTimeSlotId),
+                        Number(request.movedToDayOfWeek)
                     );
 
                     if (schedulesResponse.success) {
                         const existingSchedules = schedulesResponse.data;
-                        console.log('Existing schedules:', existingSchedules);
-                        console.log('Schedules with assigned rooms:', existingSchedules.filter((s: any) => s.classRoomId));
-                        console.log('Schedules without assigned rooms:', existingSchedules.filter((s: any) => !s.classRoomId));
-
-                        // Filter out rooms that have conflicts (only if they have assigned rooms)
                         suggested = suggested.filter((room: any) => {
                             const hasConflict = existingSchedules.some((schedule: any) =>
                                 schedule.classRoomId && schedule.classRoomId === parseInt(room.id)
                             );
-
-                            console.log(`Room ${room.name} (ID: ${room.id}): hasConflict=${hasConflict}`);
-                            if (hasConflict) {
-                                console.log(`  - Conflict with schedule:`, existingSchedules.find((s: any) => s.classRoomId === parseInt(room.id)));
-                            }
                             return !hasConflict;
                         });
                     }
@@ -212,7 +264,7 @@ const ProcessRequest: React.FC = () => {
 
                 console.log(`After schedule conflict filtering: ${suggested.length} rooms found`);
 
-                // Sort by capacity (closest to class size first)
+                // Sort by capacity
                 suggested.sort((a: any, b: any) => {
                     const aDiff = Math.abs(a.capacity - classMaxStudents);
                     const bDiff = Math.abs(b.capacity - classMaxStudents);
@@ -220,10 +272,11 @@ const ProcessRequest: React.FC = () => {
                 });
 
                 console.log('Suggested rooms:', suggested.slice(0, 10));
-                setSuggestedRooms(suggested.slice(0, 10)); // Top 10 suggestions
+                setSuggestedRooms(suggested.slice(0, 10));
             }
         } catch (error) {
             console.error('Error loading suggested rooms:', error);
+            toast.error('Không thể tải danh sách phòng đề xuất');
         }
     };
 
@@ -482,14 +535,41 @@ const ProcessRequest: React.FC = () => {
                             >
                                 {suggestedRooms.map((room) => (
                                     <MenuItem key={room.id} value={room.id}>
-                                        <Box>
-                                            <Typography variant="body1">
-                                                {room.name} ({room.code})
-                                            </Typography>
+                                        <Box sx={{ width: '100%' }}>
+                                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                                <Typography variant="body1">
+                                                    {room.name} ({room.code})
+                                                </Typography>
+                                                {room.isFreedByException && (
+                                                    <Chip
+                                                        label="🎉 Trống do ngoại lệ"
+                                                        size="small"
+                                                        color="success"
+                                                        sx={{ 
+                                                            fontSize: '0.7rem', 
+                                                            height: '20px',
+                                                            fontWeight: 'bold'
+                                                        }}
+                                                    />
+                                                )}
+                                            </Box>
                                             <Typography variant="caption" color="text.secondary">
                                                 {room.building} - Tầng {room.floor} | Sức chứa: {room.capacity} |
                                                 Loại: {room.ClassRoomType?.name}
                                             </Typography>
+                                            {room.isFreedByException && room.exceptionInfo && (
+                                                <Typography 
+                                                    variant="caption" 
+                                                    sx={{ 
+                                                        display: 'block',
+                                                        color: 'success.main',
+                                                        fontStyle: 'italic',
+                                                        mt: 0.5
+                                                    }}
+                                                >
+                                                    Lớp {room.exceptionInfo.className} {room.exceptionInfo.exceptionType === 'cancelled' ? 'nghỉ' : 'thi'}
+                                                </Typography>
+                                            )}
                                         </Box>
                                     </MenuItem>
                                 ))}

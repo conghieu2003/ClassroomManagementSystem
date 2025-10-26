@@ -113,7 +113,7 @@ const getCurrentWeek = (selectedDate: Dayjs) => {
   
   // Tính ngày bắt đầu tuần (Thứ 2)
   if (dayOfWeek === 0) { // Chủ nhật
-    startOfWeek = selectedDate.subtract(5, 'day'); // Lùi 5 ngày để đến Thứ 2
+    startOfWeek = selectedDate.subtract(6, 'day'); // Lùi 6 ngày để đến Thứ 2
   } else {
     startOfWeek = selectedDate.subtract(dayOfWeek - 1, 'day'); // Lùi để đến Thứ 2
   }
@@ -141,7 +141,7 @@ const ScheduleTableHeader = memo(({ selectedDate, headerRef }: { selectedDate: D
     
     // Tính ngày bắt đầu tuần (Thứ 2)
     if (dayOfWeek === 0) { // Chủ nhật
-      startOfWeek = selectedDate.subtract(5, 'day'); // Lùi 5 ngày để đến Thứ 2
+      startOfWeek = selectedDate.subtract(6, 'day'); // Lùi 6 ngày để đến Thứ 2
     } else {
       startOfWeek = selectedDate.subtract(dayOfWeek - 1, 'day'); // Lùi để đến Thứ 2
     }

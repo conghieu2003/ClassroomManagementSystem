@@ -10,6 +10,7 @@ import Dashboard from './pages/Dashboard/Dashboard';
 import UserManagement from './pages/Management/UserManagement';
 import CreateUser from './pages/Management/CreateUser';
 import RoomList from './pages/RoomManagement/RoomList';
+import AvailableRooms from './pages/RoomManagement/AvailableRooms';
 import RoomRequest from './pages/RoomManagement/RoomRequest';
 import RoomRequestForm from './pages/RoomManagement/RoomRequestForm';
 import RoomRequestList from './pages/RoomManagement/RoomRequestList';
@@ -47,6 +48,8 @@ const App = () => {
             <Route path="/users/create" element={<CreateUser />} />
             {/* @ts-ignore */}
             <Route path="/rooms" element={<RoomList />} />
+            {/* @ts-ignore */}
+            <Route path="/rooms/available" element={<AvailableRooms />} />
             {/* @ts-ignore */}
             <Route path="/rooms/requests" element={<RoomRequest />} />
             {/* @ts-ignore */}

@@ -13,6 +13,8 @@ router.get('/time-slots', roomController.getTimeSlots);
 router.get('/teacher/:teacherId/schedules', roomController.getTeacherSchedules);
 router.get('/schedule/:scheduleId', roomController.getClassScheduleById);
 router.get('/schedules/by-time-slot', roomController.getSchedulesByTimeSlotAndDate);
+// API mới: Lấy phòng trống cho ngoại lệ (bao gồm phòng trống do ngoại lệ khác)
+router.get('/available-for-exception', roomController.getAvailableRoomsForException);
 
 // Routes yêu cầu xác thực
 router.use(verifyToken);
