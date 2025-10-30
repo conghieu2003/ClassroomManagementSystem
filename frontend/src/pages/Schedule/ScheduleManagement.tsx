@@ -191,31 +191,21 @@ const ScheduleManagement = () => {
 
         if (departmentsRes.success) {
           setDepartments(departmentsRes.data || []);
-        } else {
-          console.error('Failed to load departments:', departmentsRes.message);
         }
         if (timeSlotsRes.success) {
           setTimeSlots(timeSlotsRes.data || []);
-        } else {
-          console.error('Failed to load time slots:', timeSlotsRes.message);
         }
         if (roomsRes.success) {
           setRooms(roomsRes.data || []);
-        } else {
-          console.error('Failed to load rooms:', roomsRes.message);
         }
         if (teachersRes.success) {
           setTeachers(teachersRes.data || []);
-        } else {
-          console.error('Failed to load teachers:', teachersRes.message);
         }
         if (requestTypesRes.success) {
           setRequestTypes(requestTypesRes.data || []);
-        } else {
-          console.error('Failed to load request types:', requestTypesRes.message);
         }
       } catch (error) {
-        console.error('Error loading data:', error);
+        // Error handled silently
       } finally {
         setApiLoading(false);
       }
@@ -275,30 +265,20 @@ const ScheduleManagement = () => {
     } else if (schedule) {
       setEditingException(null);
       
-      // Tính ngày học tiếp theo từ hôm nay
-      const today = dayjs();
-      const endDate = dayjs(schedule.endDate);
-      const dayOfWeek = schedule.dayOfWeek; // 1=Chủ nhật, 2=Thứ 2, ..., 7=Thứ 7
-      
-      let nextClassDate = today;
-      const targetDayOfWeek = dayOfWeek === 1 ? 0 : dayOfWeek - 1; // Convert to JavaScript day format
-      
-      // Tìm ngày học tiếp theo
-      let daysUntilNext = targetDayOfWeek - today.day();
-      if (daysUntilNext <= 0) {
-        daysUntilNext += 7; // Next week
-      }
-      
-      nextClassDate = today.add(daysUntilNext, 'day');
-      
-      // Đảm bảo không vượt quá endDate
-      if (nextClassDate.isAfter(endDate)) {
-        nextClassDate = endDate;
-      }
-      
+      // Tự động điền schedule ID, ngày mặc định là hôm nay
       setFormData({
         classScheduleId: schedule.id,
-        exceptionDate: nextClassDate.format('YYYY-MM-DD'),
+        exceptionDate: dayjs().format('YYYY-MM-DD'),
+        exceptionType: 'cancelled',
+        reason: '',
+        note: ''
+      });
+    } else {
+      // Mở dialog tạo mới không có schedule được chọn trước
+      setEditingException(null);
+      setFormData({
+        classScheduleId: 0,
+        exceptionDate: dayjs().format('YYYY-MM-DD'),
         exceptionType: 'cancelled',
         reason: '',
         note: ''
@@ -360,8 +340,6 @@ const ScheduleManagement = () => {
         requestTypeId: requestTypeId
       };
 
-      console.log('Sending exception data:', dataToSend);
-
       if (editingException) {
         await dispatch(updateScheduleException({
           id: editingException.id,
@@ -375,7 +353,6 @@ const ScheduleManagement = () => {
       handleCloseExceptionDialog();
       dispatch(getScheduleExceptions({}));
     } catch (error) {
-      console.error('Error saving exception:', error);
       toast.error('Có lỗi xảy ra khi lưu ngoại lệ');
     }
   };
@@ -387,7 +364,6 @@ const ScheduleManagement = () => {
         toast.success('Xóa ngoại lệ thành công!');
         dispatch(getScheduleExceptions({}));
       } catch (error) {
-        console.error('Error deleting exception:', error);
         toast.error('Có lỗi xảy ra khi xóa ngoại lệ');
       }
     }
@@ -396,11 +372,6 @@ const ScheduleManagement = () => {
   const getExceptionTypeInfo = (type: string) => {
     const exceptionTypes = createExceptionTypes(requestTypes);
     return exceptionTypes.find(t => t.value === type) || exceptionTypes[0];
-  };
-
-  const getDayName = (dayOfWeek: number) => {
-    const days = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
-    return days[dayOfWeek] || 'Chủ nhật';
   };
 
   const getShiftName = (shift: number) => {
@@ -615,9 +586,6 @@ const ScheduleManagement = () => {
                               />
                             )}
                           </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                            <strong>Ngày học tiếp theo:</strong> {dayjs(schedule.nextClassDate).format('DD/MM/YYYY')}
-                          </Typography>
                         </Box>
 
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
@@ -685,21 +653,64 @@ const ScheduleManagement = () => {
                               <strong>Ngày ngoại lệ:</strong> {dayjs(exception.exceptionDate).format('DD/MM/YYYY')}
                             </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                              <strong>Lịch gốc:</strong> {getDayName(2)} - {exception.slotName}
+                              <strong>Lịch gốc:</strong> {exception.slotName} ({exception.startTime}-{exception.endTime})
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                              <strong>Phòng gốc:</strong> {exception.roomName} ({exception.roomCode})
                             </Typography>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                               <strong>Giảng viên:</strong> {exception.teacherName}
                             </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                              <strong>Phòng:</strong> {exception.roomName}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                              <strong>Trạng thái:</strong> {exception.statusName}
+
+                            {/* Hiển thị thông tin chuyển đến nếu là moved hoặc exam */}
+                            {(exception.exceptionType === 'moved' || exception.exceptionType === 'exam') && (
+                              <Box sx={{ mt: 2, p: 2, backgroundColor: 'warning.light', borderRadius: 1, border: '1px solid', borderColor: 'warning.main' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, color: 'warning.dark' }}>
+                                  Thông tin chuyển đến:
+                                </Typography>
+                                {exception.newDate && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    <strong>Ngày mới:</strong> {dayjs(exception.newDate).format('DD/MM/YYYY')}
+                                  </Typography>
+                                )}
+                                {exception.newTimeSlotName && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    <strong>Tiết mới:</strong> {exception.newTimeSlotName} ({exception.newTimeSlotStart}-{exception.newTimeSlotEnd})
+                                  </Typography>
+                                )}
+                                {exception.newClassRoomName && (
+                                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                                    <strong>Phòng mới:</strong> {exception.newClassRoomName} ({exception.newClassRoomCode})
+                                  </Typography>
+                                )}
+                              </Box>
+                            )}
+
+                            {/* Hiển thị thông tin giảng viên thay thế nếu là substitute */}
+                            {exception.exceptionType === 'substitute' && exception.substituteTeacherName && (
+                              <Box sx={{ mt: 2, p: 2, backgroundColor: 'info.light', borderRadius: 1, border: '1px solid', borderColor: 'info.main' }}>
+                                <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1, color: 'info.dark' }}>
+                                  Giảng viên thay thế:
+                                </Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {exception.substituteTeacherName} ({exception.substituteTeacherCode})
+                                </Typography>
+                              </Box>
+                            )}
+
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
+                              <strong>Trạng thái:</strong> 
+                              <Chip 
+                                label={exception.statusName}
+                                size="small"
+                                color={exception.requestStatusId === 2 ? 'success' : exception.requestStatusId === 3 ? 'error' : 'warning'}
+                                sx={{ ml: 1 }}
+                              />
                             </Typography>
                           </Box>
 
-                          <Typography variant="body2" sx={{ mb: 2, fontStyle: 'italic' }}>
-                            "{exception.reason}"
+                          <Typography variant="body2" sx={{ mb: 2, fontStyle: 'italic', p: 1, backgroundColor: 'grey.100', borderRadius: 1 }}>
+                            <strong>Lý do:</strong> "{exception.reason}"
                           </Typography>
 
                           <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
@@ -904,55 +915,52 @@ const ScheduleManagement = () => {
                 })()}
               </Box>
 
-              {/* Chọn ngày ngoại lệ - Select dropdown */}
+              {/* Chọn lịch học */}
               <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-                <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
+                <Box sx={{ flex: '1 1 100%', minWidth: '300px' }}>
                   <FormControl fullWidth size="small">
-                    <InputLabel>Ngày ngoại lệ</InputLabel>
+                    <InputLabel>Chọn lịch học</InputLabel>
                     <Select
-                      value={formData.exceptionDate}
-                      onChange={(e) => setFormData(prev => ({ ...prev, exceptionDate: e.target.value }))}
-                    label="Ngày ngoại lệ"
+                      value={formData.classScheduleId || ''}
+                      onChange={(e) => {
+                        const scheduleId = parseInt(String(e.target.value));
+                        setFormData(prev => ({ 
+                          ...prev, 
+                          classScheduleId: scheduleId,
+                          // Reset other fields when changing schedule
+                          newTimeSlotId: undefined,
+                          newClassRoomId: undefined,
+                          newDate: undefined,
+                          substituteTeacherId: undefined
+                        }));
+                      }}
+                      label="Chọn lịch học"
                     >
-                      {formData.classScheduleId > 0 && (() => {
-                        const selectedSchedule = availableSchedules.find(s => s.id === formData.classScheduleId);
-                        if (!selectedSchedule) return null;
-                        
-                        // Tạo danh sách các ngày học từ ngày hiện tại đến endDate
-                        const availableDates = [];
-                        const today = dayjs();
-                        const endDate = dayjs(selectedSchedule.endDate);
-                        const dayOfWeek = selectedSchedule.dayOfWeek; // 1=Chủ nhật, 2=Thứ 2, ..., 7=Thứ 7
-                        
-                        // Tìm ngày học đầu tiên từ hôm nay trở đi
-                        let currentDate = today;
-                        const targetDayOfWeek = dayOfWeek === 1 ? 0 : dayOfWeek - 1; // Convert to JavaScript day format
-                        
-                        // Tìm ngày học tiếp theo
-                        let daysUntilNext = targetDayOfWeek - currentDate.day();
-                        if (daysUntilNext <= 0) {
-                          daysUntilNext += 7; // Next week
-                        }
-                        
-                        currentDate = currentDate.add(daysUntilNext, 'day');
-                        
-                        // Tạo danh sách các ngày học từ ngày hiện tại đến endDate
-                        while (currentDate.isBefore(endDate) || currentDate.isSame(endDate, 'day')) {
-                          availableDates.push({
-                            date: currentDate.format('YYYY-MM-DD'),
-                            display: `${currentDate.format('dddd')} - ${currentDate.format('DD/MM/YYYY')}`
-                          });
-                          currentDate = currentDate.add(7, 'day'); // Next week
-                        }
-                        
-                        return availableDates.map((dateInfo) => (
-                          <MenuItem key={dateInfo.date} value={dateInfo.date}>
-                            {dateInfo.display}
-                          </MenuItem>
-                        ));
-                      })()}
+                      <MenuItem value="">
+                        <em>-- Chọn lịch học --</em>
+                      </MenuItem>
+                      {availableSchedules.map(schedule => (
+                        <MenuItem key={schedule.id} value={schedule.id}>
+                          {schedule.className} - {schedule.classCode} | {schedule.dayName} - {schedule.slotName} | {schedule.roomName}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
+                </Box>
+              </Box>
+
+              {/* Chọn ngày ngoại lệ - DatePicker tự do */}
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+                <Box sx={{ flex: '1 1 300px', minWidth: '300px' }}>
+                  <DatePicker
+                    label="Ngày ngoại lệ"
+                    value={formData.exceptionDate ? dayjs(formData.exceptionDate) : null}
+                    onChange={(newValue) => setFormData(prev => ({ 
+                      ...prev, 
+                      exceptionDate: newValue?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD')
+                    }))}
+                    slotProps={{ textField: { size: 'small', fullWidth: true, required: true } }}
+                  />
                 </Box>
                 </Box>
 

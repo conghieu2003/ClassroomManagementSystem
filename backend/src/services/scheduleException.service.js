@@ -68,6 +68,7 @@ const createScheduleException = async (data) => {
     }
 
     // Tạo ngoại lệ lịch học
+    // Admin tạo ngoại lệ sẽ được tự động duyệt (requestStatusId = 2)
     const newException = await prisma.scheduleRequest.create({
       data: {
         requestTypeId: requestTypeId,
@@ -84,7 +85,9 @@ const createScheduleException = async (data) => {
         movedToClassRoomId: newClassRoomId || null,
         substituteTeacherId: substituteTeacherId || null,
         reason: reason,
-        requestStatusId: 2, // Completed status
+        requestStatusId: 2, // Auto-approved for admin (Đã duyệt)
+        approvedBy: requesterId, // Admin tự duyệt
+        approvedAt: new Date(), // Thời gian duyệt
         note: note || null
       },
       include: {
@@ -151,9 +154,12 @@ const getScheduleExceptions = async (params) => {
             }
           },
           RequestStatus: true,
+          RequestType: true,
           requester: true,
           newClassRoom: true,
           newTimeSlot: true,
+          movedToClassRoom: true,
+          movedToTimeSlot: true,
           substituteTeacher: {
             include: {
               user: true
@@ -172,8 +178,47 @@ const getScheduleExceptions = async (params) => {
       })
     ]);
 
+    // Format dữ liệu để trả về frontend
+    const formattedExceptions = exceptions.map(exception => ({
+      id: exception.id,
+      classScheduleId: exception.classScheduleId,
+      className: exception.classSchedule?.class?.className || 'Chưa có tên lớp',
+      classCode: exception.classSchedule?.class?.code || 'Chưa có mã lớp',
+      teacherName: exception.classSchedule?.teacher?.user?.fullName || 'Chưa có tên giảng viên',
+      roomName: exception.classSchedule?.classRoom?.name || 'Chưa phân phòng',
+      roomCode: exception.classSchedule?.classRoom?.code || '',
+      slotName: exception.classSchedule?.timeSlot?.slotName || 'Chưa có tiết',
+      startTime: exception.classSchedule?.timeSlot?.startTime ? exception.classSchedule.timeSlot.startTime.toTimeString().slice(0, 5) : '00:00',
+      endTime: exception.classSchedule?.timeSlot?.endTime ? exception.classSchedule.timeSlot.endTime.toTimeString().slice(0, 5) : '00:00',
+      exceptionDate: exception.exceptionDate ? exception.exceptionDate.toISOString().split('T')[0] : '',
+      exceptionType: exception.exceptionType || 'cancelled',
+      // Thông tin chuyển đến (cho moved/exam)
+      newTimeSlotId: exception.newTimeSlotId || exception.movedToTimeSlotId,
+      newTimeSlotName: exception.movedToTimeSlot?.slotName || exception.newTimeSlot?.slotName,
+      newTimeSlotStart: exception.movedToTimeSlot?.startTime ? exception.movedToTimeSlot.startTime.toTimeString().slice(0, 5) : 
+                        exception.newTimeSlot?.startTime ? exception.newTimeSlot.startTime.toTimeString().slice(0, 5) : null,
+      newTimeSlotEnd: exception.movedToTimeSlot?.endTime ? exception.movedToTimeSlot.endTime.toTimeString().slice(0, 5) : 
+                      exception.newTimeSlot?.endTime ? exception.newTimeSlot.endTime.toTimeString().slice(0, 5) : null,
+      newClassRoomId: exception.newClassRoomId || exception.movedToClassRoomId,
+      newClassRoomName: exception.movedToClassRoom?.name || exception.newClassRoom?.name,
+      newClassRoomCode: exception.movedToClassRoom?.code || exception.newClassRoom?.code,
+      newDate: exception.movedToDate ? exception.movedToDate.toISOString().split('T')[0] : exception.newDate ? exception.newDate.toISOString().split('T')[0] : null,
+      // Thông tin giảng viên thay thế (cho substitute)
+      substituteTeacherId: exception.substituteTeacherId,
+      substituteTeacherName: exception.substituteTeacher?.user?.fullName,
+      substituteTeacherCode: exception.substituteTeacher?.teacherCode,
+      reason: exception.reason || '',
+      note: exception.note || '',
+      requestStatusId: exception.requestStatusId,
+      statusName: exception.RequestStatus?.name || 'Chưa xác định',
+      requestTypeName: exception.RequestType?.name || 'Chưa xác định',
+      requesterName: exception.requester?.fullName || 'Chưa xác định',
+      createdAt: exception.createdAt ? exception.createdAt.toISOString() : '',
+      updatedAt: exception.updatedAt ? exception.updatedAt.toISOString() : ''
+    }));
+
   return {
-      data: exceptions,
+      data: formattedExceptions,
     pagination: {
       page,
       limit,
@@ -237,7 +282,8 @@ const updateScheduleException = async (id, updateData, userId) => {
     substituteTeacherId,
     reason,
     note,
-    requestStatusId
+    requestStatusId,
+    requestTypeId
   } = updateData;
   
   try {
@@ -253,23 +299,37 @@ const updateScheduleException = async (id, updateData, userId) => {
       throw new Error('Không tìm thấy ngoại lệ lịch học');
     }
 
+    // Chuẩn bị dữ liệu cập nhật
+    const updatePayload = {
+      exceptionType: exceptionType || existingException.exceptionType,
+      newTimeSlotId: newTimeSlotId !== undefined ? newTimeSlotId : existingException.newTimeSlotId,
+      newClassRoomId: newClassRoomId !== undefined ? newClassRoomId : existingException.newClassRoomId,
+      movedToDate: newDate ? new Date(newDate) : existingException.movedToDate,
+      movedToTimeSlotId: newTimeSlotId !== undefined ? newTimeSlotId : existingException.movedToTimeSlotId,
+      movedToClassRoomId: newClassRoomId !== undefined ? newClassRoomId : existingException.movedToClassRoomId,
+      substituteTeacherId: substituteTeacherId !== undefined ? substituteTeacherId : existingException.substituteTeacherId,
+      reason: reason || existingException.reason,
+      note: note !== undefined ? note : existingException.note,
+      requestStatusId: requestStatusId !== undefined ? requestStatusId : existingException.requestStatusId
+    };
+
+    // Nếu có requestTypeId mới, cập nhật
+    if (requestTypeId) {
+      updatePayload.requestTypeId = requestTypeId;
+    }
+
+    // Nếu trạng thái được đổi thành "Đã duyệt" (2), tự động cập nhật approvedBy và approvedAt
+    if (requestStatusId === 2 && existingException.requestStatusId !== 2) {
+      updatePayload.approvedBy = userId;
+      updatePayload.approvedAt = new Date();
+    }
+
     // Cập nhật ngoại lệ
     const updatedException = await prisma.scheduleRequest.update({
       where: {
         id: parseInt(id)
       },
-      data: {
-        exceptionType: exceptionType,
-        newTimeSlotId: newTimeSlotId || null,
-        newClassRoomId: newClassRoomId || null,
-        movedToDate: newDate || null,
-        movedToTimeSlotId: newTimeSlotId || null,
-        movedToClassRoomId: newClassRoomId || null,
-        substituteTeacherId: substituteTeacherId || null,
-        reason: reason,
-        note: note || null,
-        requestStatusId: requestStatusId || 2
-      },
+      data: updatePayload,
       include: {
         classSchedule: {
           include: {
@@ -284,9 +344,12 @@ const updateScheduleException = async (id, updateData, userId) => {
           }
         },
         RequestStatus: true,
+        RequestType: true,
         requester: true,
         newClassRoom: true,
         newTimeSlot: true,
+        movedToClassRoom: true,
+        movedToTimeSlot: true,
         substituteTeacher: {
           include: {
             user: true
@@ -427,23 +490,6 @@ const getAvailableSchedules = async (params) => {
       // Xác định loại lớp (lý thuyết/thực hành) dựa trên ClassRoomType
       const classType = getClassType(schedule.ClassRoomType?.name);
       
-      // Debug log
-      console.log('Schedule data:', {
-        id: schedule.id,
-        className: schedule.class.className,
-        subjectName: schedule.class.subjectName,
-        classCode: schedule.class.code,
-        teacherName: schedule.teacher.user.fullName,
-        roomName: schedule.classRoom?.name,
-        dayOfWeek: schedule.dayOfWeek,
-        startDate: schedule.class.startDate,
-        endDate: schedule.class.endDate,
-        nextClassDate: nextClassDate,
-        classRoomType: schedule.ClassRoomType?.name,
-        classType: classType,
-        practiceGroup: schedule.practiceGroup
-      });
-      
       return {
         id: schedule.id,
         className: schedule.class.className || schedule.class.subjectName || 'Chưa có tên lớp',
@@ -492,35 +538,19 @@ const getNextClassDate = (today, dayOfWeek, classStartDate, classEndDate) => {
   const startDate = new Date(classStartDate);
   const endDate = new Date(classEndDate);
   
-  console.log('getNextClassDate inputs:', {
-    today: todayDate.toISOString(),
-    dayOfWeek,
-    classStartDate: startDate.toISOString(),
-    classEndDate: endDate.toISOString()
-  });
-  
   // Nếu lớp đã kết thúc, trả về ngày kết thúc
   if (todayDate > endDate) {
-    console.log('Class has ended, returning end date');
     return endDate;
   }
   
   // Nếu lớp chưa bắt đầu, trả về ngày bắt đầu
   if (todayDate < startDate) {
-    console.log('Class has not started, returning start date');
     return startDate;
   }
   
   // Tính ngày học tiếp theo trong tuần
   const currentDayOfWeek = todayDate.getDay(); // 0=Chủ nhật, 1=Thứ 2, ..., 6=Thứ 7
   const targetDayOfWeek = dayOfWeek === 1 ? 0 : dayOfWeek - 1; // Convert to JavaScript day format
-  
-  console.log('Day calculation:', {
-    currentDayOfWeek,
-    targetDayOfWeek,
-    dayOfWeek,
-    todayString: todayDate.toDateString()
-  });
   
   let daysUntilNext = targetDayOfWeek - currentDayOfWeek;
   if (daysUntilNext <= 0) {
@@ -530,15 +560,8 @@ const getNextClassDate = (today, dayOfWeek, classStartDate, classEndDate) => {
   const nextDate = new Date(todayDate);
   nextDate.setDate(todayDate.getDate() + daysUntilNext);
   
-  console.log('Calculated next date:', {
-    daysUntilNext,
-    nextDate: nextDate.toISOString(),
-    nextDateString: nextDate.toDateString()
-  });
-  
   // Đảm bảo ngày không vượt quá ngày kết thúc lớp
   if (nextDate > endDate) {
-    console.log('Next date exceeds end date, returning end date');
     return endDate;
   }
   
