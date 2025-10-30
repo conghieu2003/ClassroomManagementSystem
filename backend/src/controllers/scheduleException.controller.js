@@ -102,14 +102,29 @@ const getScheduleExceptionById = async (req, res) => {
 const updateScheduleException = async (req, res) => {
     try {
         const { id } = req.params;
-        const { exceptionType, reason, startDate, endDate } = req.body;
+        const { 
+            exceptionType, 
+            reason, 
+            note,
+            newDate,
+            newTimeSlotId,
+            newClassRoomId,
+            substituteTeacherId,
+            requestStatusId,
+            requestTypeId
+        } = req.body;
         const userId = req.user.id;
 
         const result = await scheduleExceptionService.updateScheduleException(id, {
             exceptionType,
             reason,
-            startDate,
-            endDate
+            note,
+            newDate,
+            newTimeSlotId,
+            newClassRoomId,
+            substituteTeacherId,
+            requestStatusId,
+            requestTypeId
         }, userId);
 
         if (!result) {

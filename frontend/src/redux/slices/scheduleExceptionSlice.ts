@@ -9,19 +9,30 @@ export interface ScheduleException {
   classCode: string;
   teacherName: string;
   roomName: string;
+  roomCode: string;
   slotName: string;
   startTime: string;
   endTime: string;
   exceptionDate: string;
   exceptionType: 'cancelled' | 'exam' | 'moved' | 'substitute';
+  // Thông tin chuyển đến (cho moved/exam)
   newTimeSlotId?: number;
+  newTimeSlotName?: string;
+  newTimeSlotStart?: string;
+  newTimeSlotEnd?: string;
   newClassRoomId?: number;
+  newClassRoomName?: string;
+  newClassRoomCode?: string;
   newDate?: string;
+  // Thông tin giảng viên thay thế (cho substitute)
   substituteTeacherId?: number;
+  substituteTeacherName?: string;
+  substituteTeacherCode?: string;
   reason: string;
   note?: string;
   requestStatusId: number;
   statusName: string;
+  requestTypeName?: string;
   requesterName: string;
   createdAt: string;
   updatedAt: string;

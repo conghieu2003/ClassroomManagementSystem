@@ -88,6 +88,12 @@ interface WeeklyScheduleItem {
   exceptionReason?: string | null;
   exceptionStatus?: string | null;
   requestTypeId?: number | null;
+  // Moved schedule data
+  isOriginalSchedule?: boolean;
+  isMovedSchedule?: boolean;
+  isStandaloneException?: boolean; // Exception nằm ngoài khoảng thời gian học
+  originalDayOfWeek?: number;
+  originalTimeSlot?: string;
 }
 
 // Function để lấy tên RequestType từ ID
@@ -104,33 +110,6 @@ const getRequestTypeName = (requestTypeId: number) => {
     case 9: return 'Đổi giáo viên';
     default: return 'Ngoại lệ';
   }
-};
-
-// Function để tính toán tuần hiện tại
-const getCurrentWeek = (selectedDate: Dayjs) => {
-  const dayOfWeek = selectedDate.day(); // 0 = Chủ nhật, 1 = Thứ 2, ..., 6 = Thứ 7
-  let startOfWeek;
-  
-  // Tính ngày bắt đầu tuần (Thứ 2)
-  if (dayOfWeek === 0) { // Chủ nhật
-    startOfWeek = selectedDate.subtract(6, 'day'); // Lùi 6 ngày để đến Thứ 2
-  } else {
-    startOfWeek = selectedDate.subtract(dayOfWeek - 1, 'day'); // Lùi để đến Thứ 2
-  }
-  
-  const dayNames = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ nhật'];
-  
-  const weekDays = [];
-  for (let i = 0; i < 7; i++) {
-    const day = startOfWeek.add(i, 'day');
-    weekDays.push({
-      dayOfWeek: i === 6 ? 1 : i + 2, // 2=Thứ 2, 3=Thứ 3, ..., 7=Thứ 7, 1=Chủ nhật
-      date: day,
-      dayName: dayNames[i],
-      dayNumber: day.format('DD/MM/YYYY')
-    });
-  }
-  return weekDays;
 };
 
 // Component tĩnh cho table header - không re-render
@@ -256,75 +235,25 @@ const ScheduleTableBody = memo(({
                     '&:last-child': { mb: 0 }
                   }}
                 >
-                  {/* Exception label overlay - chỉ hiển thị khi ngày ngoại lệ khớp với ngày của schedule */}
-                  {(() => {
-                    // Kiểm tra xem có ngoại lệ và ngày ngoại lệ có khớp với ngày hiện tại không
-                    if (!schedule.exceptionDate || !schedule.requestTypeId) {
-                      if (schedule.id === 1) {
-                        console.log('🔍 [DEBUG] Schedule 1 no exception data:', {
-                          id: schedule.id,
-                          exceptionDate: schedule.exceptionDate,
-                          requestTypeId: schedule.requestTypeId
-                        });
-                      }
-                      return null;
-                    }
-                    
-                    const exceptionDate = new Date(schedule.exceptionDate);
-                    const exceptionDateStr = exceptionDate.toISOString().split('T')[0]; // YYYY-MM-DD
-                    
-                    // Lấy ngày hiện tại của schedule từ currentWeek
-                    const currentWeek = getCurrentWeek(selectedDate);
-                    const scheduleDay = currentWeek.find(day => day.dayOfWeek === schedule.dayOfWeek);
-                    if (!scheduleDay) return null;
-                    
-                    const scheduleDateStr = scheduleDay.date.format('YYYY-MM-DD');
-                    
-                    // Chỉ hiển thị nhãn khi ngày ngoại lệ khớp với ngày của schedule
-                    const shouldShowLabel = exceptionDateStr === scheduleDateStr;
-                    
-                    if (schedule.id === 1) {
-                      console.log('🔍 [DEBUG] Exception label check:', {
-                        scheduleId: schedule.id,
-                        scheduleDayOfWeek: schedule.dayOfWeek,
-                        exceptionDate: exceptionDateStr,
-                        scheduleDate: scheduleDateStr,
-                        shouldShowLabel: shouldShowLabel,
-                        selectedDate: selectedDate.format('YYYY-MM-DD'),
-                        currentWeek: currentWeek.map(day => ({ dayOfWeek: day.dayOfWeek, date: day.date.format('YYYY-MM-DD') })),
-                        exceptionDateRaw: schedule.exceptionDate,
-                        requestTypeId: schedule.requestTypeId
-                      });
-                    }
-                    
-                    if (schedule.id === 1) {
-                      console.log('🔍 [DEBUG] Schedule 1 exception label decision:', {
-                        id: schedule.id,
-                        shouldShowLabel: shouldShowLabel,
-                        requestTypeId: schedule.requestTypeId,
-                        requestTypeName: getRequestTypeName(schedule.requestTypeId)
-                      });
-                    }
-                    
-                    return shouldShowLabel ? (
-                      <Box
-                        sx={{
-                          position: 'absolute',
-                          top: 0,
-                          right: 0,
-                          backgroundColor: 'rgba(0,0,0,0.7)',
-                          color: 'white',
-                          fontSize: '0.6rem',
-                          padding: '2px 4px',
-                          borderRadius: '0 4px 0 4px',
-                          fontWeight: 'bold',
-                          zIndex: 1
-                        }}
-                      >
-                        {getRequestTypeName(schedule.requestTypeId)}
-                      </Box>
-                    ) : null;
-                  })()}
+                  {/* Exception label - hiển thị cho cả lịch gốc và lịch đã chuyển */}
+                  {schedule.requestTypeId && (
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: 0,
+                        right: 0,
+                        backgroundColor: 'rgba(0,0,0,0.7)',
+                        color: 'white',
+                        fontSize: '0.6rem',
+                        padding: '2px 4px',
+                        borderRadius: '0 4px 0 4px',
+                        fontWeight: 'bold',
+                        zIndex: 1
+                      }}
+                    >
+                      {getRequestTypeName(schedule.requestTypeId)}
+                    </Box>
+                  )}
                   
                   <CardContent sx={{ p: 1, '&:last-child': { pb: 1 } }}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 'bold', fontSize: '0.75rem' }}>
@@ -358,14 +287,17 @@ const ScheduleTableBody = memo(({
                         Lý do: {schedule.exceptionReason}
                       </Typography>
                     )}
-                    {schedule.id === 1 && (
+                    {schedule.isMovedSchedule && schedule.note && (
                       <Typography variant="caption" sx={{ 
                         display: 'block', 
-                        fontSize: '0.6rem',
-                        color: 'red',
-                        mt: 0.5
+                        fontSize: '0.65rem',
+                        fontStyle: 'italic',
+                        color: 'primary.main',
+                        mt: 0.5,
+                        fontWeight: 'bold'
                       }}>
-                     </Typography>
+                        📍 {schedule.note}
+                      </Typography>
                     )}
                   </CardContent>
                 </Card>
@@ -461,7 +393,6 @@ const WeeklySchedule = memo(() => {
         teacherId: selectedTeacher ? parseInt(selectedTeacher) : undefined
       } : {};
       
-      console.log('🔍 [DEBUG] Loading weekly schedule:', { weekStartDate, filters, isAdmin });
       dispatch(fetchWeeklySchedule({ weekStartDate, filters }));
     }, 100); // Debounce 100ms
   }, [dispatch, selectedDate, selectedDepartment, selectedClass, selectedTeacher, isAdmin]);
@@ -500,36 +431,16 @@ const WeeklySchedule = memo(() => {
   // Filter schedules dựa trên các điều kiện
   const filteredSchedules = useMemo(() => {
     if (!weeklySchedules || weeklySchedules.length === 0) {
-      console.log('🔍 [DEBUG] No weekly schedules to filter');
       return [];
     }
 
-    console.log('🔍 [DEBUG] Filtering schedules:', {
-      total: weeklySchedules.length,
-      scheduleType,
-      schedules: weeklySchedules.map(s => ({
-        id: s.id,
-        className: s.className,
-        dayOfWeek: s.dayOfWeek,
-        timeSlot: s.timeSlot,
-        roomName: s.roomName,
-        statusId: s.statusId,
-        type: s.type
-      }))
-    });
-
     // Filter theo loại lịch
     if (scheduleType === 'study') {
-      const filtered = weeklySchedules.filter(s => s.type === 'theory' || s.type === 'practice');
-      console.log('🔍 [DEBUG] Study schedules filtered:', filtered.length);
-      return filtered;
+      return weeklySchedules.filter(s => s.type === 'theory' || s.type === 'practice');
     } else if (scheduleType === 'exam') {
-      const filtered = weeklySchedules.filter(s => s.type === 'exam');
-      console.log('🔍 [DEBUG] Exam schedules filtered:', filtered.length);
-      return filtered;
+      return weeklySchedules.filter(s => s.type === 'exam');
     }
 
-    console.log('🔍 [DEBUG] All schedules (no filter):', weeklySchedules.length);
     return weeklySchedules;
   }, [weeklySchedules, scheduleType]);
 
@@ -562,11 +473,6 @@ const WeeklySchedule = memo(() => {
         ...shift,
         schedules: shiftSchedules
       };
-    });
-
-    console.log('🔍 [DEBUG] Schedule grid created:', {
-      shifts: grid.length,
-      totalSchedules: grid.reduce((sum, shift) => sum + shift.schedules.reduce((s, day) => s + day.length, 0), 0)
     });
 
     return grid;

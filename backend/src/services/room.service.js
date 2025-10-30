@@ -506,9 +506,7 @@ class RoomService {
 
       // Nếu CÓ ngày cụ thể → kiểm tra ngoại lệ
       const specificDateObj = new Date(specificDate);
-      
-      console.log(`[getSchedulesByTimeSlotAndDate] Processing ${schedules.length} schedules for date: ${specificDate}`);
-      
+
       return schedules
         .filter(schedule => {
           // Kiểm tra ngày có nằm trong khoảng thời gian của lớp không
@@ -525,18 +523,6 @@ class RoomService {
           const hasException = schedule.scheduleRequests && schedule.scheduleRequests.length > 0;
           const exception = hasException ? schedule.scheduleRequests[0] : null;
           
-          // Debug logging
-          if (schedule.classRoom?.name === 'Phòng lý thuyết H1.1' || schedule.classRoom?.code === 'H1.1') {
-            console.log(`[DEBUG H1.1] Schedule ID: ${schedule.id}, Class: ${schedule.class.className}`);
-            console.log(`[DEBUG H1.1] Has exception: ${hasException}`);
-            if (exception) {
-              console.log(`[DEBUG H1.1] Exception type: ${exception.exceptionType}, RequestType: ${exception.RequestType?.name}`);
-              console.log(`[DEBUG H1.1] Exception date: ${exception.exceptionDate}, Reason: ${exception.reason}`);
-              console.log(`[DEBUG H1.1] RequestTypeId: ${exception.requestTypeId}, StatusId: ${exception.requestStatusId}`);
-            }
-          }
-          
-          // Kiểm tra exception theo requestTypeId thay vì exceptionType
           // RequestTypeId: 3=Tạm ngưng, 4=Thi, 5=Nghỉ, 6=Đổi lịch, ...
           if (exception) {
             const shouldFreeRoom = [3, 4, 5].includes(exception.requestTypeId) || // Tạm ngưng, Thi, Nghỉ

@@ -135,8 +135,6 @@ class ScheduleManagementService {
         throw new Error('Không tìm thấy lịch học');
       }
 
-      console.log(`[GET_AVAILABLE_ROOMS] Lịch học: ${schedule.class.className} - ${schedule.timeSlot.slotName} (${schedule.timeSlot.startTime}-${schedule.timeSlot.endTime})`);
-
       // Lấy phòng phù hợp với loại phòng và khoa
       const availableRooms = await prisma.classRoom.findMany({
         where: {
@@ -181,7 +179,6 @@ class ScheduleManagementService {
 
       const conflictingRoomIds = conflictingSchedules.map(s => s.classRoomId);
       
-      console.log(`[GET_AVAILABLE_ROOMS] Tìm thấy ${conflictingSchedules.length} lịch xung đột trong khung giờ ${schedule.timeSlot.startTime}-${schedule.timeSlot.endTime}`);
       
       return availableRooms
         .filter(room => !conflictingRoomIds.includes(room.id))
@@ -218,7 +215,6 @@ class ScheduleManagementService {
   
   async assignRoomToSchedule(scheduleId, roomId, assignedBy) {
     try {
-      console.log(`[ASSIGN_ROOM] Bắt đầu gán phòng - ScheduleID: ${scheduleId}, RoomID: ${roomId}`);
       
       const schedule = await prisma.classSchedule.findUnique({
         where: { id: parseInt(scheduleId) },
@@ -238,11 +234,9 @@ class ScheduleManagementService {
         throw new Error('Không tìm thấy lịch học');
       }
 
-      console.log(`[ASSIGN_ROOM] Lịch học hiện tại - classRoomId: ${schedule.classRoomId}, statusId: ${schedule.statusId}`);
 
       // Chỉ kiểm tra nếu lịch học đã có phòng VÀ statusId = 2 (Đã phân phòng)
       if (schedule.classRoomId && schedule.statusId === 2) {
-        console.log(`[ASSIGN_ROOM] Lỗi: Lịch học đã được gán phòng (classRoomId: ${schedule.classRoomId}, statusId: ${schedule.statusId})`);
         throw new Error('Lịch học đã được gán phòng');
       }
 
@@ -353,10 +347,8 @@ class ScheduleManagementService {
         assignedAt: updatedSchedule.assignedAt
       };
       
-      console.log(`[ASSIGN_ROOM] Gán phòng thành công - ScheduleID: ${scheduleId}, RoomID: ${roomId}, ClassStatusID: ${classStatusId}`);
       return result;
     } catch (error) {
-      console.error(`[ASSIGN_ROOM] Lỗi gán phòng - ScheduleID: ${scheduleId}, Error: ${error.message}`);
       throw new Error(`Lỗi gán phòng: ${error.message}`);
     }
   }
@@ -448,8 +440,6 @@ class ScheduleManagementService {
   // Lấy lịch học theo tuần - hỗ trợ role-based access
   async getWeeklySchedule(weekStartDate, filters = {}, userRole = 'admin', userId = null) {
     try {
-      console.log(`[GET_WEEKLY_SCHEDULE] Week start: ${weekStartDate}, Filters:`, filters);
-      
       // Tính toán ngày bắt đầu và kết thúc tuần
       const startDate = new Date(weekStartDate);
       const endDate = new Date(startDate);
@@ -464,9 +454,6 @@ class ScheduleManagementService {
       
       const semesterStartDate = earliestClass?.startDate ? new Date(earliestClass.startDate) : new Date('2025-09-01');
       const currentWeek = Math.floor((startDate - semesterStartDate) / (7 * 24 * 60 * 60 * 1000)) + 1;
-      
-      console.log(`[GET_WEEKLY_SCHEDULE] Current week: ${currentWeek}, Date range: ${startDate.toISOString()} to ${endDate.toISOString()}`);
-      console.log(`[GET_WEEKLY_SCHEDULE] User role: ${userRole}, User ID: ${userId}`);
       
       // Xây dựng điều kiện where dựa trên role
       let whereCondition = {
@@ -498,7 +485,6 @@ class ScheduleManagementService {
         });
         
         if (!teacher) {
-          console.log(`[GET_WEEKLY_SCHEDULE] Teacher not found for userId: ${userId}`);
           return [];
         }
         
@@ -522,7 +508,6 @@ class ScheduleManagementService {
         });
         
         if (!student) {
-          console.log(`[GET_WEEKLY_SCHEDULE] Student not found for userId: ${userId}`);
           return [];
         }
         
@@ -592,7 +577,16 @@ class ScheduleManagementService {
             },
             include: {
               RequestType: true,
-              RequestStatus: true
+              RequestStatus: true,
+              movedToTimeSlot: true,
+              movedToClassRoom: true,
+              newTimeSlot: true,
+              newClassRoom: true,
+              substituteTeacher: {
+                include: {
+                  user: true
+                }
+              }
             }
           }
         },
@@ -602,13 +596,103 @@ class ScheduleManagementService {
         ]
       });
 
-      console.log(`[GET_WEEKLY_SCHEDULE] Found ${schedules.length} assigned schedules`);
-      // Chuyển đổi dữ liệu để phù hợp với frontend
-      const weeklySchedules = schedules.map(schedule => {
+      // =====================================================
+      // QUERY THÊM: Lấy các exceptions có movedToDate trong tuần này
+      // nhưng schedule gốc không nằm trong điều kiện filter
+      // (Ví dụ: Thi ngày 17/12/2025 nhưng lớp học kết thúc 15/12/2025)
+      // =====================================================
+      
+      const standaloneExceptions = await prisma.scheduleRequest.findMany({
+        where: {
+          exceptionType: { in: ['exam', 'moved'] },
+          movedToDate: {
+            gte: startDate,
+            lte: endDate
+          },
+          requestStatusId: 2, // Chỉ lấy exceptions đã được phê duyệt
+          // Áp dụng filters giống như schedules
+          ...(filters.classId && {
+            classSchedule: {
+              classId: parseInt(filters.classId)
+            }
+          }),
+          ...(filters.teacherId && {
+            classSchedule: {
+              teacherId: parseInt(filters.teacherId)
+            }
+          })
+        },
+        include: {
+          classSchedule: {
+            include: {
+              class: {
+                include: {
+                  teacher: {
+                    include: {
+                      user: true,
+                      department: true
+                    }
+                  },
+                  department: true,
+                  major: true,
+                  ClassRoomType: true
+                }
+              },
+              classRoom: {
+                include: {
+                  ClassRoomType: true,
+                  department: true
+                }
+              },
+              timeSlot: true,
+              ClassRoomType: true
+            }
+          },
+          RequestType: true,
+          RequestStatus: true,
+          movedToTimeSlot: true,
+          movedToClassRoom: true,
+          newTimeSlot: true,
+          newClassRoom: true,
+          substituteTeacher: {
+            include: {
+              user: true
+            }
+          }
+        }
+      });
+
+      // Lọc thêm theo department nếu có filter (vì không thể filter trực tiếp trong where)
+      const filteredStandaloneExceptions = standaloneExceptions.filter(exception => {
+        if (!exception.classSchedule) return false;
+        
+        // Apply department filter if exists
+        if (filters.departmentId) {
+          return exception.classSchedule.class.departmentId === parseInt(filters.departmentId);
+        }
+        
+        // Role-based filtering for standalone exceptions
+        if (userRole === 'teacher' && userId) {
+          const teacher = exception.classSchedule.class.teacher;
+          return teacher && teacher.userId === parseInt(userId);
+        } else if (userRole === 'student' && userId) {
+          // Cần check xem student có trong lớp không
+          // (Tạm thời bỏ qua, cần implement nếu cần thiết)
+          return true;
+        }
+        
+        return true;
+      });
+
+      // Chuyển đổi dữ liệu với logic xử lý lịch chuyển
+      const weeklySchedules = [];
+      const processedScheduleIds = new Set(); // Track schedules đã xử lý
+      
+      schedules.forEach(schedule => {
+        processedScheduleIds.add(schedule.id);
         const timeSlot = schedule.timeSlot;
         if (!timeSlot) {
-          console.warn(`[GET_WEEKLY_SCHEDULE] Schedule ${schedule.id} has no timeSlot`);
-          return null;
+          return;
         }
         const shift = this.getShiftFromTimeSlot(timeSlot.shift);
         
@@ -620,42 +704,49 @@ class ScheduleManagementService {
           const exceptionDateStr = exceptionDate.toISOString().split('T')[0]; // YYYY-MM-DD
           
           // Tính ngày của schedule trong tuần hiện tại
-          // dayOfWeek: 1=CN, 2=T2, 3=T3, 4=T4, 5=T5, 6=T6, 7=T7
-          const startDate = new Date(weekStartDate);
-          // Tính offset từ Thứ 2 (ngày bắt đầu tuần)
-          // Thứ 2 (dayOfWeek=2) -> offset=0, Thứ 3 (dayOfWeek=3) -> offset=1, ..., Chủ nhật (dayOfWeek=1) -> offset=6
+          const startDateObj = new Date(weekStartDate);
           let scheduleDayOffset;
           if (schedule.dayOfWeek === 1) { // Chủ nhật
-            scheduleDayOffset = 6; // Ngày thứ 7 trong tuần (Chủ nhật)
+            scheduleDayOffset = 6;
           } else {
-            scheduleDayOffset = schedule.dayOfWeek - 2; // Thứ 2=0, Thứ 3=1, ..., Thứ 7=5
+            scheduleDayOffset = schedule.dayOfWeek - 2;
           }
-          const scheduleDate = new Date(startDate);
-          scheduleDate.setDate(startDate.getDate() + scheduleDayOffset);
-          const scheduleDateStr = scheduleDate.toISOString().split('T')[0]; // YYYY-MM-DD
+          const scheduleDate = new Date(startDateObj);
+          scheduleDate.setDate(startDateObj.getDate() + scheduleDayOffset);
+          const scheduleDateStr = scheduleDate.toISOString().split('T')[0];
           
-          // Chỉ lấy ngoại lệ khi ngày ngoại lệ khớp chính xác với ngày của schedule
-          const isRelevant = exceptionDateStr === scheduleDateStr;
-          
-          // Debug log cho schedule ID 1
-          if (schedule.id === 1) {
-            console.log('🔍 [DEBUG] Date filter for schedule 1:', {
-              scheduleId: schedule.id,
-              scheduleDayOfWeek: schedule.dayOfWeek,
-              scheduleDateStr: scheduleDateStr,
-              exceptionDate: request.exceptionDate,
-              exceptionDateStr,
-              isRelevant: isRelevant
-            });
-          }
-          
-          return isRelevant;
+          return exceptionDateStr === scheduleDateStr;
         });
         
         // Lấy ngoại lệ đầu tiên (nếu có)
         const exception = relevantExceptions[0];
         
-        return {
+        // Kiểm tra xem có phải lịch chuyển (moved/exam) không
+        const isMoved = exception && (exception.exceptionType === 'moved' || exception.exceptionType === 'exam');
+        const movedToDate = exception?.movedToDate;
+        
+        // Kiểm tra ngày chuyển đến có trong tuần này không
+        let isMovedToThisWeek = false;
+        let movedToDayOfWeek = null;
+        
+        if (isMoved && movedToDate) {
+          const movedDate = new Date(movedToDate);
+          const startDateObj = new Date(weekStartDate);
+          const endDateObj = new Date(startDateObj);
+          endDateObj.setDate(startDateObj.getDate() + 6);
+          
+          if (movedDate >= startDateObj && movedDate <= endDateObj) {
+            isMovedToThisWeek = true;
+            const movedDayJS = movedDate.getDay(); // 0=CN, 1=T2, ..., 6=T7
+            movedToDayOfWeek = movedDayJS === 0 ? 1 : movedDayJS + 1; // Convert to 1=CN, 2=T2, ..., 7=T7
+          }
+        }
+        
+        // LOGIC: Chỉ hiển thị lịch gốc khi KHÔNG có exception moved/exam
+        const shouldShowOriginal = !isMoved;
+        
+        if (shouldShowOriginal) {
+          weeklySchedules.push({
           id: schedule.id,
           classId: schedule.classId,
           className: schedule.class.className,
@@ -692,18 +783,155 @@ class ScheduleManagementService {
           timeSlotOrder: this.getTimeSlotOrder(timeSlot.id),
           assignedAt: schedule.assignedAt,
           note: schedule.note,
-          // Thêm thông tin ngoại lệ
+          // Thông tin ngoại lệ
           exceptionDate: exception?.exceptionDate || null,
           exceptionType: exception?.exceptionType || null,
           exceptionReason: exception?.reason || null,
           exceptionStatus: exception?.RequestStatus?.name || null,
-          requestTypeId: exception?.requestTypeId || null
-        };
-      }).filter(schedule => schedule !== null);
+          requestTypeId: exception?.requestTypeId || null,
+          isOriginalSchedule: true
+        });
+        }
+        
+        // Nếu có lịch được chuyển đến trong tuần này, tạo entry mới
+        if (isMovedToThisWeek && movedToDayOfWeek) {
+          const movedTimeSlot = exception.movedToTimeSlot || exception.newTimeSlot;
+          const movedRoom = exception.movedToClassRoom || exception.newClassRoom;
+          const substituteTeacher = exception.substituteTeacher;
+          const movedShift = movedTimeSlot ? this.getShiftFromTimeSlot(movedTimeSlot.shift) : shift;
+          
+          weeklySchedules.push({
+            id: schedule.id + 100000, // ID ảo để tránh trùng
+            classId: schedule.classId,
+            className: schedule.class.className,
+            classCode: schedule.class.code,
+            subjectCode: schedule.class.subjectCode,
+            subjectName: schedule.class.subjectName,
+            teacherId: substituteTeacher ? substituteTeacher.id : schedule.teacherId,
+            teacherName: substituteTeacher ? substituteTeacher.user.fullName : (schedule.class.teacher?.user?.fullName || 'Chưa xác định'),
+            teacherCode: substituteTeacher ? substituteTeacher.teacherCode : (schedule.class.teacher?.teacherCode || ''),
+            roomId: movedRoom ? movedRoom.id : schedule.classRoomId,
+            roomName: movedRoom ? movedRoom.name : (schedule.classRoom?.name || 'Chưa xác định'),
+            roomCode: movedRoom ? movedRoom.code : (schedule.classRoom?.code || ''),
+            roomType: movedRoom ? (movedRoom.ClassRoomType?.name || 'Chưa xác định') : (schedule.classRoom?.ClassRoomType?.name || 'Chưa xác định'),
+            dayOfWeek: movedToDayOfWeek, // Ngày mới được chuyển đến
+            dayName: this.getDayName(movedToDayOfWeek),
+            timeSlot: movedTimeSlot ? movedTimeSlot.slotName : timeSlot.slotName,
+            timeRange: movedTimeSlot ? `${movedTimeSlot.startTime}-${movedTimeSlot.endTime}` : `${timeSlot.startTime}-${timeSlot.endTime}`,
+            startTime: movedTimeSlot ? movedTimeSlot.startTime : timeSlot.startTime,
+            endTime: movedTimeSlot ? movedTimeSlot.endTime : timeSlot.endTime,
+            shift: movedShift.key,
+            shiftName: movedShift.name,
+            type: this.getScheduleType(schedule.classRoomTypeId),
+            status: exception.RequestType.name,
+            statusId: exception.requestTypeId,
+            weekPattern: schedule.weekPattern,
+            startWeek: schedule.startWeek,
+            endWeek: schedule.endWeek,
+            practiceGroup: schedule.practiceGroup,
+            maxStudents: schedule.class.maxStudents,
+            departmentId: schedule.class.departmentId,
+            departmentName: schedule.class.department?.name || 'Chưa xác định',
+            majorId: schedule.class.majorId,
+            majorName: schedule.class.major?.name || 'Chưa xác định',
+            timeSlotOrder: movedTimeSlot ? this.getTimeSlotOrder(movedTimeSlot.id) : this.getTimeSlotOrder(timeSlot.id),
+            assignedAt: schedule.assignedAt,
+            note: `Đã chuyển từ ${this.getDayName(schedule.dayOfWeek)} - ${timeSlot.slotName}`,
+            // Thông tin ngoại lệ
+            exceptionDate: exception.exceptionDate,
+            exceptionType: exception.exceptionType,
+            exceptionReason: exception.reason,
+            exceptionStatus: exception.RequestStatus.name,
+            requestTypeId: exception.requestTypeId,
+            isMovedSchedule: true, // Đánh dấu đây là lịch đã được chuyển
+            originalDayOfWeek: schedule.dayOfWeek,
+            originalTimeSlot: timeSlot.slotName
+          });
+        }
+      });
+
+      // =====================================================
+      // XỬ LÝ STANDALONE EXCEPTIONS
+      // (Exceptions có movedToDate trong tuần này nhưng schedule gốc không được query ra)
+      // =====================================================
+      
+      filteredStandaloneExceptions.forEach(exception => {
+        const schedule = exception.classSchedule;
+        
+        // Bỏ qua nếu schedule đã được xử lý ở trên
+        if (processedScheduleIds.has(schedule.id)) {
+          return;
+        }
+        
+        // Chỉ xử lý exceptions có movedToDate trong tuần này
+        const movedDate = new Date(exception.movedToDate);
+        const movedDayJS = movedDate.getDay(); // 0=CN, 1=T2, ..., 6=T7
+        const movedToDayOfWeek = movedDayJS === 0 ? 1 : movedDayJS + 1; // Convert to 1=CN, 2=T2, ..., 7=T7
+        
+        const movedTimeSlot = exception.movedToTimeSlot || exception.newTimeSlot;
+        const movedRoom = exception.movedToClassRoom || exception.newClassRoom;
+        const substituteTeacher = exception.substituteTeacher;
+        const originalTimeSlot = schedule.timeSlot;
+        
+        if (!originalTimeSlot) {
+          return;
+        }
+        
+        const movedShift = movedTimeSlot ? this.getShiftFromTimeSlot(movedTimeSlot.shift) : this.getShiftFromTimeSlot(originalTimeSlot.shift);
+        
+        // Tạo virtual schedule cho standalone exception
+        weeklySchedules.push({
+          id: schedule.id + 100000 + exception.id, // ID ảo để tránh trùng
+          classId: schedule.classId,
+          className: schedule.class.className,
+          classCode: schedule.class.code,
+          subjectCode: schedule.class.subjectCode,
+          subjectName: schedule.class.subjectName,
+          teacherId: substituteTeacher ? substituteTeacher.id : schedule.teacherId,
+          teacherName: substituteTeacher ? substituteTeacher.user.fullName : (schedule.class.teacher?.user?.fullName || 'Chưa xác định'),
+          teacherCode: substituteTeacher ? substituteTeacher.teacherCode : (schedule.class.teacher?.teacherCode || ''),
+          roomId: movedRoom ? movedRoom.id : schedule.classRoomId,
+          roomName: movedRoom ? movedRoom.name : (schedule.classRoom?.name || 'Chưa xác định'),
+          roomCode: movedRoom ? movedRoom.code : (schedule.classRoom?.code || ''),
+          roomType: movedRoom ? (movedRoom.ClassRoomType?.name || 'Chưa xác định') : (schedule.classRoom?.ClassRoomType?.name || 'Chưa xác định'),
+          dayOfWeek: movedToDayOfWeek, // Ngày mới được chuyển đến
+          dayName: this.getDayName(movedToDayOfWeek),
+          timeSlot: movedTimeSlot ? movedTimeSlot.slotName : originalTimeSlot.slotName,
+          timeRange: movedTimeSlot ? `${movedTimeSlot.startTime}-${movedTimeSlot.endTime}` : `${originalTimeSlot.startTime}-${originalTimeSlot.endTime}`,
+          startTime: movedTimeSlot ? movedTimeSlot.startTime : originalTimeSlot.startTime,
+          endTime: movedTimeSlot ? movedTimeSlot.endTime : originalTimeSlot.endTime,
+          shift: movedShift.key,
+          shiftName: movedShift.name,
+          type: this.getScheduleType(schedule.classRoomTypeId),
+          status: exception.RequestType.name,
+          statusId: exception.requestTypeId,
+          weekPattern: schedule.weekPattern,
+          startWeek: schedule.startWeek,
+          endWeek: schedule.endWeek,
+          practiceGroup: schedule.practiceGroup,
+          maxStudents: schedule.class.maxStudents,
+          departmentId: schedule.class.departmentId,
+          departmentName: schedule.class.department?.name || 'Chưa xác định',
+          majorId: schedule.class.majorId,
+          majorName: schedule.class.major?.name || 'Chưa xác định',
+          timeSlotOrder: movedTimeSlot ? this.getTimeSlotOrder(movedTimeSlot.id) : this.getTimeSlotOrder(originalTimeSlot.id),
+          assignedAt: schedule.assignedAt,
+          note: `Đã chuyển từ ${this.getDayName(schedule.dayOfWeek)} - ${originalTimeSlot.slotName}`,
+          // Thông tin ngoại lệ
+          exceptionDate: exception.exceptionDate,
+          exceptionType: exception.exceptionType,
+          exceptionReason: exception.reason,
+          exceptionStatus: exception.RequestStatus.name,
+          requestTypeId: exception.requestTypeId,
+          isMovedSchedule: true, // Đánh dấu đây là lịch đã được chuyển
+          isStandaloneException: true, // Đánh dấu đây là exception độc lập (nằm ngoài khoảng thời gian học)
+          originalDayOfWeek: schedule.dayOfWeek,
+          originalTimeSlot: originalTimeSlot.slotName
+        });
+      });
 
       return weeklySchedules;
     } catch (error) {
-      console.error('Error getting weekly schedule:', error);
       throw new Error(`Lỗi lấy lịch học theo tuần: ${error.message}`);
     }
   }
